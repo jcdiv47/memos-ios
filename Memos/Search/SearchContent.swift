@@ -133,7 +133,7 @@ private struct SearchRow: View {
             session.path.append(.memo(memo.name))
         } label: {
             VStack(alignment: .leading, spacing: 4) {
-                Text(InlineMarkdown.render(excerpt, highlights: highlights))
+                Text(MarkdownCache.inline(excerpt, highlights: highlights))
                     .font(.subheadline)
                     .foregroundStyle(.ink)
                     .lineLimit(2)
@@ -151,7 +151,7 @@ private struct SearchRow: View {
 
     /// Starts the excerpt near the first match, so it's visible within two lines.
     private var excerpt: String {
-        let flat = memo.plainText
+        let flat = MarkdownCache.plainText(of: memo)
         guard let word = highlights.first, let range = flat.range(of: word, options: .caseInsensitive) else { return flat }
         let start = flat.index(range.lowerBound, offsetBy: -40, limitedBy: flat.startIndex) ?? flat.startIndex
         return (start == flat.startIndex ? "" : "…") + flat[start...]

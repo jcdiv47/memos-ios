@@ -91,8 +91,10 @@ struct AttachmentImage: View {
         .accessibilityAddTraits(.isImage)
         .task(id: attachment.name) {
             guard image == nil else { return }
-            image = await session.files.image(attachment, thumbnail: thumbnail)
-            failed = image == nil
+            let loaded = await session.files.image(attachment, thumbnail: thumbnail)
+            // A cached image is already on screen; only a download fades in.
+            withAnimation(.memosFade) { image = loaded }
+            failed = loaded == nil
         }
     }
 }
@@ -154,6 +156,8 @@ struct AudioAttachmentView: View {
                     .foregroundStyle(.ink2)
                 ProgressView(value: player.progress)
                     .tint(.memosBlue)
+                    // Glides between the 0.2 s ticks instead of stepping.
+                    .animation(player.isPlaying ? .linear(duration: AudioPlayback.tick) : nil, value: player.progress)
             }
         }
         .padding(10)
@@ -177,7 +181,9 @@ final class AudioPlayback: NSObject, AVAudioPlayerDelegate {
     private(set) var progress = 0.0
     private(set) var duration: TimeInterval?
     @ObservationIgnored private var player: AVAudioPlayer?
-    @ObservationIgnored private var timer: Timer?
+    @ObservationIgnored private var ticker: Task<Void, Never>?
+
+    static let tick: TimeInterval = 0.2
 
     func loadDuration(_ url: URL) {
         duration = (try? AVAudioPlayer(contentsOf: url))?.duration
@@ -187,6 +193,7 @@ final class AudioPlayback: NSObject, AVAudioPlayerDelegate {
         if let player, player.isPlaying {
             player.pause()
             isPlaying = false
+            ticker?.cancel()
             return
         }
         if player == nil {
@@ -198,10 +205,13 @@ final class AudioPlayback: NSObject, AVAudioPlayerDelegate {
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         player?.play()
         isPlaying = true
-        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, let player = self.player, player.duration > 0 else { return }
-                self.progress = player.currentTime / player.duration
+        ticker?.cancel()
+        // Stops on pause and at the end, and on its own once the view that owned the player is gone.
+        ticker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.tick))
+                guard let self, let player = self.player else { return }
+                if player.duration > 0 { self.progress = player.currentTime / player.duration }
             }
         }
     }
@@ -210,7 +220,7 @@ final class AudioPlayback: NSObject, AVAudioPlayerDelegate {
         Task { @MainActor in
             self.isPlaying = false
             self.progress = 0
-            self.timer?.invalidate()
+            self.ticker?.cancel()
         }
     }
 }

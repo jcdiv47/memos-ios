@@ -16,9 +16,7 @@ struct MemoCard: View {
         VStack(alignment: .leading, spacing: 10) {
             MemoHeader(memo: memo, showsSpace: showsSpace)
 
-            if let notice = notice {
-                notice
-            }
+            notice
 
             SensitiveContent(memo: memo) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -57,22 +55,17 @@ struct MemoCard: View {
         .cardBackground()
     }
 
-    private var notice: AnyView? {
+    @ViewBuilder
+    private var notice: some View {
         if session.store.conflictCounterpart(of: memo.name) != nil {
-            return AnyView(
-                Label("Edited on another device. Your version was saved separately.", systemImage: "arrow.triangle.branch")
-                    .font(.metadata)
-                    .foregroundStyle(.ink2)
-            )
+            Label("Edited on another device. Your version was saved separately.", systemImage: "arrow.triangle.branch")
+                .font(.metadata)
+                .foregroundStyle(.ink2)
+        } else if let failed = session.store.failedChange(for: memo.name) {
+            Label("Couldn’t upload: \(failed.failure ?? "")", systemImage: "exclamationmark.triangle")
+                .font(.metadata)
+                .foregroundStyle(.danger)
         }
-        if let failed = session.store.failedChange(for: memo.name) {
-            return AnyView(
-                Label("Couldn’t upload: \(failed.failure ?? "")", systemImage: "exclamationmark.triangle")
-                    .font(.metadata)
-                    .foregroundStyle(.danger)
-            )
-        }
-        return nil
     }
 }
 
@@ -204,6 +197,7 @@ struct ReactionSummary: View {
                             .font(.footnote.weight(.medium))
                             .monospacedDigit()
                             .foregroundStyle(mine ? Color.memosBlue : Color.ink2)
+                            .contentTransition(.numericText(value: Double(reaction.count)))
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -214,6 +208,8 @@ struct ReactionSummary: View {
                 .accessibilityLabel("\(reaction.emoji) \(reaction.count)")
             }
         }
+        // Reactions land from a refresh after the request, outside any animation of their own.
+        .animation(.memosSpring, value: memo.reactions.count)
     }
 }
 
@@ -236,12 +232,17 @@ private struct CollapsedContent<Content: View>: View {
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullHeight = $0 }
                 .frame(maxHeight: isCollapsed ? limit : nil, alignment: .top)
                 .clipped()
-                .mask {
-                    LinearGradient(
-                        stops: [.init(color: .black, location: 0.8), .init(color: isCollapsed ? .clear : .black, location: 1)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                // Fades into the opaque card rather than masking, which would render every card
+                // offscreen while the timeline scrolls.
+                .overlay {
+                    if isCollapsed {
+                        LinearGradient(
+                            stops: [.init(color: .card.opacity(0), location: 0.8), .init(color: .card, location: 1)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .allowsHitTesting(false)
+                    }
                 }
             if isCollapsed {
                 Text("Show more")

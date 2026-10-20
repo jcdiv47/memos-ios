@@ -300,13 +300,14 @@ private struct AudienceChips: View {
 
                 Menu {
                     Button {
-                        model.setSpace(nil)
+                        withAnimation(.memosSpring) { model.setSpace(nil) }
                     } label: {
                         Label("No Space", systemImage: model.space == nil ? "checkmark" : "square.dashed")
                     }
                     ForEach(session.store.profile.spaces, id: \.name) { space in
                         Button {
-                            model.setSpace(space.name)
+                            // Animated, so the suggestion it may offer grows in.
+                            withAnimation(.memosSpring) { model.setSpace(space.name) }
                         } label: {
                             Label(space.title, systemImage: model.space == space.name ? "checkmark" : "square.stack")
                         }
@@ -323,7 +324,8 @@ private struct AudienceChips: View {
                         Label(suggestionLabel(suggestion), systemImage: suggestion.systemImage)
                     }
                     .buttonStyle(.prominentChip)
-                    .transition(.scale.combined(with: .opacity))
+                    // Grows out of the chips beside it, never from nothing.
+                    .transition(.scale(scale: 0.9, anchor: .leading).combined(with: .opacity))
                 }
             }
         }

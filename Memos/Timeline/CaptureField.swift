@@ -9,6 +9,10 @@ struct CaptureField: View {
     @Environment(AccountSession.self) private var session
     @Namespace private var glass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHoldingMic = false
+
+    private static let holdDuration = 0.25
 
     var body: some View {
         let voice = session.voice
@@ -43,11 +47,17 @@ struct CaptureField: View {
                         .glassEffectID("field", in: glass)
 
                     Image(systemName: "mic")
-                        .foregroundStyle(.ink2)
+                        .foregroundStyle(isHoldingMic ? Color.memosBlue : Color.ink2)
                         .frame(width: 30, height: 30)
+                        .scaleEffect(isHoldingMic && !reduceMotion ? 1.2 : 1)
                         .contentShape(.rect)
-                        .onLongPressGesture(minimumDuration: 0.25) {
+                        .onLongPressGesture(minimumDuration: Self.holdDuration) {
                             Task { await voice.start() }
+                        } onPressingChanged: { pressing in
+                            // The mic grows for exactly as long as the hold takes; letting go snaps back.
+                            withAnimation(pressing ? .easeOut(duration: Self.holdDuration) : .memosSpring) {
+                                isHoldingMic = pressing
+                            }
                         }
                         .accessibilityLabel("Dictate")
                         .accessibilityHint("Records a voice memo")

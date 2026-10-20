@@ -51,6 +51,8 @@ struct ChipStyle: ButtonStyle {
             .foregroundStyle(prominent ? Color.memosBlue : Color.ink)
             .background(prominent ? Color.memosBlue.opacity(0.12) : Color.paper2, in: .capsule)
             .opacity(configuration.isPressed ? 0.6 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.memosPress, value: configuration.isPressed)
     }
 }
 
@@ -66,6 +68,10 @@ extension Animation {
     static let memosSpring = Animation.spring(response: 0.35, dampingFraction: 1)
     /// The chosen reaction popping in: 0.3 s response at 0.8 damping.
     static let reactionPop = Animation.spring(response: 0.3, dampingFraction: 0.8)
+    /// Something arriving in place, like a downloaded photo: 0.2 s on a strong ease-out.
+    static let memosFade = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.2)
+    /// A press acknowledged under the finger: 0.16 s on the same curve.
+    static let memosPress = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.16)
 }
 
 /// A letter avatar, or the user's picture once loaded.

@@ -16,7 +16,7 @@ struct MemoContentView: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let document = MarkdownDocument(parsing: content)
+        let document = MarkdownCache.document(content)
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(document.blocks.enumerated()), id: \.offset) { index, block in
                 blockView(block, isFirst: index == 0)
@@ -100,7 +100,8 @@ struct MemoContentView: View {
         case .task(let checked):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Button {
-                    onToggleTask?(item.line)
+                    // The symbol replace and the strikethrough only play inside an animation.
+                    withAnimation(.memosSpring) { onToggleTask?(item.line) }
                 } label: {
                     Image(systemName: checked ? "checkmark.square.fill" : "square")
                         .foregroundStyle(checked ? Color.memosBlue : Color.ink2)
@@ -118,7 +119,7 @@ struct MemoContentView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(onToggleTask == nil ? [] : .isButton)
-            .accessibilityAction { onToggleTask?(item.line) }
+            .accessibilityAction { withAnimation(.memosSpring) { onToggleTask?(item.line) } }
 
         case .bullet:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -142,7 +143,7 @@ struct MemoContentView: View {
     }
 
     private func inline(_ text: String) -> AttributedString {
-        InlineMarkdown.render(text, highlights: highlights, underlineTags: contrast == .increased)
+        MarkdownCache.inline(text, highlights: highlights, underlineTags: contrast == .increased)
     }
 }
 

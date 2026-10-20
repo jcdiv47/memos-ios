@@ -8,6 +8,7 @@ struct MemoDetailView: View {
 
     @Environment(AccountSession.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var comments: [Memo] = []
     @State private var commentsLoaded = false
     @State private var missing = false
@@ -102,9 +103,11 @@ struct MemoDetailView: View {
                     .padding(.vertical, 8)
                     .glassEffect(in: .capsule)
                     .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .task {
-                        try? await Task.sleep(for: .seconds(2.5))
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    // Each new message gets its full time on screen.
+                    .task(id: notice) {
+                        // Cancelled by the next message, which mustn't be cleared early.
+                        guard (try? await Task.sleep(for: .seconds(2.5))) != nil else { return }
                         withAnimation(.memosSpring) { self.notice = nil }
                     }
             }
