@@ -20,29 +20,33 @@ struct MemoCard: View {
                 notice
             }
 
-            if let audio = memo.audioAttachment {
-                AudioAttachmentView(attachment: audio)
-            }
+            SensitiveContent(memo: memo) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if let audio = memo.audioAttachment {
+                        AudioAttachmentView(attachment: audio)
+                    }
 
-            CollapsedContent {
-                MemoContentView(
-                    content: memo.content,
-                    onToggleTask: isMine ? { line in session.store.toggleTask(memo.name, line: line) } : nil,
-                    highlights: highlights
-                )
-            }
+                    CollapsedContent {
+                        MemoContentView(
+                            content: memo.content,
+                            onToggleTask: isMine ? { line in session.store.toggleTask(memo.name, line: line) } : nil,
+                            highlights: highlights
+                        )
+                    }
 
-            if memo.attachments.contains(where: { !$0.isAudio }) {
-                AttachmentGallery(attachments: memo.attachments.filter { !$0.isAudio }, maxImages: 6)
-            }
+                    if memo.attachments.contains(where: { !$0.isAudio }) {
+                        AttachmentGallery(attachments: memo.attachments.filter { !$0.isAudio }, maxImages: 6)
+                    }
 
-            if let location = memo.locationIfSet, !location.placeholder.isEmpty {
-                Label(location.placeholder, systemImage: "mappin.and.ellipse")
-                    .font(.metadata)
-                    .foregroundStyle(.ink2)
-                    // The symbol’s own name is “Remove Map Pin”.
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Location, \(location.placeholder)")
+                    if let location = memo.locationIfSet, !location.placeholder.isEmpty {
+                        Label(location.placeholder, systemImage: "mappin.and.ellipse")
+                            .font(.metadata)
+                            .foregroundStyle(.ink2)
+                            // The symbol’s own name is “Remove Map Pin”.
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Location, \(location.placeholder)")
+                    }
+                }
             }
 
             if !memo.reactions.isEmpty {
@@ -129,6 +133,36 @@ struct MemoHeader: View {
         if let spaceTitle {
             Text("· \(spaceTitle)")
         }
+    }
+}
+
+/// A memo's body, blurred when one of its tags is set to blur in your tag settings on the web,
+/// such as `#nsfw`. One tap shows it until the view goes away, as on the web.
+struct SensitiveContent<Content: View>: View {
+    let memo: Memo
+    @ViewBuilder var content: Content
+
+    @Environment(AccountSession.self) private var session
+    @State private var revealed = false
+
+    var body: some View {
+        let hidden = !revealed && session.store.profile.tagBlurRules.blurs(memo)
+        content
+            // Centers the button across the card, with room for it under a one-line memo.
+            .frame(maxWidth: .infinity, minHeight: hidden ? 44 : nil, alignment: .topLeading)
+            .blur(radius: hidden ? 16 : 0)
+            .allowsHitTesting(!hidden)
+            .accessibilityHidden(hidden)
+            .overlay {
+                if hidden {
+                    Button("Show sensitive content", systemImage: "eye") {
+                        withAnimation(.memosSpring) { revealed = true }
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .buttonStyle(.glass)
+                    .tint(.ink)
+                }
+            }
     }
 }
 

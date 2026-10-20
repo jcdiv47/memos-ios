@@ -46,31 +46,36 @@ struct MemoDetailView: View {
                     ConflictBanner(memo: memo)
                 }
 
-                if let audio = memo.audioAttachment {
-                    AudioAttachmentView(attachment: audio)
-                }
+                SensitiveContent(memo: memo) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        if let audio = memo.audioAttachment {
+                            AudioAttachmentView(attachment: audio)
+                        }
 
-                MemoContentView(
-                    content: memo.content,
-                    onToggleTask: isMine ? { line in session.store.toggleTask(memo.name, line: line) } : nil
-                )
-                .textSelection(.enabled)
+                        MemoContentView(
+                            content: memo.content,
+                            onToggleTask: isMine ? { line in session.store.toggleTask(memo.name, line: line) } : nil
+                        )
+                        .textSelection(.enabled)
 
-                if memo.attachments.contains(where: { !$0.isAudio }) {
-                    AttachmentGallery(attachments: memo.attachments.filter { !$0.isAudio }, maxImages: 12)
-                }
+                        if memo.attachments.contains(where: { !$0.isAudio }) {
+                            AttachmentGallery(attachments: memo.attachments.filter { !$0.isAudio }, maxImages: 12)
+                        }
 
-                if let location = memo.locationIfSet {
-                    Label(location.placeholder.isEmpty ? "Location" : location.placeholder, systemImage: "mappin.and.ellipse")
-                        .font(.metadata)
-                        .foregroundStyle(.ink2)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(location.placeholder.isEmpty ? "Location" : "Location, \(location.placeholder)")
-                }
+                        if let location = memo.locationIfSet {
+                            Label(location.placeholder.isEmpty ? "Location" : location.placeholder, systemImage: "mappin.and.ellipse")
+                                .font(.metadata)
+                                .foregroundStyle(.ink2)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel(location.placeholder.isEmpty ? "Location" : "Location, \(location.placeholder)")
+                        }
 
-                if let linkPreview {
-                    LinkPreviewCard(metadata: linkPreview)
+                        if let linkPreview {
+                            LinkPreviewCard(metadata: linkPreview)
+                        }
+                    }
                 }
+                .id(memo.name)
 
                 if !memo.reactions.isEmpty {
                     ReactionSummary(memo: memo) { emoji in
@@ -346,7 +351,9 @@ private struct CommentsSection: View {
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
                         }
-                        MemoContentView(content: comment.content, showsTitle: false)
+                        SensitiveContent(memo: comment) {
+                            MemoContentView(content: comment.content, showsTitle: false)
+                        }
                     }
                 }
                 .accessibilityElement(children: .combine)

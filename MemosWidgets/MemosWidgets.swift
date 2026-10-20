@@ -20,6 +20,8 @@ struct MemosEntry: TimelineEntry {
     var date: Date
     var memos: [Memo]
     var signedIn: Bool
+    /// Memos whose tags are set to blur, shown without their text.
+    var sensitive: Set<String> = []
 }
 
 /// Reads the app's local copy from the shared container; widgets never call the server.
@@ -55,6 +57,7 @@ struct MemosProvider: TimelineProvider {
             return MemosEntry(date: .now, memos: [], signedIn: false)
         }
         let memos = await AccountArchive.readOwnMemos(location).filter { $0.state == .normal }
+        let rules = await AccountArchive.readProfile(location).tagBlurRules
         let calendar = Calendar.current
         let today = calendar.dateComponents([.month, .day, .year], from: .now)
         let selected: [Memo]
@@ -70,7 +73,8 @@ struct MemosProvider: TimelineProvider {
             }
             .sorted { $0.createdAt > $1.createdAt }
         }
-        return MemosEntry(date: .now, memos: Array(selected.prefix(6)), signedIn: true)
+        let shown = Array(selected.prefix(6))
+        return MemosEntry(date: .now, memos: shown, signedIn: true, sensitive: Set(shown.filter(rules.blurs).map(\.name)))
     }
 
     static let samples: [Memo] = ["Morning light over the harbor. #walks", "Write the changelog", "Repotted the monstera. #plants"].map { text in
@@ -192,10 +196,16 @@ struct MemoListWidgetView: View {
                 ForEach(entry.memos.prefix(family == .systemLarge ? 5 : 2), id: \.name) { memo in
                     Link(destination: URL(string: "memos://memo/\(memo.uid)")!) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(InlineText.plain(memo.content))
-                                .font(.footnote)
-                                .foregroundStyle(.ink)
-                                .lineLimit(family == .systemLarge ? 3 : 2)
+                            if entry.sensitive.contains(memo.name) {
+                                Label("Sensitive content", systemImage: "eye.slash")
+                                    .font(.footnote)
+                                    .foregroundStyle(.ink2)
+                            } else {
+                                Text(InlineText.plain(memo.content))
+                                    .font(.footnote)
+                                    .foregroundStyle(.ink)
+                                    .lineLimit(family == .systemLarge ? 3 : 2)
+                            }
                             Text(memo.createdAt, format: .dateTime.month(.abbreviated).day().year())
                                 .font(.caption2)
                                 .foregroundStyle(.ink2)

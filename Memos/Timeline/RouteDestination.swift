@@ -158,8 +158,12 @@ struct SharedMemoView: View {
             if let memo {
                 VStack(alignment: .leading, spacing: 14) {
                     MemoHeader(memo: memo)
-                    MemoContentView(content: memo.content)
-                    AttachmentGallery(attachments: memo.attachments)
+                    SensitiveContent(memo: memo) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            MemoContentView(content: memo.content)
+                            AttachmentGallery(attachments: memo.attachments)
+                        }
+                    }
                 }
                 .padding(Metrics.timelineInset)
             } else if failed {

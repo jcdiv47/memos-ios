@@ -38,6 +38,49 @@ import Testing
     }
 }
 
+@Suite struct `Tag blur` {
+    private func memo(_ tags: [String]) -> Memo {
+        var memo = Memo()
+        memo.tags = tags
+        return memo
+    }
+
+    @Test func `a memo blurs when any tag matches a pattern set to blur, as on the web`() {
+        let rules = TagBlurRules(["nsfw": true, "private/.*": true, "work": false])
+        #expect(rules.blurs(memo(["walks", "nsfw"])))
+        #expect(rules.blurs(memo(["private/diary"])))
+        #expect(!rules.blurs(memo(["work", "walks"])))
+        #expect(!rules.blurs(memo([])))
+        // Patterns are anchored, and case-sensitive.
+        #expect(!rules.blurs(memo(["nsfw/art"])))
+        #expect(!rules.blurs(memo(["notprivate/diary"])))
+        #expect(!rules.blurs(memo(["NSFW"])))
+        #expect(!TagBlurRules().blurs(memo(["nsfw"])))
+    }
+
+    @Test func `an exact name wins over a pattern, and invalid patterns are skipped`() {
+        let rules = TagBlurRules(["private/.*": true, "private/ok": false, "(": true])
+        #expect(!rules.blurs(tag: "private/ok"))
+        #expect(rules.blurs(tag: "private/no"))
+        #expect(rules.blurs(tag: "("))
+        #expect(!rules.blurs(tag: "x"))
+    }
+
+    @Test func `rules come from the TAGS setting and survive the profile cache`() throws {
+        var setting = Memos_Api_UserSetting.TagsSetting()
+        var blur = Memos_Api_UserSetting.TagMetadata()
+        blur.blurContent = true
+        setting.tags = ["nsfw": blur, "plants": Memos_Api_UserSetting.TagMetadata()]
+        var profile = ProfileCache()
+        profile.tagBlur = TagBlurRules(setting)
+
+        let decoded = try JSONDecoder().decode(ProfileCache.self, from: JSONEncoder().encode(profile))
+        #expect(decoded == profile)
+        #expect(decoded.tagBlurRules.blurs(tag: "nsfw"))
+        #expect(!decoded.tagBlurRules.blurs(tag: "plants"))
+    }
+}
+
 @Suite struct Markdown {
     @Test func `blocks memos actually contain`() {
         let document = MarkdownDocument(parsing: """

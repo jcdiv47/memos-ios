@@ -485,6 +485,12 @@ public final class SyncEngine {
             profile.defaultVisibility = value.isEmpty ? nil : value
         }
 
+        var tagsRequest = Memos_Api_GetUserSettingRequest()
+        tagsRequest.name = "\(me)/settings/TAGS"
+        if let setting = try? await client.call(client.users.getUserSetting(request:headers:), tagsRequest) {
+            profile.tagBlur = TagBlurRules(setting.tagsSetting)
+        }
+
         var spaces: [Space] = []
         var spacesToken = ""
         repeat {

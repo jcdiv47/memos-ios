@@ -76,6 +76,10 @@ public struct ProfileCache: Codable, Equatable, Sendable {
     public var unreadNotifications = 0
     /// Memo counts per tag across your memos, from the server.
     public var tagCounts: [String: Int] = [:]
+    /// The `TAGS` setting's blur rules. Optional so profiles saved before it still decode.
+    public var tagBlur: TagBlurRules?
+
+    public var tagBlurRules: TagBlurRules { tagBlur ?? TagBlurRules() }
 
     public init() {
         _user = ProtoValue(nil)
