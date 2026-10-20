@@ -11,13 +11,22 @@ struct ComposerView: View {
     @Environment(AccountSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @State private var model: ComposerModel?
-    @State private var detent: PresentationDetent = .medium
+    @State private var detent: PresentationDetent
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var isPickingPhotos = false
     @State private var isImportingFiles = false
     @State private var confirmDiscard = false
     @State private var saved = 0
     @FocusState private var editorFocused: Bool
+
+    init(request: ComposerRequest) {
+        self.request = request
+        // The keyboard pushes a medium sheet to full height, so a composer that opens typing
+        // starts there instead of retargeting mid-presentation. Voice capture has no keyboard.
+        var opensRecording = false
+        if case .new(_, _, let record, let voiceMemo) = request.mode { opensRecording = record || voiceMemo }
+        _detent = State(initialValue: opensRecording ? .medium : .large)
+    }
 
     static func transitionID(for request: ComposerRequest) -> String {
         if case .edit(let name) = request.mode { return "edit-\(name)" }
@@ -88,6 +97,15 @@ struct ComposerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+        // In the sheet's own layout rather than a keyboard toolbar: the input accessory attaches
+        // after the keyboard lands, so the bar popped in and the editor shrank a second time.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            FormattingBar {
+                formattingActions(model)
+            } trailing: {
+                captureActions(model)
+            }
+        }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -102,9 +120,6 @@ struct ComposerView: View {
                     .tint(.memosBlue)
                     .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || session.voice.phase == .recording || session.voice.phase == .transcribing)
                     .keyboardShortcut(.return, modifiers: .command)
-            }
-            ToolbarItemGroup(placement: .keyboard) {
-                formattingActions(model)
             }
         }
         .confirmationDialog("Discard this memo?", isPresented: $confirmDiscard) {
@@ -136,7 +151,10 @@ struct ComposerView: View {
             .accessibilityLabel("Bold")
         Button { model.wrap("`") } label: { Image(systemName: "chevron.left.forwardslash.chevron.right") }
             .accessibilityLabel("Code")
-        Spacer()
+    }
+
+    @ViewBuilder
+    private func captureActions(_ model: ComposerModel) -> some View {
         Menu {
             Button("Photo Library", systemImage: "photo.on.rectangle") { isPickingPhotos = true }
             Button("Files", systemImage: "folder") { isImportingFiles = true }
@@ -218,6 +236,45 @@ struct ComposerView: View {
         session.voice.reset()
         model.discardStaged(store: session.store)
         dismiss()
+    }
+}
+
+/// The formatting actions and the attach and record buttons, as two glass groups pinned to the
+/// bottom of the sheet so they ride up with the keyboard in the same animation.
+private struct FormattingBar<Leading: View, Trailing: View>: View {
+    @ViewBuilder var leading: Leading
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        GlassEffectContainer {
+            HStack {
+                group { leading }
+                Spacer(minLength: 8)
+                group { trailing }
+            }
+        }
+        .font(.title3)
+        .tint(.memosBlue)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: 0) { content() }
+            .buttonStyle(BarButtonStyle())
+            .menuStyle(.button)
+            .padding(.horizontal, 6)
+            .glassEffect(.regular.interactive(), in: .capsule)
+    }
+}
+
+private struct BarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.tint)
+            .frame(width: 44, height: 48)
+            .contentShape(.rect)
+            .opacity(configuration.isPressed ? 0.5 : 1)
     }
 }
 
