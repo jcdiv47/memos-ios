@@ -1,0 +1,178 @@
+# Generate Memos.xcodeproj with `xcodegen generate`.
+name: Memos
+options:
+  bundleIdPrefix: dev.jcdiv47
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    # Change these two to build under your own team.
+    DEVELOPMENT_TEAM: ""
+    MEMOS_BUNDLE_PREFIX: dev.jcdiv47.memos
+    MEMOS_APP_GROUP: group.$(MEMOS_BUNDLE_PREFIX)
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1,2"
+
+packages:
+  MemosKit:
+    path: MemosKit
+
+targets:
+  Memos:
+    type: application
+    platform: iOS
+    sources:
+      - path: Memos
+    dependencies:
+      - package: MemosKit
+        product: MemosCore
+      - target: MemosWidgets
+      - target: MemosShare
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_BUNDLE_PREFIX)
+        PRODUCT_NAME: Memos
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: MemosBlue
+        INFOPLIST_FILE: Memos/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Memos/Memos.entitlements
+    info:
+      path: Memos/Info.plist
+      properties:
+        CFBundleDisplayName: Memos
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        MemosAppGroup: $(MEMOS_APP_GROUP)
+        MemosKeychainGroup: $(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared
+        UILaunchScreen:
+          UIColorName: Paper
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleURLTypes:
+          - CFBundleURLName: $(MEMOS_BUNDLE_PREFIX)
+            CFBundleURLSchemes: [memos]
+        # Self-hosted instances are often plain HTTP on a home network.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
+        NSMicrophoneUsageDescription: Memos records voice memos and transcribes them.
+        NSSpeechRecognitionUsageDescription: Memos transcribes voice memos on this iPhone when your server can’t.
+        NSLocationWhenInUseUsageDescription: Memos adds the place you’re at to a memo when you ask it to.
+        NSCameraUsageDescription: Memos can attach a photo you take to a memo.
+        NSUserActivityTypes: [CreateMemoIntent, SearchMemosIntent]
+    entitlements:
+      path: Memos/Memos.entitlements
+      properties:
+        com.apple.security.application-groups: [$(MEMOS_APP_GROUP)]
+        keychain-access-groups: [$(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared]
+
+  MemosWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MemosWidgets
+      - path: Memos/Intents/ControlIntents.swift
+      - path: Memos/Resources/Assets.xcassets
+    dependencies:
+      - package: MemosKit
+        product: MemosCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_BUNDLE_PREFIX).widgets
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
+        CODE_SIGN_ENTITLEMENTS: MemosWidgets/MemosWidgets.entitlements
+        INFOPLIST_FILE: MemosWidgets/Info.plist
+    info:
+      path: MemosWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Memos
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        MemosAppGroup: $(MEMOS_APP_GROUP)
+        MemosKeychainGroup: $(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: MemosWidgets/MemosWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [$(MEMOS_APP_GROUP)]
+
+  MemosShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MemosShare
+    dependencies:
+      - package: MemosKit
+        product: MemosCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_BUNDLE_PREFIX).share
+        CODE_SIGN_ENTITLEMENTS: MemosShare/MemosShare.entitlements
+        INFOPLIST_FILE: MemosShare/Info.plist
+    info:
+      path: MemosShare/Info.plist
+      properties:
+        CFBundleDisplayName: Memos
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        MemosAppGroup: $(MEMOS_APP_GROUP)
+        MemosKeychainGroup: $(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsImageWithMaxCount: 10
+    entitlements:
+      path: MemosShare/MemosShare.entitlements
+      properties:
+        com.apple.security.application-groups: [$(MEMOS_APP_GROUP)]
+        keychain-access-groups: [$(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared]
+
+  MemosUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: MemosUITests
+    dependencies:
+      - target: Memos
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_BUNDLE_PREFIX).uitests
+        TEST_TARGET_NAME: Memos
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Memos:
+    build:
+      targets:
+        Memos: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MemosUITests

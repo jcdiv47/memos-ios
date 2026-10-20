@@ -1,0 +1,313 @@
+import MemosCore
+import SwiftUI
+
+/// What shows under the search field: suggestions before you type, results after.
+struct SearchContent: View {
+    @Bindable var search: SearchModel
+    let zoom: Namespace.ID
+
+    @Environment(AccountSession.self) private var session
+    @State private var isSavingView = false
+
+    var body: some View {
+        Group {
+            if search.query.isEmpty || (search.typedTagPrefix != nil && search.tokens.allSatisfy { if case .space = $0 { true } else { false } }) {
+                SearchSuggestions(search: search)
+            } else {
+                results
+            }
+        }
+        .scrollDismissesKeyboard(.immediately)
+        .sheet(isPresented: $isSavingView) {
+            SaveViewSheet(query: search.query)
+                .presentationDetents([.height(300)])
+        }
+    }
+
+    private var results: some View {
+        let own = search.ownResults(in: session)
+        let others = search.otherResults(in: session)
+        let highlights = search.query.words
+        return List {
+            Section {
+                HStack {
+                    Text(countLabel(own.count + others.count))
+                        .font(.metadata)
+                        .foregroundStyle(.ink2)
+                    Spacer()
+                    Button("Save as view", systemImage: "bookmark") { isSavingView = true }
+                        .font(.subheadline)
+                        .disabled(!session.isOnline)
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
+            if own.isEmpty && others.isEmpty && !search.isLoadingRemote {
+                nothingFound
+            }
+
+            if !own.isEmpty {
+                // An empty header still takes up room in a plain list.
+                if session.showsScopeToggle && search.scope == .everyone {
+                    Section("Yours") {
+                        ForEach(own, id: \.name) { memo in
+                            SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                        }
+                    }
+                } else {
+                    Section {
+                        ForEach(own, id: \.name) { memo in
+                            SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                        }
+                    }
+                }
+            }
+
+            if search.scope == .everyone && session.showsScopeToggle {
+                Section("From others") {
+                    if !session.isOnline && others.isEmpty {
+                        Text("Connect to search other people’s memos.")
+                            .font(.subheadline)
+                            .foregroundStyle(.ink2)
+                    } else if search.isLoadingRemote && others.isEmpty {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else if others.isEmpty && !own.isEmpty {
+                        Text("Nothing from others.")
+                            .font(.subheadline)
+                            .foregroundStyle(.ink2)
+                    } else {
+                        ForEach(others, id: \.name) { memo in
+                            SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(.paper)
+    }
+
+    private func countLabel(_ count: Int) -> String {
+        count == 1 ? "1 memo" : "\(count) memos"
+    }
+
+    @ViewBuilder
+    private var nothingFound: some View {
+        let description: String = {
+            let what = search.query.words.isEmpty ? search.tokens.filter { if case .space = $0 { false } else { true } }.map(\.label).joined(separator: " ") : search.text
+            if case .space(_, let title) = search.query.spaceToken {
+                return "No memos match ‘\(what)’ in \(title)."
+            }
+            return "No memos match ‘\(what)’."
+        }()
+        VStack(spacing: 12) {
+            Text(description)
+                .font(.subheadline)
+                .foregroundStyle(.ink2)
+            if search.query.spaceToken != nil {
+                Button("Search all Spaces") {
+                    search.tokens = search.query.removingSpace().tokens
+                }
+                .buttonStyle(.glass)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+}
+
+/// A two-line result with the matches highlighted. Opens the memo with a zoom.
+private struct SearchRow: View {
+    let memo: Memo
+    let highlights: [String]
+    let zoom: Namespace.ID
+
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        Button {
+            session.path.append(.memo(memo.name))
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(InlineMarkdown.render(excerpt, highlights: highlights))
+                    .font(.subheadline)
+                    .foregroundStyle(.ink)
+                    .lineLimit(2)
+                Text(metadata)
+                    .font(.metadata)
+                    .foregroundStyle(.ink2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+            .matchedTransitionSource(id: memo.name, in: zoom)
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(Color.clear)
+    }
+
+    /// Starts the excerpt near the first match, so it's visible within two lines.
+    private var excerpt: String {
+        let flat = memo.plainText
+        guard let word = highlights.first, let range = flat.range(of: word, options: .caseInsensitive) else { return flat }
+        let start = flat.index(range.lowerBound, offsetBy: -40, limitedBy: flat.startIndex) ?? flat.startIndex
+        return (start == flat.startIndex ? "" : "…") + flat[start...]
+    }
+
+    private var metadata: String {
+        var parts: [String] = []
+        if memo.creator != session.user { parts.append(session.people.name(for: memo.creator)) }
+        parts.append(memo.createdAt.formatted(.dateTime.month(.abbreviated).day()))
+        if let title = session.space(named: memo.spaceName)?.title { parts.append(title) }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// Before you type: recent searches, your most-used tags, and common filters.
+private struct SearchSuggestions: View {
+    @Bindable var search: SearchModel
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        let tags = session.store.tagCounts()
+        let prefix = search.typedTagPrefix
+        List {
+            if prefix == nil, !search.recents.isEmpty {
+                Section {
+                    ForEach(search.recents, id: \.self) { recent in
+                        Button {
+                            search.applyRecent(recent)
+                        } label: {
+                            Label(recent, systemImage: "clock.arrow.circlepath")
+                                .foregroundStyle(.ink)
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Recent")
+                        Spacer()
+                        Button("Clear") { search.clearRecents() }
+                            .font(.subheadline)
+                    }
+                }
+            }
+
+            let matchingTags = tags.filter { entry in prefix.map { $0.isEmpty || entry.tag.localizedCaseInsensitiveContains($0) } ?? true }
+            if !matchingTags.isEmpty {
+                Section("Tags") {
+                    ForEach(matchingTags.prefix(prefix == nil ? 6 : 20), id: \.tag) { tag in
+                        Button {
+                            search.addToken(.tag(tag.tag))
+                        } label: {
+                            HStack {
+                                Text("#\(tag.tag)").foregroundStyle(.memosBlue)
+                                Spacer()
+                                Text("\(tag.count)").foregroundStyle(.ink2).monospacedDigit()
+                            }
+                        }
+                    }
+                }
+            }
+
+            if prefix == nil {
+                Section("Filters") {
+                    ForEach(SearchToken.commonFilters, id: \.self) { token in
+                        Button {
+                            search.addToken(token)
+                        } label: {
+                            Label(token.label, systemImage: token.systemImage)
+                                .foregroundStyle(.ink)
+                        }
+                    }
+                    Menu {
+                        ForEach(MemoVisibility.choices, id: \.self) { visibility in
+                            Button(visibility.label, systemImage: visibility.systemImage) { search.addToken(.visibility(visibility)) }
+                        }
+                    } label: {
+                        Label("Visibility", systemImage: "eye")
+                            .foregroundStyle(.ink)
+                    }
+                    Menu {
+                        Button("Today") { search.addToken(.date(.today)) }
+                        Button("This week") { search.addToken(.date(.thisWeek)) }
+                        Button("This month") { search.addToken(.date(.thisMonth)) }
+                    } label: {
+                        Label("Date", systemImage: "calendar")
+                            .foregroundStyle(.ink)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(.paper)
+    }
+}
+
+/// “Save as view”: a name and an emoji, saved as a MemoView on the server, so it also appears
+/// on the web.
+struct SaveViewSheet: View {
+    let query: SearchQuery
+
+    @Environment(AccountSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var emoji = "🔖"
+    @State private var error: String?
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack {
+                        TextField("🔖", text: $emoji)
+                            .frame(width: 44)
+                            .multilineTextAlignment(.center)
+                            .onChange(of: emoji) { _, value in
+                                if let last = value.last, value.count > 1 { emoji = String(last) }
+                            }
+                        TextField("Name", text: $title)
+                    }
+                } footer: {
+                    Text(query.filter() ?? "")
+                        .font(.memoCode)
+                    if let error { Text(error).foregroundStyle(.danger) }
+                }
+            }
+            .navigationTitle("Save as View")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(role: .cancel) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { Task { await save() } }
+                        .buttonStyle(.glassProminent)
+                        .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+                }
+            }
+        }
+    }
+
+    private func save() async {
+        guard let filter = query.filter() else { return }
+        isSaving = true
+        defer { isSaving = false }
+        var request = Memos_Api_CreateMemoViewRequest()
+        request.parent = session.user
+        request.memoView.title = title.trimmingCharacters(in: .whitespaces)
+        request.memoView.filter = filter
+        if !emoji.isEmpty { request.memoView.icon.emoji = emoji }
+        do {
+            let view = try await session.client.call(session.client.users.createMemoView(request:headers:), request)
+            session.store.profile.views.append(view)
+            dismiss()
+        } catch {
+            self.error = error.description
+        }
+    }
+}

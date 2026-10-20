@@ -1,0 +1,82 @@
+import MemosCore
+import SwiftUI
+
+/// The middle of the bottom bar. Tap to write; long-press the mic to dictate, and the field
+/// stretches into a live waveform while recording. The composer zooms out of it.
+struct CaptureField: View {
+    let zoom: Namespace.ID
+
+    @Environment(AccountSession.self) private var session
+    @Namespace private var glass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let voice = session.voice
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 10) {
+                if voice.isRecording {
+                    Button {
+                        voice.cancel()
+                        voice.reset()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Cancel recording")
+
+                    Waveform(levels: voice.levels)
+                        .frame(maxWidth: .infinity)
+                        .glassEffectID("field", in: glass)
+
+                    Button {
+                        stopRecording()
+                    } label: {
+                        Image(systemName: "stop.fill")
+                            .foregroundStyle(.memosBlue)
+                    }
+                    .accessibilityLabel("Stop and transcribe")
+                } else {
+                    // Grows taller at large text sizes instead of truncating.
+                    Text("Capture a thought…")
+                        .foregroundStyle(.ink2)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .glassEffectID("field", in: glass)
+
+                    Image(systemName: "mic")
+                        .foregroundStyle(.ink2)
+                        .frame(width: 30, height: 30)
+                        .contentShape(.rect)
+                        .onLongPressGesture(minimumDuration: 0.25) {
+                            Task { await voice.start() }
+                        }
+                        .accessibilityLabel("Dictate")
+                        .accessibilityHint("Records a voice memo")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { Task { await voice.start() } }
+                }
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 8)
+            .frame(minWidth: 170, idealWidth: 230, maxWidth: .infinity, minHeight: 40)
+        }
+        .contentShape(.capsule)
+        .onTapGesture {
+            if !voice.isRecording { session.capture() }
+        }
+        .matchedTransitionSource(id: "capture", in: zoom)
+        .animation(.memosSpring, value: voice.isRecording)
+        .sensoryFeedback(trigger: voice.isRecording) { _, recording in
+            recording ? .start : .stop
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Capture a thought")
+        .accessibilityIdentifier("captureField")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func stopRecording() {
+        // The composer opens right away; the transcript streams into it.
+        session.composer = ComposerRequest(mode: .new(origin: .timeline(space: session.selectedSpace), text: "", record: false, voiceMemo: true))
+        Task { _ = await session.voice.stop(client: session.client, online: session.isOnline) }
+    }
+}

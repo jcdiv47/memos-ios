@@ -1,0 +1,252 @@
+import AppIntents
+import MemosCore
+import SwiftUI
+import WidgetKit
+
+@main
+struct MemosWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        QuickCaptureWidget()
+        PinnedWidget()
+        OnThisDayWidget()
+        NewMemoControl()
+        VoiceMemoControl()
+    }
+}
+
+// MARK: Timeline
+
+struct MemosEntry: TimelineEntry {
+    var date: Date
+    var memos: [Memo]
+    var signedIn: Bool
+}
+
+/// Reads the app's local copy from the shared container; widgets never call the server.
+struct MemosProvider: TimelineProvider {
+    enum Kind { case none, pinned, onThisDay }
+    let kind: Kind
+
+    func placeholder(in context: Context) -> MemosEntry {
+        MemosEntry(date: .now, memos: Self.samples, signedIn: true)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping @Sendable (MemosEntry) -> Void) {
+        if context.isPreview {
+            completion(placeholder(in: context))
+            return
+        }
+        let kind = self.kind
+        Task { completion(await Self.entry(kind: kind)) }
+    }
+
+    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<MemosEntry>) -> Void) {
+        let kind = self.kind
+        Task {
+            let entry = await Self.entry(kind: kind)
+            // On this day changes at midnight; pinned memos change when the app reloads widgets.
+            let next = Calendar.current.startOfDay(for: .now.addingTimeInterval(86_400))
+            completion(Timeline(entries: [entry], policy: .after(next)))
+        }
+    }
+
+    static func entry(kind: Kind) async -> MemosEntry {
+        guard let location = AccountLocation.current else {
+            return MemosEntry(date: .now, memos: [], signedIn: false)
+        }
+        let memos = await AccountArchive.readOwnMemos(location).filter { $0.state == .normal }
+        let calendar = Calendar.current
+        let today = calendar.dateComponents([.month, .day, .year], from: .now)
+        let selected: [Memo]
+        switch kind {
+        case .none:
+            selected = []
+        case .pinned:
+            selected = memos.filter(\.pinned).sorted { $0.createdAt > $1.createdAt }
+        case .onThisDay:
+            selected = memos.filter { memo in
+                let parts = calendar.dateComponents([.month, .day, .year], from: memo.createdAt)
+                return parts.month == today.month && parts.day == today.day && parts.year != today.year
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+        }
+        return MemosEntry(date: .now, memos: Array(selected.prefix(6)), signedIn: true)
+    }
+
+    static let samples: [Memo] = ["Morning light over the harbor. #walks", "Write the changelog", "Repotted the monstera. #plants"].map { text in
+        var memo = Memo()
+        memo.name = "memos/sample-\(text.count)"
+        memo.content = text
+        return memo
+    }
+}
+
+// MARK: Widgets
+
+/// Small: a capture field and a mic, like the bottom bar.
+struct QuickCaptureWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "QuickCapture", provider: MemosProvider(kind: .none)) { _ in
+            QuickCaptureView()
+                .containerBackground(.paper, for: .widget)
+        }
+        .configurationDisplayName("Quick Capture")
+        .description("Start a memo from your Home Screen.")
+        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryRectangular])
+    }
+}
+
+struct QuickCaptureView: View {
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        switch family {
+        case .accessoryCircular:
+            Image(systemName: "square.and.pencil")
+                .font(.title2)
+                .widgetAccentable()
+                .widgetURL(URL(string: "memos://new"))
+        case .accessoryRectangular:
+            Label("Capture a thought", systemImage: "square.and.pencil")
+                .widgetAccentable()
+                .widgetURL(URL(string: "memos://new"))
+        default:
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Memos")
+                    .font(.system(.headline, design: .serif))
+                    .foregroundStyle(.ink)
+                Spacer()
+                Link(destination: URL(string: "memos://new")!) {
+                    HStack {
+                        Text("Capture…")
+                            .font(.subheadline)
+                            .foregroundStyle(.ink2)
+                        Spacer()
+                        Image(systemName: "square.and.pencil")
+                            .foregroundStyle(.memosBlue)
+                            .widgetAccentable()
+                    }
+                    .padding(10)
+                    .background(.card, in: .capsule)
+                }
+                Link(destination: URL(string: "memos://voice")!) {
+                    Label("Voice memo", systemImage: "mic")
+                        .font(.footnote)
+                        .foregroundStyle(.memosBlue)
+                        .widgetAccentable()
+                }
+            }
+        }
+    }
+}
+
+/// Medium: your pinned memos.
+struct PinnedWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "Pinned", provider: MemosProvider(kind: .pinned)) { entry in
+            MemoListWidgetView(entry: entry, title: "Pinned", systemImage: "pin.fill", empty: "Pin a memo and it shows up here.")
+                .containerBackground(.paper, for: .widget)
+        }
+        .configurationDisplayName("Pinned")
+        .description("Your pinned memos.")
+        .supportedFamilies([.systemMedium, .systemLarge])
+    }
+}
+
+/// Large: what you wrote on this day in earlier years.
+struct OnThisDayWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "OnThisDay", provider: MemosProvider(kind: .onThisDay)) { entry in
+            MemoListWidgetView(entry: entry, title: "On this day", systemImage: "calendar", empty: "Nothing from this day in earlier years yet.")
+                .containerBackground(.paper, for: .widget)
+        }
+        .configurationDisplayName("On This Day")
+        .description("Memos from this day in earlier years.")
+        .supportedFamilies([.systemLarge, .systemMedium])
+    }
+}
+
+struct MemoListWidgetView: View {
+    let entry: MemosEntry
+    let title: String
+    let systemImage: String
+    let empty: String
+
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: systemImage)
+                .font(.system(.subheadline, design: .serif).weight(.semibold))
+                .foregroundStyle(.ink)
+                .widgetAccentable()
+            if !entry.signedIn {
+                Text("Open Memos and sign in.")
+                    .font(.footnote)
+                    .foregroundStyle(.ink2)
+            } else if entry.memos.isEmpty {
+                Text(empty)
+                    .font(.footnote)
+                    .foregroundStyle(.ink2)
+            } else {
+                ForEach(entry.memos.prefix(family == .systemLarge ? 5 : 2), id: \.name) { memo in
+                    Link(destination: URL(string: "memos://memo/\(memo.uid)")!) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(InlineText.plain(memo.content))
+                                .font(.footnote)
+                                .foregroundStyle(.ink)
+                                .lineLimit(family == .systemLarge ? 3 : 2)
+                            Text(memo.createdAt, format: .dateTime.month(.abbreviated).day().year())
+                                .font(.caption2)
+                                .foregroundStyle(.ink2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .background(.card, in: .rect(cornerRadius: 10))
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+enum InlineText {
+    /// A memo's text without Markdown markers, on as few lines as possible.
+    static func plain(_ content: String) -> String {
+        content
+            .replacingOccurrences(of: "- [ ] ", with: "☐ ")
+            .replacingOccurrences(of: "- [x] ", with: "☑ ")
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#>*- ")) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+}
+
+// MARK: Controls
+
+/// Control Center, the Lock Screen and the Action button.
+struct NewMemoControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "NewMemoControl") {
+            ControlWidgetButton(action: NewMemoIntent()) {
+                Label("New Memo", systemImage: "square.and.pencil")
+            }
+        }
+        .displayName("New Memo")
+        .description("Opens Memos to write a new memo.")
+    }
+}
+
+struct VoiceMemoControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "VoiceMemoControl") {
+            ControlWidgetButton(action: VoiceMemoIntent()) {
+                Label("Voice Memo", systemImage: "mic")
+            }
+        }
+        .displayName("Voice Memo")
+        .description("Records a private voice memo.")
+    }
+}
