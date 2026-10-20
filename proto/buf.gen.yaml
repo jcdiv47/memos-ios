@@ -1,0 +1,16 @@
+version: v2
+plugins:
+  - remote: buf.build/apple/swift:v1.39.0
+    out: ../MemosKit/Sources/MemosAPI/Generated
+    opt:
+      - Visibility=Public
+      - FileNaming=PathToUnderscores
+    include_imports: true
+  - remote: buf.build/connectrpc/swift:v1.2.3
+    out: ../MemosKit/Sources/MemosAPI/Generated
+    opt:
+      - Visibility=Public
+      - FileNaming=PathToUnderscores
+      - GenerateAsyncMethods=true
+      - GenerateCallbackMethods=false
+      - GenerateServiceMetadata=false
