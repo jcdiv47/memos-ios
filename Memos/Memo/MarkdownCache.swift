@@ -23,6 +23,12 @@ enum MarkdownCache {
         return cache
     }()
 
+    private static let codeBlocks: NSCache<NSString, Box<AttributedString>> = {
+        let cache = NSCache<NSString, Box<AttributedString>>()
+        cache.countLimit = 300
+        return cache
+    }()
+
     private static let plainTexts: NSCache<NSString, NSString> = {
         let cache = NSCache<NSString, NSString>()
         cache.countLimit = 1000
@@ -45,6 +51,23 @@ enum MarkdownCache {
         let rendered = InlineMarkdown.render(text, highlights: highlights, underlineTags: underlineTags)
         inlines.setObject(Box(rendered), forKey: key)
         return rendered
+    }
+
+    /// A fenced code block coloured by ``SyntaxHighlighter``, cached. A language the
+    /// highlighter doesn't know gives plain text.
+    static func code(_ code: String, language: String?) -> AttributedString {
+        let syntax = language.flatMap(SyntaxLanguage.init(fenceInfo:))
+        // Keyed by the canonical name, so `js` and `javascript` share an entry.
+        let key = "\(syntax?.name ?? "")\u{1E}\(code)" as NSString
+        if let hit = codeBlocks.object(forKey: key) { return hit.value }
+        var highlighted = AttributedString()
+        for segment in SyntaxHighlighter.segments(of: code, language: syntax?.name) {
+            var piece = AttributedString(segment.text)
+            if let kind = segment.kind { piece.foregroundColor = CodePalette.color(kind) }
+            highlighted.append(piece)
+        }
+        codeBlocks.setObject(Box(highlighted), forKey: key)
+        return highlighted
     }
 
     /// ``MemosCore/Memo/plainText``, cached by content.

@@ -17,6 +17,8 @@ struct MemoDetailView: View {
     @State private var shareURL: URL?
     @State private var notice: String?
     @State private var reactionPickerOpen = false
+    @State private var editingComment: EditableComment?
+    @State private var commentToDelete: Memo?
 
     private var memo: Memo? { session.store.memo(named: name) }
 
@@ -84,7 +86,25 @@ struct MemoDetailView: View {
                     }
                 }
 
-                CommentsSection(comments: comments, loaded: commentsLoaded, online: session.isOnline)
+                CommentsSection(
+                    comments: comments,
+                    loaded: commentsLoaded,
+                    online: session.isOnline,
+                    onEdit: { editingComment = EditableComment(memo: $0) },
+                    onDelete: { commentToDelete = $0 }
+                )
+                .confirmationDialog(
+                    "Delete this comment?",
+                    isPresented: Binding(get: { commentToDelete != nil }, set: { if !$0 { commentToDelete = nil } }),
+                    titleVisibility: .visible,
+                    presenting: commentToDelete
+                ) { comment in
+                    Button("Delete", role: .destructive) {
+                        Task { await deleteComment(comment) }
+                    }
+                } message: { _ in
+                    Text("It’s removed for everyone who can read this memo.")
+                }
             }
             .padding(Metrics.timelineInset)
             .padding(.bottom, 80)
@@ -149,6 +169,13 @@ struct MemoDetailView: View {
         .sheet(item: Binding(get: { shareURL.map(IdentifiedURL.init) }, set: { shareURL = $0?.url })) { item in
             ShareLinkSheet(url: item.url)
                 .presentationDetents([.height(220)])
+        }
+        .sheet(item: $editingComment) { item in
+            CommentEditor(original: item.memo.content) { text in
+                await editComment(item.memo, to: text)
+            }
+            // Medium leaves the top of the memo, where errors appear, in view.
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -254,6 +281,57 @@ struct MemoDetailView: View {
         }
     }
 
+    /// Like adding a comment, editing and deleting one happen only online, so what others read
+    /// never lags behind what you see.
+    private func editComment(_ comment: Memo, to text: String) async -> Bool {
+        guard session.isOnline else {
+            show(String(localized: "Connect to edit comments."))
+            return false
+        }
+        var request = Memos_Api_UpdateMemoRequest()
+        request.memo.name = comment.name
+        request.memo.content = text
+        // The server moves `update_time` only when the mask asks, as the sync engine does for memos.
+        request.updateMask.paths = ["content", "update_time"]
+        do {
+            let updated = try await session.client.call(session.client.memos.updateMemo(request:headers:), request)
+            withAnimation(.memosSpring) {
+                if let index = comments.firstIndex(where: { $0.name == comment.name }) { comments[index] = updated }
+            }
+            await refreshStoredCopy(of: comment.name)
+            return true
+        } catch {
+            show(error.isConnectivity ? String(localized: "Connect to edit comments.") : String(localized: "Couldn’t edit the comment: \(error.description)"))
+            return false
+        }
+    }
+
+    private func deleteComment(_ comment: Memo) async {
+        guard session.isOnline else {
+            show(String(localized: "Connect to delete comments."))
+            return
+        }
+        var request = Memos_Api_DeleteMemoRequest()
+        request.name = comment.name
+        do {
+            _ = try await session.client.call(session.client.memos.deleteMemo(request:headers:), request)
+        } catch where error.code == .notFound {
+            // Already gone.
+        } catch {
+            show(error.isConnectivity ? String(localized: "Connect to delete comments.") : String(localized: "Couldn’t delete the comment: \(error.description)"))
+            return
+        }
+        withAnimation(.memosSpring) { comments.removeAll { $0.name == comment.name } }
+        await refreshStoredCopy(of: comment.name)
+    }
+
+    /// A comment opened on its own (from the inbox) has a local copy; refetching updates it, or
+    /// removes it once deleted.
+    private func refreshStoredCopy(of name: String) async {
+        guard session.store.memo(named: name) != nil else { return }
+        _ = try? await session.engine.refresh(name)
+    }
+
     private func createShareLink(_ memo: Memo) async {
         var request = Memos_Api_CreateMemoShareRequest()
         request.parent = memo.name
@@ -274,6 +352,11 @@ struct MemoDetailView: View {
 private struct IdentifiedURL: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+private struct EditableComment: Identifiable {
+    let memo: Memo
+    var id: String { memo.name }
 }
 
 /// “Edited on another device. Your version was saved separately.”, with a way to the other half.
@@ -333,6 +416,8 @@ private struct CommentsSection: View {
     let comments: [Memo]
     let loaded: Bool
     let online: Bool
+    var onEdit: (Memo) -> Void
+    var onDelete: (Memo) -> Void
     @Environment(AccountSession.self) private var session
 
     var body: some View {
@@ -360,12 +445,81 @@ private struct CommentsSection: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
+                .contentShape(.contextMenuPreview, .rect(cornerRadius: 8))
+                .contextMenu { actions(for: comment) }
+                .accessibilityActions { actions(for: comment) }
             }
             if loaded && !online && comments.isEmpty {
                 Text("Comments load when you’re online.")
                     .font(.metadata)
                     .foregroundStyle(.ink2)
             }
+        }
+    }
+
+    /// Only for your own comments: the server lets nobody else change them, admins aside.
+    @ViewBuilder
+    private func actions(for comment: Memo) -> some View {
+        if comment.creator == session.user {
+            Button("Edit", systemImage: "pencil") { onEdit(comment) }
+                .disabled(!online)
+            Button("Delete", systemImage: "trash", role: .destructive) { onDelete(comment) }
+                .disabled(!online)
+        }
+    }
+}
+
+/// Edits one of your comments. Comments are short, so a plain text view does rather than the
+/// composer.
+private struct CommentEditor: View {
+    let original: String
+    var onSave: (String) async -> Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: String
+    @State private var saving = false
+    @FocusState private var focused: Bool
+
+    init(original: String, onSave: @escaping (String) async -> Bool) {
+        self.original = original
+        self.onSave = onSave
+        _draft = State(initialValue: original)
+    }
+
+    private var text: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $draft)
+                .font(.memoBody)
+                .foregroundStyle(.ink)
+                .focused($focused)
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, Metrics.timelineInset - 5)
+                .background(.paper)
+                .navigationTitle("Edit Comment")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(role: .cancel) { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") { save() }
+                            .buttonStyle(.glassProminent)
+                            .disabled(text.isEmpty || text == original.trimmingCharacters(in: .whitespacesAndNewlines) || saving)
+                    }
+                }
+        }
+        .interactiveDismissDisabled(draft != original || saving)
+        .onAppear { focused = true }
+    }
+
+    private func save() {
+        guard !text.isEmpty, !saving else { return }
+        saving = true
+        Task {
+            if await onSave(text) { dismiss() }
+            saving = false
         }
     }
 }

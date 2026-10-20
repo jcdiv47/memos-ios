@@ -22,12 +22,14 @@ enum IntentEnvironment {
 enum IntentError: Error, CustomLocalizedStringResourceConvertible {
     case signedOut
     case notYours
+    case notYoursToPin
     case empty
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .signedOut: "Open Memos and sign in first."
         case .notYours: "You can only add to your own memos."
+        case .notYoursToPin: "You can only pin your own memos."
         case .empty: "There’s nothing to save."
         }
     }
@@ -178,6 +180,48 @@ struct AppendToMemoIntent: AppIntent {
     }
 }
 
+enum PinAction: String, AppEnum {
+    case pin, unpin
+
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Pin or Unpin"
+    static let caseDisplayRepresentations: [PinAction: DisplayRepresentation] = [
+        .pin: DisplayRepresentation(title: "Pin", image: .init(systemName: "pin")),
+        .unpin: DisplayRepresentation(title: "Unpin", image: .init(systemName: "pin.slash")),
+    ]
+}
+
+/// Pins or unpins one of your memos. An explicit action rather than a toggle, so running the
+/// Shortcut twice doesn't undo it. Goes through the store like the swipe, so it works offline.
+struct PinMemoIntent: AppIntent {
+    static let title: LocalizedStringResource = "Pin Memo"
+    static let description = IntentDescription("Pins a memo to the top of your timeline, or unpins it.")
+
+    @Parameter(title: "Action", default: .pin)
+    var action: PinAction
+
+    @Parameter(title: "Memo")
+    var memo: MemoEntity
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("\(\.$action) \(\.$memo)")
+    }
+
+    @MainActor
+    func perform() async throws -> some ReturnsValue<MemoEntity> & ProvidesDialog {
+        let session = try await IntentEnvironment.session()
+        guard let existing = session.store.own[memo.id] else { throw IntentError.notYoursToPin }
+        let pinned = action == .pin
+        if existing.pinned != pinned {
+            session.store.setPinned(existing.name, pinned)
+            await session.engine.push()
+            await session.store.save()
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        let result = MemoEntity(session.store.own[existing.name] ?? existing)
+        return .result(value: result, dialog: pinned ? "Pinned." : "Unpinned.")
+    }
+}
+
 /// Searches your memos, from the local copy, so it works offline.
 struct SearchMemosIntent: AppIntent {
     static let title: LocalizedStringResource = "Search Memos"
@@ -213,5 +257,11 @@ struct MemosShortcuts: AppShortcutsProvider {
         AppShortcut(intent: VoiceMemoIntent(), phrases: ["Record a \(.applicationName) voice memo"], shortTitle: "Voice Memo", systemImageName: "mic")
         AppShortcut(intent: CreateMemoIntent(), phrases: ["Save to \(.applicationName)"], shortTitle: "Create Memo", systemImageName: "plus.square")
         AppShortcut(intent: SearchMemosIntent(), phrases: ["Search \(.applicationName)"], shortTitle: "Search Memos", systemImageName: "magnifyingglass")
+        AppShortcut(
+            intent: PinMemoIntent(),
+            phrases: ["\(\.$action) a memo in \(.applicationName)", "\(\.$action) a \(.applicationName) memo"],
+            shortTitle: "Pin Memo",
+            systemImageName: "pin"
+        )
     }
 }

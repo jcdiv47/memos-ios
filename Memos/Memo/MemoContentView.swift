@@ -59,9 +59,9 @@ struct MemoContentView: View {
             }
             .fixedSize(horizontal: false, vertical: true)
 
-        case .code(_, let code):
+        case .code(let language, let code):
             ScrollView(.horizontal, showsIndicators: false) {
-                Text(code)
+                Text(MarkdownCache.code(code, language: language))
                     .font(.memoCode)
                     .foregroundStyle(.ink)
                     .textSelection(.enabled)
