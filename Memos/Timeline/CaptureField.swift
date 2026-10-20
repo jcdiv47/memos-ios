@@ -2,10 +2,8 @@ import MemosCore
 import SwiftUI
 
 /// The middle of the bottom bar. Tap to write; long-press the mic to dictate, and the field
-/// stretches into a live waveform while recording. The composer zooms out of it.
+/// stretches into a live waveform while recording.
 struct CaptureField: View {
-    let zoom: Namespace.ID
-
     @Environment(AccountSession.self) private var session
     @Namespace private var glass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -84,7 +82,6 @@ struct CaptureField: View {
         .onTapGesture {
             if !voice.isRecording { session.capture() }
         }
-        .matchedTransitionSource(id: "capture", in: zoom)
         .animation(.memosSpring, value: voice.isRecording)
         .animation(.memosFade, value: session.drafts.hasNewMemoDraft)
         .sensoryFeedback(trigger: voice.isRecording) { _, recording in

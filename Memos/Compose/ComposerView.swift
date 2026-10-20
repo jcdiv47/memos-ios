@@ -2,9 +2,9 @@ import MemosCore
 import PhotosUI
 import SwiftUI
 
-/// The composer: a sheet that sits on the keyboard, glass at partial height and opaque full
-/// screen. The writing area and the audience chips are opaque, so there's no glass on glass;
-/// formatting actions float above the keys and Save is the app's only tinted glass.
+/// The composer: a sheet that sits on the keyboard. Who can see the memo sits under the title,
+/// the text runs edge to edge below it, and one glass bar of formatting and capture actions
+/// floats above the keys beside a button that lowers them. Save is the app's only tinted glass.
 struct ComposerView: View {
     let request: ComposerRequest
 
@@ -29,11 +29,6 @@ struct ComposerView: View {
         var opensRecording = false
         if case .new(_, _, let record, let voiceMemo) = request.mode { opensRecording = record || voiceMemo }
         _detent = State(initialValue: opensRecording ? .medium : .large)
-    }
-
-    static func transitionID(for request: ComposerRequest) -> String {
-        if case .edit(let name) = request.mode { return "edit-\(name)" }
-        return "capture"
     }
 
     var body: some View {
@@ -66,6 +61,8 @@ struct ComposerView: View {
     private func content(_ model: ComposerModel) -> some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 10) {
+            AudienceChips(model: model)
+
             if session.voice.phase != .idle && session.voice.phase != .finished {
                 VoiceStatus(recorder: session.voice) {
                     Task { await finishRecording(model) }
@@ -84,15 +81,12 @@ struct ComposerView: View {
                             .accessibilityHidden(true)
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.card, in: .rect(cornerRadius: 14))
+                // The text lines up with the chips above it.
+                .padding(.horizontal, -5)
 
             if !model.attachments.isEmpty || model.location != nil || model.preparing > 0 {
                 AttachmentStrip(model: model)
             }
-
-            AudienceChips(model: model)
 
             if let error = model.error {
                 Text(error)
@@ -108,8 +102,8 @@ struct ComposerView: View {
         .padding(.bottom, 8)
         // In the sheet's own layout rather than a keyboard toolbar: the input accessory attaches
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            FormattingBar {
+        .safeAreaBar(edge: .bottom) {
+            FormattingBar(showsHideKeyboard: editorFocused) {
                 // Suggestions take the formatting buttons' place while a tag is typed, so the
                 // bar never changes height under the text.
                 if model.tagSuggestions.isEmpty {
@@ -120,10 +114,12 @@ struct ComposerView: View {
                     TagSuggestions(tags: model.tagSuggestions) { model.completeTag($0) }
                         .transition(.opacity)
                 }
-            } trailing: {
                 captureActions(model)
+            } onHideKeyboard: {
+                editorFocused = false
             }
             .animation(.memosFade, value: model.tagSuggestions.isEmpty)
+            .animation(.memosFade, value: editorFocused)
         }
         .navigationTitle(Text(title))
         .navigationBarTitleDisplayMode(.inline)
@@ -175,16 +171,12 @@ struct ComposerView: View {
 
     @ViewBuilder
     private func formattingActions(_ model: ComposerModel) -> some View {
-        Button { model.insertTag() } label: { Image(systemName: "number") }
-            .accessibilityLabel("Tag")
         Button { model.format(.taskList) } label: { Image(systemName: "checklist") }
             .accessibilityLabel("Task")
-        Button { model.format(.bulletList) } label: { Image(systemName: "list.bullet") }
-            .accessibilityLabel("Bulleted list")
-        Button { model.format(.bold) } label: { Image(systemName: "bold") }
-            .accessibilityLabel("Bold")
-        // Code lives in the menu: a sixth button no longer fits beside attach and record on a
-        // 402-point phone.
+        Button { model.insertTag() } label: { Image(systemName: "number") }
+            .accessibilityLabel("Tag")
+        // Everything else, bold and lists included, lives in the menu so the bar stays one group
+        // with room for the hide-keyboard button on a 402-point phone.
         Menu {
             ForEach(MarkdownFormat.menuSections, id: \.self) { formats in
                 Section {
@@ -328,11 +320,13 @@ private struct TagSuggestionStyle: ButtonStyle {
     }
 }
 
-/// The formatting actions and the attach and record buttons, as two glass groups pinned to the
-/// bottom of the sheet so they ride up with the keyboard in the same animation.
-private struct FormattingBar<Leading: View, Trailing: View>: View {
-    @ViewBuilder var leading: Leading
-    @ViewBuilder var trailing: Trailing
+/// The formatting, attach and record buttons as one glass group pinned to the bottom of the
+/// sheet, so they ride up with the keyboard in the same animation, and a round button beside
+/// them that lowers the keyboard while it's up.
+private struct FormattingBar<Actions: View>: View {
+    var showsHideKeyboard: Bool
+    @ViewBuilder var actions: Actions
+    var onHideKeyboard: () -> Void
 
     var body: some View {
         GlassEffectContainer {
@@ -340,15 +334,24 @@ private struct FormattingBar<Leading: View, Trailing: View>: View {
                 group {
                     // Scrolls when it doesn't fit: a narrow phone, large text or many tags.
                     ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 0) { leading }
+                        HStack(spacing: 0) { actions }
                         ScrollView(.horizontal) {
-                            HStack(spacing: 0) { leading }
+                            HStack(spacing: 0) { actions }
                         }
                         .scrollIndicators(.hidden)
                     }
                 }
                 Spacer(minLength: 8)
-                group { trailing }
+                if showsHideKeyboard {
+                    Button(action: onHideKeyboard) {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                    }
+                    .buttonStyle(BarButtonStyle())
+                    .frame(width: 48)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .accessibilityLabel("Hide Keyboard")
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
             }
         }
         .font(.title3)
@@ -428,6 +431,9 @@ private struct AudienceChips: View {
             }
         }
         .scrollClipDisabled()
+        // The row sits right under the navigation bar, which would otherwise treat it as the
+        // content scrolling beneath it and draw a band of blur behind the title.
+        .scrollEdgeEffectHidden(true, for: .top)
     }
 
     private func label(for visibility: MemoVisibility) -> String {

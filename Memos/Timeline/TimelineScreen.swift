@@ -21,7 +21,6 @@ struct TimelineScreen: View {
         }
         .sheet(item: presentsSheets ? $session.composer : .constant(nil)) { request in
             ComposerView(request: request)
-                .zoomTransition(from: ComposerView.transitionID(for: request), in: zoom)
         }
         .sheet(isPresented: presentsSheets ? $session.isInboxPresented : .constant(false)) {
             InboxView()
@@ -240,7 +239,7 @@ private struct TimelineRoot: View {
         }
         ToolbarSpacer(.fixed, placement: .bottomBar)
         ToolbarItem(placement: .bottomBar) {
-            CaptureField(zoom: zoom)
+            CaptureField()
         }
         ToolbarSpacer(.fixed, placement: .bottomBar)
         DefaultToolbarItem(kind: .search, placement: .bottomBar)

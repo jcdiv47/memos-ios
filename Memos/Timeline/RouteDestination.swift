@@ -15,7 +15,7 @@ struct RouteDestination: View {
         case .sharedMemo(let token):
             SharedMemoView(token: token)
         case .library:
-            LibraryView(zoom: zoom)
+            LibraryView()
         case .activity:
             ActivityView()
         case .attachments:

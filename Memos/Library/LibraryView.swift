@@ -4,8 +4,6 @@ import SwiftUI
 /// Library gathers the web sidebar's secondary pages, which all browse the same memos in
 /// different ways: the activity grid, attachments, the map, tags, the archive and saved views.
 struct LibraryView: View {
-    let zoom: Namespace.ID
-
     @Environment(AccountSession.self) private var session
 
     private var stats: LibraryStats { LibraryStats(memos: Array(session.store.own.values)) }
@@ -55,7 +53,7 @@ struct LibraryView: View {
                 .accessibilityLabel("Settings")
             }
             ToolbarItem(placement: .bottomBar) {
-                CaptureField(zoom: zoom)
+                CaptureField()
             }
         }
     }

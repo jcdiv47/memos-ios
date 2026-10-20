@@ -142,7 +142,18 @@ final class EditorTextView: UITextView {
 
     /// Focus as SwiftUI asked for it, applied once the view is in a window.
     var wantsFocus = false {
-        didSet { if wantsFocus != oldValue { focusIfNeeded() } }
+        didSet {
+            guard wantsFocus != oldValue else { return }
+            if wantsFocus {
+                focusIfNeeded()
+            } else {
+                // Later, for the same reason as focusing.
+                Task { @MainActor [weak self] in
+                    guard let self, !self.wantsFocus, self.isFirstResponder else { return }
+                    self.resignFirstResponder()
+                }
+            }
+        }
     }
 
     override func didMoveToWindow() {
