@@ -1,5 +1,6 @@
 import MemosCore
 import SwiftUI
+import WidgetKit
 
 /// The root of the app: whether someone is signed in, and the session when they are.
 @Observable
@@ -94,6 +95,7 @@ final class AppModel {
         SharedContainer.defaults.set(user, forKey: "user")
         await session.start()
         phase = .signedIn(session)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Deletes the local copy and the queue, and revokes the session on the server.
@@ -106,5 +108,7 @@ final class AppModel {
         SharedContainer.defaults.removeObject(forKey: "user")
         sessionExpired = false
         phase = .signedOut
+        // Otherwise widgets keep showing the erased memos until their next scheduled refresh.
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

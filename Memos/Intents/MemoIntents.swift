@@ -3,6 +3,7 @@ import CoreSpotlight
 import MemosCore
 import SwiftProtobuf
 import SwiftUI
+import WidgetKit
 
 /// The signed-in session, for intents. Intents run in the app's process; when the system
 /// launches the app just to run one, the session is restored here first.
@@ -143,6 +144,9 @@ struct CreateMemoIntent: AppIntent {
         let memo = session.store.create(MemoDraft(content: text, visibility: initial.visibility))
         await session.engine.push()
         await session.store.save()
+        // Shortcuts run this with the app in the background, which never reaches the reload
+        // on leaving the foreground.
+        WidgetCenter.shared.reloadAllTimelines()
         return .result(value: MemoEntity(memo), dialog: "Saved to Memos.")
     }
 }
@@ -169,6 +173,7 @@ struct AppendToMemoIntent: AppIntent {
         session.store.setContent(existing.name, to: existing.content + separator + text)
         await session.engine.push()
         await session.store.save()
+        WidgetCenter.shared.reloadAllTimelines()
         return .result(value: MemoEntity(session.store.own[existing.name] ?? existing))
     }
 }

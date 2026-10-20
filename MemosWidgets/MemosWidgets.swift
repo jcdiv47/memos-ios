@@ -8,13 +8,32 @@ struct MemosWidgetBundle: WidgetBundle {
     var body: some Widget {
         QuickCaptureWidget()
         PinnedWidget()
+        MemoryWidget()
         OnThisDayWidget()
+        ActivityWidget()
         NewMemoControl()
         VoiceMemoControl()
     }
 }
 
 // MARK: Timeline
+
+/// The signed-in account's memos, read from the local copy in the shared container.
+enum WidgetStore {
+    struct Contents: Sendable {
+        /// Your memos that aren't archived.
+        var memos: [Memo]
+        var rules: TagBlurRules
+    }
+
+    /// Nil when signed out.
+    static func load() async -> Contents? {
+        guard let location = AccountLocation.current else { return nil }
+        let memos = await AccountArchive.readOwnMemos(location).filter { $0.state == .normal }
+        let rules = await AccountArchive.readProfile(location).tagBlurRules
+        return Contents(memos: memos, rules: rules)
+    }
+}
 
 struct MemosEntry: TimelineEntry {
     var date: Date
@@ -53,11 +72,10 @@ struct MemosProvider: TimelineProvider {
     }
 
     static func entry(kind: Kind) async -> MemosEntry {
-        guard let location = AccountLocation.current else {
+        guard let contents = await WidgetStore.load() else {
             return MemosEntry(date: .now, memos: [], signedIn: false)
         }
-        let memos = await AccountArchive.readOwnMemos(location).filter { $0.state == .normal }
-        let rules = await AccountArchive.readProfile(location).tagBlurRules
+        let memos = contents.memos
         let calendar = Calendar.current
         let today = calendar.dateComponents([.month, .day, .year], from: .now)
         let selected: [Memo]
@@ -74,7 +92,7 @@ struct MemosProvider: TimelineProvider {
             .sorted { $0.createdAt > $1.createdAt }
         }
         let shown = Array(selected.prefix(6))
-        return MemosEntry(date: .now, memos: shown, signedIn: true, sensitive: Set(shown.filter(rules.blurs).map(\.name)))
+        return MemosEntry(date: .now, memos: shown, signedIn: true, sensitive: Set(shown.filter(contents.rules.blurs).map(\.name)))
     }
 
     static let samples: [Memo] = ["Morning light over the harbor. #walks", "Write the changelog", "Repotted the monstera. #plants"].map { text in
@@ -144,19 +162,6 @@ struct QuickCaptureView: View {
     }
 }
 
-/// Medium: your pinned memos.
-struct PinnedWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "Pinned", provider: MemosProvider(kind: .pinned)) { entry in
-            MemoListWidgetView(entry: entry, title: "Pinned", systemImage: "pin.fill", empty: "Pin a memo and it shows up here.")
-                .containerBackground(.paper, for: .widget)
-        }
-        .configurationDisplayName("Pinned")
-        .description("Your pinned memos.")
-        .supportedFamilies([.systemMedium, .systemLarge])
-    }
-}
-
 /// Large: what you wrote on this day in earlier years.
 struct OnThisDayWidget: Widget {
     var body: some WidgetConfiguration {
@@ -172,28 +177,21 @@ struct OnThisDayWidget: Widget {
 
 struct MemoListWidgetView: View {
     let entry: MemosEntry
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
-    let empty: String
+    let empty: LocalizedStringKey
 
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: systemImage)
-                .font(.system(.subheadline, design: .serif).weight(.semibold))
-                .foregroundStyle(.ink)
-                .widgetAccentable()
+            WidgetHeader(title: title, systemImage: systemImage)
             if !entry.signedIn {
-                Text("Open Memos and sign in.")
-                    .font(.footnote)
-                    .foregroundStyle(.ink2)
+                WidgetNote("Open Memos and sign in.")
             } else if entry.memos.isEmpty {
-                Text(empty)
-                    .font(.footnote)
-                    .foregroundStyle(.ink2)
+                WidgetNote(empty)
             } else {
-                ForEach(entry.memos.prefix(family == .systemLarge ? 5 : 2), id: \.name) { memo in
+                ForEach(entry.memos.prefix(shownCount), id: \.name) { memo in
                     Link(destination: URL(string: "memos://memo/\(memo.uid)")!) {
                         VStack(alignment: .leading, spacing: 2) {
                             if entry.sensitive.contains(memo.name) {
@@ -204,7 +202,7 @@ struct MemoListWidgetView: View {
                                 Text(InlineText.plain(memo.content))
                                     .font(.footnote)
                                     .foregroundStyle(.ink)
-                                    .lineLimit(family == .systemLarge ? 3 : 2)
+                                    .lineLimit(family == .systemMedium ? 2 : 3)
                             }
                             Text(memo.createdAt, format: .dateTime.month(.abbreviated).day().year())
                                 .font(.caption2)
@@ -218,19 +216,56 @@ struct MemoListWidgetView: View {
             }
             Spacer(minLength: 0)
         }
+        // Small widgets have one tap target, so the link above doesn't work there.
+        .widgetURL(family == .systemSmall ? entry.memos.first.flatMap { URL(string: "memos://memo/\($0.uid)") } : nil)
+    }
+
+    private var shownCount: Int {
+        switch family {
+        case .systemSmall: 1
+        case .systemMedium: 2
+        default: 5
+        }
     }
 }
 
-enum InlineText {
-    /// A memo's text without Markdown markers, on as few lines as possible.
-    static func plain(_ content: String) -> String {
+/// A widget's title line.
+struct WidgetHeader: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .font(.system(.subheadline, design: .serif).weight(.semibold))
+            .foregroundStyle(.ink)
+            .widgetAccentable()
+    }
+}
+
+/// An empty or signed-out state, under the header.
+struct WidgetNote: View {
+    let text: LocalizedStringKey
+
+    init(_ text: LocalizedStringKey) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(.ink2)
+    }
+}
+
+nonisolated enum InlineText {
+    /// A memo's text without Markdown markers: on as few lines as possible, or one paragraph per
+    /// line when the separator is a newline.
+    static func plain(_ content: String, separator: String = " · ") -> String {
         content
             .replacingOccurrences(of: "- [ ] ", with: "☐ ")
             .replacingOccurrences(of: "- [x] ", with: "☑ ")
             .split(separator: "\n")
             .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#>*- ")) }
             .filter { !$0.isEmpty }
-            .joined(separator: " · ")
+            .joined(separator: separator)
     }
 }
 

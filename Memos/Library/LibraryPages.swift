@@ -9,27 +9,24 @@ struct ActivityView: View {
 
     var body: some View {
         let calendar = Calendar.current
-        let counts = dayCounts(calendar: calendar)
-        let maxCount = max(counts.values.max() ?? 1, 1)
+        let activity = MemoActivity(memos: session.store.own.values, calendar: calendar)
         let today = calendar.startOfDay(for: .now)
-        let start = calendar.date(byAdding: .day, value: -(weeks * 7 - 1) - (calendar.component(.weekday, from: today) - calendar.firstWeekday + 7) % 7, to: today)!
 
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 3) {
-                        ForEach(0..<weeks + 1, id: \.self) { week in
+                        ForEach(activity.weeks(weeks + 1, through: today), id: \.self) { week in
                             VStack(spacing: 3) {
-                                ForEach(0..<7, id: \.self) { weekday in
-                                    let day = calendar.date(byAdding: .day, value: week * 7 + weekday, to: start)!
+                                ForEach(week, id: \.self) { day in
                                     if day <= today {
-                                        let count = counts[day] ?? 0
+                                        let count = activity.count(on: day)
                                         Button {
                                             let next = calendar.date(byAdding: .day, value: 1, to: day)!
                                             session.path.append(.filtered(title: day.formatted(date: .abbreviated, time: .omitted), tokens: [.date(.between(day, next))]))
                                         } label: {
                                             RoundedRectangle(cornerRadius: 3)
-                                                .fill(count == 0 ? Color.paper2 : Color.memosBlue.opacity(0.25 + 0.75 * Double(count) / Double(maxCount)))
+                                                .fill(count == 0 ? Color.paper2 : Color.memosBlue.opacity(activity.intensity(on: day)))
                                                 .frame(width: 14, height: 14)
                                         }
                                         .buttonStyle(.plain)
@@ -67,14 +64,6 @@ struct ActivityView: View {
         .background(.paper)
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func dayCounts(calendar: Calendar) -> [Date: Int] {
-        var counts: [Date: Int] = [:]
-        for memo in session.store.own.values where !memo.isArchived {
-            counts[calendar.startOfDay(for: memo.createdAt), default: 0] += 1
-        }
-        return counts
     }
 
     private func monthCounts(calendar: Calendar) -> [(month: Date, count: Int)] {
