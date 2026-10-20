@@ -1,5 +1,6 @@
 import AVFoundation
 import MemosCore
+import OSLog
 import Speech
 import SwiftUI
 
@@ -33,6 +34,8 @@ final class VoiceRecorder {
     @ObservationIgnored private let engine = AVAudioEngine()
     @ObservationIgnored private var file: AVAudioFile?
     @ObservationIgnored private var fileURL: URL?
+    /// Held for as long as recognition runs: once the recognizer goes, its task stops delivering.
+    @ObservationIgnored private var recognizer: SFSpeechRecognizer?
     @ObservationIgnored private var recognition: SFSpeechAudioBufferRecognitionRequest?
     @ObservationIgnored private var recognitionTask: SFSpeechRecognitionTask?
 
@@ -48,7 +51,7 @@ final class VoiceRecorder {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .spokenAudio)
+            try session.setCategory(.record)
             try session.setActive(true)
 
             let input = engine.inputNode
@@ -65,6 +68,7 @@ final class VoiceRecorder {
             fileURL = url
 
             let recognizer = SFSpeechRecognizer()
+            self.recognizer = recognizer
             var request: SFSpeechAudioBufferRecognitionRequest?
             if speechAllowed, let recognizer, recognizer.isAvailable {
                 let created = SFSpeechAudioBufferRecognitionRequest()
@@ -87,6 +91,7 @@ final class VoiceRecorder {
             startedAt = .now
             phase = .recording
         } catch {
+            Self.logger.error("Couldn’t start recording: \(error)")
             phase = .failed(String(localized: "Couldn’t start recording."))
         }
     }
@@ -118,6 +123,7 @@ final class VoiceRecorder {
             }
         }
         transcript = text
+        endRecognition()
         let recording = Recording(file: fileURL, duration: duration, transcript: text)
         lastRecording = recording
         phase = .finished
@@ -129,6 +135,7 @@ final class VoiceRecorder {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         recognitionTask?.cancel()
+        endRecognition()
         file = nil
         if let fileURL { try? FileManager.default.removeItem(at: fileURL) }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -140,6 +147,12 @@ final class VoiceRecorder {
         lastRecording = nil
         transcript = ""
         levels = Array(repeating: 0, count: levels.count)
+    }
+
+    private func endRecognition() {
+        recognitionTask = nil
+        recognition = nil
+        recognizer = nil
     }
 
     private func push(_ level: Float) {
@@ -171,11 +184,14 @@ final class VoiceRecorder {
     }
 
     private nonisolated static func resultHandler(_ onText: @escaping @MainActor (String) -> Void) -> @Sendable (SFSpeechRecognitionResult?, (any Error)?) -> Void {
-        { result, _ in
+        { result, error in
+            if let error { logger.error("Speech recognition failed: \(error)") }
             guard let text = result?.bestTranscription.formattedString else { return }
             Task { @MainActor in onText(text) }
         }
     }
+
+    private nonisolated static let logger = Logger(subsystem: "app.memos", category: "voice")
 
     private nonisolated static func requestSpeechAuthorization() async -> Bool {
         await withCheckedContinuation { continuation in
@@ -196,19 +212,27 @@ final class VoiceRecorder {
     }
 }
 
-/// The live waveform drawn while recording.
+/// The live waveform drawn while recording. It takes whatever width it's given and shows as many
+/// of the newest levels as fit, so it never pushes its neighbours aside.
 struct Waveform: View {
     let levels: [Float]
 
+    private static let barWidth: CGFloat = 3
+    private static let spacing: CGFloat = 2
+
     var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
-                Capsule()
-                    .fill(.memosBlue)
-                    .frame(width: 3, height: max(3, CGFloat(level) * 24))
+        Canvas { context, size in
+            let step = Self.barWidth + Self.spacing
+            let count = min(levels.count, max(0, Int((size.width + Self.spacing) / step)))
+            for (index, level) in levels.suffix(count).enumerated() {
+                let height = max(3, CGFloat(level) * size.height)
+                let bar = CGRect(x: CGFloat(index) * step, y: (size.height - height) / 2, width: Self.barWidth, height: height)
+                context.fill(Capsule().path(in: bar), with: .color(.memosBlue))
             }
         }
-        .animation(.linear(duration: 0.08), value: levels)
+        // No wider than all the levels need; narrower when that's all there is.
+        .frame(minWidth: 0, maxWidth: CGFloat(levels.count) * (Self.barWidth + Self.spacing) - Self.spacing)
+        .frame(height: 24)
         .accessibilityHidden(true)
     }
 }
