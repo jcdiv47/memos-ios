@@ -40,12 +40,32 @@ scripts/generate-api.sh ~/src/memos
 
 ## Server versions
 
-The client is generated from Memos main (`memos.api`), which the design targets. Memos 0.31, the
-current release, serves the same services as `memos.api.v1` with renumbered fields, so its binary
-protobuf isn't compatible. The app detects which API a server speaks before signing in, and talks to
-0.31 in Connect's JSON encoding, which matches fields by name. A small table in `ServerDialect.swift`
-covers the fields and one method 0.31 named differently (`parent` was `name`, `ListUserStats` was
-`ListAllUserStats`, and a few more). Older servers aren't supported.
+| Memos server | Status | How the app talks to it |
+| --- | --- | --- |
+| main at `f0ee2fd` (reports `26.10.19-dev`), not yet released | Supported, tested | `memos.api`, binary protobuf |
+| 0.31.0, the current release | Supported, tested (including a real 0.31.0 instance) | `memos.api.v1`, JSON, with field translation |
+| 0.30 and earlier | Not supported; sign-in refuses them | — |
+
+Checked on 2026-10-20. The full server test suite passes against both supported versions.
+
+- **main.** The client is generated from main's protos, the API the design targets, vendored at
+  `proto/UPSTREAM_COMMIT`. Main isn't released, and its API can still change. Re-run
+  `scripts/generate-api.sh` and the server suite before relying on a newer main.
+- **0.31.** 0.31 serves the same services as `memos.api.v1`, but with renumbered fields, so main's
+  binary protobuf can't talk to it. Before signing in, the app checks which API the server answers
+  on and remembers it with the session. With 0.31 it uses Connect's JSON encoding, which matches
+  fields by name. `ServerDialect.swift` renames the few fields and the one method 0.31 named
+  differently, for example `parent` was `name` and `ListUserStats` was `ListAllUserStats`. A newer
+  0.31.x release is accepted too, but hasn't been tested.
+- **0.30 and earlier.** These also serve `memos.api.v1`, but they have no Spaces, no saved views
+  (0.30 has "shortcuts") and no chunked uploads. Sign-in reads the version from the instance
+  profile and turns away anything below `ServerDialect.oldestSupportedRelease`.
+- **On every version:** archiving, pinning or changing who can see a memo elsewhere doesn't move
+  its `update_time`. The phone picks those changes up at the next full comparison (daily on Wi-Fi,
+  or pull to refresh), not the next change fetch.
+
+To test against 0.31, build the `v0.31.0` tag (`go build -o /tmp/memos-031 ./cmd/memos`), run it on
+another port, and seed it with `scripts/seed_dev_server.py http://localhost:5231`.
 
 ## Running against a local server
 

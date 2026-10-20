@@ -50,6 +50,15 @@ struct `Speaking to Memos 0.31` {
         #expect(signIn["accessTokenExpireTime"] as? String == "2026-01-01T00:00:00Z")
     }
 
+    @Test func `releases before 0.31 are turned away`() {
+        #expect(ServerDialect.supports(version: "0.31.0"))
+        #expect(ServerDialect.supports(version: "0.32.1"))
+        #expect(ServerDialect.supports(version: "26.10.19-dev.f0ee2fd"))
+        #expect(ServerDialect.supports(version: "dev"))
+        #expect(!ServerDialect.supports(version: "0.30.0"))
+        #expect(!ServerDialect.supports(version: "0.25.3"))
+    }
+
     @Test func `bodies of other methods pass through byte for byte`() {
         let body = Data(#"{"memos":[{"location":{"latitude":22.2855}}]}"#.utf8)
         #expect(V1Translation.response("MemoService/ListMemos", body) == body)

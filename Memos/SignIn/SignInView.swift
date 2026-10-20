@@ -116,10 +116,14 @@ struct SignInView: View {
         let client = model.makeClient(for: url)
         do {
             guard try await client.detectDialect() != nil else {
-                error = "That address doesn’t answer like a Memos server, or its Memos is older than 0.31. Check the address, or update the server."
+                error = "That address doesn’t answer like a Memos server. Check the address; the app needs Memos \(ServerDialect.oldestSupportedRelease) or later."
                 return
             }
             let profile = try await client.callPublic(client.instance.getInstanceProfile(request:headers:), Memos_Api_GetInstanceProfileRequest())
+            guard ServerDialect.supports(version: profile.version) else {
+                error = "This server runs Memos \(profile.version). The app needs \(ServerDialect.oldestSupportedRelease) or later; update the server to the latest release."
+                return
+            }
             if profile.needsSetup {
                 error = "This server hasn’t been set up yet. Create the first account on the web, then come back."
                 return

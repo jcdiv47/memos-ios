@@ -12,6 +12,18 @@ public enum ServerDialect: String, Codable, Sendable {
     /// `memos.api.v1` (Memos 0.31), spoken in JSON.
     case v1
 
+    /// The oldest release the app works with. Earlier servers also serve `memos.api.v1`, but
+    /// without Spaces, saved views or chunked uploads.
+    public static let oldestSupportedRelease = "0.31.0"
+
+    /// Whether a server reporting `version` in its instance profile is new enough. Releases up
+    /// to 0.31 are numbered `0.x.y`; development builds report `dev` or a date-based version.
+    public static func supports(version: String) -> Bool {
+        let parts = version.split(separator: ".")
+        guard parts.count >= 2, parts[0] == "0", let minor = Int(parts[1]) else { return true }
+        return minor >= 31
+    }
+
     var package: String {
         switch self {
         case .current: "memos.api"
