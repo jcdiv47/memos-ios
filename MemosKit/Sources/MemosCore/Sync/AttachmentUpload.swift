@@ -35,7 +35,7 @@ public enum AttachmentUpload {
                 response = try await client.call(client.attachments.uploadAttachment(request:headers:), request)
                 offset = Int(response.committedSize)
             } while !response.hasAttachment && offset < data.count
-            guard response.hasAttachment else { throw APIError(code: .dataLoss, message: "The upload didn’t finish.") }
+            guard response.hasAttachment else { throw APIError(code: .dataLoss, message: String(localized: "The upload didn’t finish.", bundle: .module)) }
             return response.attachment
         } catch {
             // A retry of an upload that already finished: the server reports the duplicate ID as

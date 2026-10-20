@@ -68,7 +68,7 @@ struct SignInView: View {
             }
 
             Section {
-                TextField("memos.example.com", text: $serverText)
+                TextField(text: $serverText, prompt: Text(verbatim: "memos.example.com")) { Text("Server address") }
                     .textContentType(.URL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
@@ -106,7 +106,7 @@ struct SignInView: View {
 
     private func check() async {
         guard let url = MemosClient.normalizedServerURL(serverText) else {
-            error = "That doesn’t look like a server address."
+            error = String(localized: "That doesn’t look like a server address.")
             return
         }
         isChecking = true
@@ -116,16 +116,16 @@ struct SignInView: View {
         let client = model.makeClient(for: url)
         do {
             guard try await client.detectDialect() != nil else {
-                error = "That address doesn’t answer like a Memos server. Check the address; the app needs Memos \(ServerDialect.oldestSupportedRelease) or later."
+                error = String(localized: "That address doesn’t answer like a Memos server. Check the address; the app needs Memos \(ServerDialect.oldestSupportedRelease) or later.")
                 return
             }
             let profile = try await client.callPublic(client.instance.getInstanceProfile(request:headers:), Memos_Api_GetInstanceProfileRequest())
             guard ServerDialect.supports(version: profile.version) else {
-                error = "This server runs Memos \(profile.version). The app needs \(ServerDialect.oldestSupportedRelease) or later; update the server to the latest release."
+                error = String(localized: "This server runs Memos \(profile.version). The app needs \(ServerDialect.oldestSupportedRelease) or later; update the server to the latest release.")
                 return
             }
             if profile.needsSetup {
-                error = "This server hasn’t been set up yet. Create the first account on the web, then come back."
+                error = String(localized: "This server hasn’t been set up yet. Create the first account on the web, then come back.")
                 return
             }
             var generalRequest = Memos_Api_GetInstanceSettingRequest()
@@ -135,11 +135,15 @@ struct SignInView: View {
             instance = InstanceInfo(url: url, client: client, profile: profile, general: general, providers: providers)
         } catch let apiError {
             if url.scheme == "https", apiError.isConnectivity, serverText.hasPrefix("http://") == false, !serverText.contains("://") {
-                error = "Couldn’t reach \(url.host() ?? "the server") over HTTPS. If it uses plain HTTP, type http:// in front."
+                if let host = url.host() {
+                    error = String(localized: "Couldn’t reach \(host) over HTTPS. If it uses plain HTTP, type http:// in front.")
+                } else {
+                    error = String(localized: "Couldn’t reach the server over HTTPS. If it uses plain HTTP, type http:// in front.")
+                }
             } else if apiError.code == .unimplemented || apiError.code == .notFound {
-                error = "This server runs a version of Memos the app doesn’t support. Update it to the latest release."
+                error = String(localized: "This server runs a version of Memos the app doesn’t support. Update it to the latest release.")
             } else {
-                error = "Couldn’t reach that server. \(apiError.description)"
+                error = String(localized: "Couldn’t reach that server. \(apiError.description)")
             }
         }
     }
@@ -175,7 +179,7 @@ private struct CredentialsForm: View {
                         .font(.metadata)
                         .foregroundStyle(.ink2)
                     if !instance.profile.version.isEmpty {
-                        Text("Memos \(instance.profile.version)")
+                        Text(verbatim: "Memos \(instance.profile.version)")
                             .font(.metadata)
                             .foregroundStyle(.ink2)
                     }
@@ -254,7 +258,7 @@ private struct CredentialsForm: View {
     private var tokenSection: some View {
         Section {
             if usesToken {
-                SecureField("memos_pat_…", text: $token)
+                SecureField(text: $token, prompt: Text(verbatim: "memos_pat_…")) { Text("Access token") }
                     .textContentType(.password)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -291,9 +295,9 @@ private struct CredentialsForm: View {
         } catch let apiError {
             switch apiError.code {
             case .unauthenticated, .permissionDenied, .invalidArgument:
-                tokenError = "The server didn’t accept that token. It may have expired or been revoked."
+                tokenError = String(localized: "The server didn’t accept that token. It may have expired or been revoked.")
             default:
-                tokenError = apiError.isConnectivity ? "Couldn’t reach the server." : apiError.description
+                tokenError = apiError.isConnectivity ? String(localized: "Couldn’t reach the server.") : apiError.description
             }
         }
     }
@@ -308,11 +312,11 @@ private struct CredentialsForm: View {
         } catch let apiError {
             switch apiError.code {
             case .unauthenticated, .invalidArgument, .notFound, .permissionDenied:
-                error = "That username and password don’t match."
+                error = String(localized: "That username and password don’t match.")
             case .resourceExhausted:
-                error = "Too many attempts. Wait a minute and try again."
+                error = String(localized: "Too many attempts. Wait a minute and try again.")
             default:
-                error = apiError.isConnectivity ? "Couldn’t reach the server." : apiError.description
+                error = apiError.isConnectivity ? String(localized: "Couldn’t reach the server.") : apiError.description
             }
         }
     }
@@ -323,7 +327,7 @@ private struct CredentialsForm: View {
         let verifier = PKCE.verifier()
         let state = UUID().uuidString
         guard var components = URLComponents(string: oauth.authURL) else {
-            error = "This sign-in method isn’t set up correctly."
+            error = String(localized: "This sign-in method isn’t set up correctly.")
             return
         }
         components.queryItems = (components.queryItems ?? []) + [
@@ -342,7 +346,7 @@ private struct CredentialsForm: View {
             guard items.first(where: { $0.name == "state" })?.value == state,
                   let code = items.first(where: { $0.name == "code" })?.value
             else {
-                error = "Sign-in was cancelled."
+                error = String(localized: "Sign-in was cancelled.")
                 return
             }
             isSigningIn = true

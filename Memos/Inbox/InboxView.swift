@@ -181,18 +181,17 @@ private struct NotificationRow: View {
     private func headline(_ sender: String) -> AttributedString {
         var name = AttributedString(sender)
         name.font = .subheadline.weight(.semibold)
-        let rest: String
         switch notification.payload {
-        case .memoComment: rest = " commented on your memo"
-        case .memoMention: rest = " mentioned you"
+        case .memoComment: return AttributedString(localized: "\(name) commented on your memo", comment: "An Inbox notification; the sender's name.")
+        case .memoMention: return AttributedString(localized: "\(name) mentioned you", comment: "An Inbox notification; the sender's name.")
         case .spaceInvitation(let payload):
+            let space = payload.space.title
             switch payload.state {
-            case .accepted: rest = " added you to \(payload.space.title)"
-            default: rest = " invited you to \(payload.space.title)"
+            case .accepted: return AttributedString(localized: "\(name) added you to \(space)", comment: "An Inbox notification: the sender's name, then a Space's name.")
+            default: return AttributedString(localized: "\(name) invited you to \(space)", comment: "An Inbox notification: the sender's name, then a Space's name.")
             }
-        default: rest = ""
+        default: return name
         }
-        return name + AttributedString(rest)
     }
 
     private var snippet: String? {

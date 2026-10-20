@@ -71,7 +71,7 @@ final class ShareModel {
     /// Uploads straight away when it can; otherwise leaves the memo for the app to upload.
     func save() async {
         guard let location = AccountLocation.current, let server = AccountLocation.currentServer else {
-            error = "Open Memos and sign in first."
+            error = String(localized: "Open Memos and sign in first.")
             return
         }
         isSaving = true
@@ -89,7 +89,7 @@ final class ShareModel {
             do {
                 try ExtensionInbox.drop(draft, files: data, in: location)
             } catch {
-                self.error = "Couldn’t save the memo."
+                self.error = String(localized: "Couldn’t save the memo.")
                 return
             }
         }

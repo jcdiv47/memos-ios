@@ -57,7 +57,7 @@ struct ComposerView: View {
         session.voice.phase == .recording || session.voice.phase == .transcribing
     }
 
-    private var title: String {
+    private var title: LocalizedStringResource {
         if case .edit = request.mode { return "Edit memo" }
         return "New memo"
     }
@@ -125,7 +125,7 @@ struct ComposerView: View {
             }
             .animation(.memosFade, value: model.tagSuggestions.isEmpty)
         }
-        .navigationTitle(title)
+        .navigationTitle(Text(title))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -220,7 +220,7 @@ struct ComposerView: View {
         } label: {
             Image(systemName: session.voice.isRecording ? "stop.fill" : "mic")
         }
-        .accessibilityLabel(session.voice.isRecording ? "Stop recording" : "Record voice memo")
+        .accessibilityLabel(session.voice.isRecording ? Text("Stop recording") : Text("Record voice memo"))
     }
 
     // MARK: Lifecycle
@@ -411,7 +411,7 @@ private struct AudienceChips: View {
                         }
                     }
                 } label: {
-                    Label(session.space(named: model.space)?.title ?? "No Space", systemImage: "square.stack")
+                    Label(session.space(named: model.space)?.title ?? String(localized: "No Space"), systemImage: "square.stack")
                 }
                 .buttonStyle(.chip)
 
@@ -432,17 +432,22 @@ private struct AudienceChips: View {
 
     private func label(for visibility: MemoVisibility) -> String {
         if visibility == .space, let title = session.space(named: model.space)?.title {
-            return "\(title) members"
+            return String(localized: "\(title) members", comment: "The Space visibility chip in the composer: only members of the named Space can read the memo.")
         }
         return visibility.label
     }
 
     private func suggestionLabel(_ visibility: MemoVisibility) -> String {
         switch visibility {
-        case .space: "Share with \(session.space(named: model.space)?.title ?? "Space")"
-        case .protected: "Share with everyone signed in"
-        case .public: "Make public"
-        default: "Make \(visibility.label.lowercased())"
+        case .space:
+            if let title = session.space(named: model.space)?.title {
+                String(localized: "Share with \(title)", comment: "A composer suggestion that makes the memo visible to the members of the named Space.")
+            } else {
+                String(localized: "Share with Space", comment: "A composer suggestion that makes the memo visible to the members of its Space, when the Space's name isn't known.")
+            }
+        case .protected: String(localized: "Share with everyone signed in")
+        case .public: String(localized: "Make public")
+        default: String(localized: "Make private")
         }
     }
 }

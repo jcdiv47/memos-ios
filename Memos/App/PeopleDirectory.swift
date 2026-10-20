@@ -19,7 +19,7 @@ final class PeopleDirectory {
 
     /// “You” for yourself, otherwise the display name once known and the username until then.
     func name(for user: String) -> String {
-        if user == me { return "You" }
+        if user == me { return String(localized: "You", comment: "Stands in for your own name as the author of a memo or comment.") }
         if let known = users[user] { return known.displayLabel }
         request(user)
         return ResourceName.lastSegment(user)

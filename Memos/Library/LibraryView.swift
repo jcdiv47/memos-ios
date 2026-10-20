@@ -14,9 +14,9 @@ struct LibraryView: View {
         let stats = self.stats
         List {
             Section {
-                row(.activity, title: "Activity", detail: "\(stats.memoCount.formatted()) memos · \(stats.dayCount.formatted()) days", systemImage: "calendar")
+                row(.activity, title: "Activity", detail: [String(localized: "\(stats.memoCount) memos"), String(localized: "\(stats.dayCount) days")].joined(separator: " · "), systemImage: "calendar")
                 row(.attachments, title: "Attachments", detail: stats.attachmentCount.formatted(), systemImage: "paperclip")
-                row(.map, title: "Map", detail: stats.placeCount == 1 ? "1 place" : "\(stats.placeCount.formatted()) places", systemImage: "map")
+                row(.map, title: "Map", detail: String(localized: "\(stats.placeCount) places"), systemImage: "map")
                 row(.tags, title: "Tags", detail: stats.tagCount.formatted(), systemImage: "number")
                 row(.archived, title: "Archived", detail: stats.archivedCount.formatted(), systemImage: "archivebox")
             }
@@ -60,7 +60,7 @@ struct LibraryView: View {
         }
     }
 
-    private func row(_ route: Route, title: String, detail: String, systemImage: String) -> some View {
+    private func row(_ route: Route, title: LocalizedStringKey, detail: String, systemImage: String) -> some View {
         Button {
             session.path.append(route)
         } label: {

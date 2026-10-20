@@ -26,7 +26,8 @@ struct MemoryWidgetIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "Memory"
     static let description = IntentDescription("Shows one of your memos at random.")
 
-    @Parameter(title: "New Memo", default: .daily)
+    // Its own key: “New Memo” elsewhere is a command, here it labels how often the memo changes.
+    @Parameter(title: LocalizedStringResource("New Memo (frequency)", defaultValue: "New Memo", comment: "Memory widget setting: how often the widget shows a different memo, as in “New Memo: Every Day”."), default: .daily)
     var frequency: MemoryFrequency
 
     @Parameter(title: "Tag")

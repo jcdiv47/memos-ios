@@ -96,8 +96,8 @@ final class AccountSession {
     }
 
     var selectedSpaceTitle: String {
-        guard let selectedSpace else { return "All Spaces" }
-        return store.profile.spaces.first { $0.name == selectedSpace }?.title ?? "Space"
+        guard let selectedSpace else { return String(localized: "All Spaces") }
+        return store.profile.spaces.first { $0.name == selectedSpace }?.title ?? String(localized: "Space")
     }
 
     func space(named name: String?) -> Space? {

@@ -228,7 +228,7 @@ public final class MemosClient: Sendable {
             ))
             return output.user
         case .success:
-            throw APIError(code: .unauthenticated, message: "The server didn’t accept the token.")
+            throw APIError(code: .unauthenticated, message: String(localized: "The server didn’t accept the token.", bundle: .module))
         case .failure(let error):
             throw APIError(error)
         }

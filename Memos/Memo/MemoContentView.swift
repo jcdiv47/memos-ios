@@ -110,7 +110,7 @@ struct MemoContentView: View {
                 .buttonStyle(.plain)
                 .disabled(onToggleTask == nil)
                 .sensoryFeedback(.selection, trigger: checked)
-                .accessibilityLabel(checked ? "Completed" : "Not completed")
+                .accessibilityLabel(checked ? Text("Completed") : Text("Not completed"))
 
                 Text(inline(item.text))
                     .font(.memoBody)
@@ -123,12 +123,12 @@ struct MemoContentView: View {
 
         case .bullet:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("•").foregroundStyle(.ink2)
+                Text(verbatim: "•").foregroundStyle(.ink2)
                 Text(inline(item.text)).font(.memoBody).foregroundStyle(.ink)
             }
         case .number(let number):
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(number).").foregroundStyle(.ink2).monospacedDigit()
+                Text(verbatim: "\(number).").foregroundStyle(.ink2).monospacedDigit()
                 Text(inline(item.text)).font(.memoBody).foregroundStyle(.ink)
             }
         }

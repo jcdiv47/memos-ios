@@ -95,9 +95,15 @@ struct MemosProvider: TimelineProvider {
         return MemosEntry(date: .now, memos: shown, signedIn: true, sensitive: Set(shown.filter(contents.rules.blurs).map(\.name)))
     }
 
-    static let samples: [Memo] = ["Morning light over the harbor. #walks", "Write the changelog", "Repotted the monstera. #plants"].map { text in
+    /// Shown in the widget gallery, so they're in the reader's language.
+    static let samples: [Memo] = [
+        String(localized: "Morning light over the harbor. #walks", comment: "A sample memo in the widget gallery. Translate the tag too."),
+        String(localized: "Write the changelog", comment: "A sample memo in the widget gallery."),
+        String(localized: "Repotted the monstera. #plants", comment: "A sample memo in the widget gallery. Translate the tag too."),
+    ].enumerated().map { index, text in
         var memo = Memo()
-        memo.name = "memos/sample-\(text.count)"
+        // By position: translations can share a length.
+        memo.name = "memos/sample-\(index)"
         memo.content = text
         return memo
     }

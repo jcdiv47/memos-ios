@@ -6,6 +6,8 @@ options:
     iOS: "26.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
+  # English is the source language; string catalogs (*.xcstrings) carry Simplified Chinese.
+  developmentLanguage: en
 
 settings:
   base:
@@ -22,6 +24,9 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1,2"
+    # Localization: Xcode extracts strings from Swift into each target's string catalogs.
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
 
 packages:
   MemosKit:

@@ -50,7 +50,7 @@ struct AttachmentGallery: View {
                         .clipShape(.rect(cornerRadius: 8))
                         .overlay(alignment: .bottomTrailing) {
                             if attachment.name == shown.last?.name, images.count > shown.count {
-                                Text("+\(images.count - shown.count)")
+                                Text(verbatim: "+\(images.count - shown.count)")
                                     .font(.footnote.weight(.semibold))
                                     .padding(6)
                                     .background(.ultraThinMaterial, in: .capsule)
@@ -87,7 +87,7 @@ struct AttachmentImage: View {
             }
         }
         .clipped()
-        .accessibilityLabel(attachment.filename.isEmpty ? "Photo" : attachment.filename)
+        .accessibilityLabel(attachment.filename.isEmpty ? String(localized: "Photo") : attachment.filename)
         .accessibilityAddTraits(.isImage)
         .task(id: attachment.name) {
             guard image == nil else { return }
@@ -109,7 +109,7 @@ struct FileRow: View {
                 .foregroundStyle(.memosBlue)
                 .frame(width: 32)
             VStack(alignment: .leading, spacing: 2) {
-                Text(attachment.filename.isEmpty ? "Attachment" : attachment.filename)
+                Text(attachment.filename.isEmpty ? String(localized: "Attachment") : attachment.filename)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.ink)
                     .lineLimit(1)
@@ -148,7 +148,7 @@ struct AudioAttachmentView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(player.isPlaying ? "Pause voice memo" : "Play voice memo")
+            .accessibilityLabel(player.isPlaying ? Text("Pause voice memo") : Text("Play voice memo"))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(label)
@@ -171,7 +171,7 @@ struct AudioAttachmentView: View {
 
     private var label: String {
         let duration = player.duration.map { Duration.seconds($0).formatted(.time(pattern: .minuteSecond)) }
-        return [transcribed ? "Transcribed" : "Voice memo", duration].compactMap(\.self).joined(separator: " · ")
+        return [transcribed ? String(localized: "Transcribed") : String(localized: "Voice memo"), duration].compactMap(\.self).joined(separator: " · ")
     }
 }
 

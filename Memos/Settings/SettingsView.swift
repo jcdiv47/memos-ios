@@ -28,7 +28,7 @@ struct SettingsView: View {
                                 .font(.headline)
                                 .onSubmit { Task { await saveDisplayName() } }
                                 .disabled(!session.isOnline)
-                            Text("@\(user?.username ?? ResourceName.lastSegment(session.user))")
+                            Text(verbatim: "@\(user?.username ?? ResourceName.lastSegment(session.user))")
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
                             if let email = user?.email, !email.isEmpty {
@@ -115,9 +115,8 @@ struct SettingsView: View {
 
     private var signOutMessage: String {
         let pending = session.store.outbox.count
-        let base = "This removes your memos from this iPhone. They stay on your server."
-        if pending == 0 { return base }
-        return "\(pending == 1 ? "1 change hasn’t" : "\(pending) changes haven’t") uploaded yet and will be lost. " + base
+        if pending == 0 { return String(localized: "This removes your memos from this iPhone. They stay on your server.") }
+        return String(localized: "\(pending) changes haven’t uploaded yet and will be lost. This removes your memos from this iPhone. They stay on your server.")
     }
 
     private func saveDisplayName() async {
@@ -217,7 +216,7 @@ private struct AccessTokensView: View {
             Section {
                 ForEach(tokens, id: \.name) { token in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(token.description_p.isEmpty ? "Token" : token.description_p)
+                        Text(token.description_p.isEmpty ? String(localized: "Token") : token.description_p)
                         Text(detail(token))
                             .font(.metadata)
                             .foregroundStyle(.ink2)
@@ -259,12 +258,19 @@ private struct AccessTokensView: View {
     }
 
     private func detail(_ token: Memos_Api_PersonalAccessToken) -> String {
-        var parts = ["Created \(token.createTime.date.formatted(date: .abbreviated, time: .omitted))"]
+        let createdDate = token.createTime.date.formatted(date: .abbreviated, time: .omitted)
+        var parts = [String(localized: "Created \(createdDate)", comment: "When an access token was created; the date is formatted.")]
         if token.hasExpireTime {
             let date = token.expireTime.date
-            parts.append("\(date < .now ? "expired" : "expires") \(date.formatted(date: .abbreviated, time: .omitted))")
+            let formatted = date.formatted(date: .abbreviated, time: .omitted)
+            parts.append(date < .now
+                ? String(localized: "expired \(formatted)", comment: "Follows “Created <date> · ” for an access token; the date is formatted.")
+                : String(localized: "expires \(formatted)", comment: "Follows “Created <date> · ” for an access token; the date is formatted."))
         }
-        if token.hasLastUseTime { parts.append("used \(token.lastUseTime.date.formatted(.relative(presentation: .named)))") }
+        if token.hasLastUseTime {
+            let used = token.lastUseTime.date.formatted(.relative(presentation: .named))
+            parts.append(String(localized: "used \(used)", comment: "When an access token was last used, such as “used 2 days ago”; the relative date is formatted."))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -274,7 +280,7 @@ private struct AccessTokensView: View {
         do {
             tokens = try await session.client.call(session.client.users.listPersonalAccessTokens(request:headers:), request).personalAccessTokens
         } catch {
-            self.error = error.isConnectivity ? "Connect to manage tokens." : error.description
+            self.error = error.isConnectivity ? String(localized: "Connect to manage tokens.") : error.description
         }
         loaded = true
     }

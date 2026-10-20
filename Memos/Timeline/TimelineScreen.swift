@@ -124,9 +124,9 @@ private struct TimelineRoot: View {
 
     private var subtitle: String {
         var parts = [session.selectedSpaceTitle]
-        if session.showsScopeToggle && session.scope == .everyone { parts.append("Everyone") }
+        if session.showsScopeToggle && session.scope == .everyone { parts.append(String(localized: "Everyone")) }
         if let filter = session.quickFilter { parts.append(filter.label) }
-        if !session.isOnline { parts.append("Offline") }
+        if !session.isOnline { parts.append(String(localized: "Offline")) }
         return parts.joined(separator: " · ")
     }
 
@@ -164,7 +164,7 @@ private struct TimelineRoot: View {
         .accessibilityRotor("Tags") {
             ForEach(memos.filter { !$0.tags.isEmpty }, id: \.name) { memo in
                 ForEach(memo.tags, id: \.self) { tag in
-                    AccessibilityRotorEntry("#\(tag)", id: memo.name)
+                    AccessibilityRotorEntry(Text(verbatim: "#\(tag)"), id: memo.name)
                 }
             }
         }
@@ -192,11 +192,11 @@ private struct TimelineRoot: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if session.quickFilter != nil {
+        if let quickFilter = session.quickFilter {
             ContentUnavailableView {
                 Label("Nothing here", systemImage: "line.3.horizontal.decrease")
             } description: {
-                Text("No memos match \(session.quickFilter?.label ?? "this filter") in \(session.selectedSpaceTitle).")
+                Text("No memos match \(quickFilter.label) in \(session.selectedSpaceTitle).", comment: "The filter's name, then a Space's name or All Spaces.")
             } actions: {
                 Button("Clear Filter") { session.quickFilter = nil }
             }
@@ -204,7 +204,7 @@ private struct TimelineRoot: View {
             ContentUnavailableView {
                 Label("No memos yet", systemImage: "square.and.pencil")
             } description: {
-                Text(session.selectedSpace == nil ? "Capture a thought and it lands here." : "Nothing in \(session.selectedSpaceTitle) yet.")
+                session.selectedSpace == nil ? Text("Capture a thought and it lands here.") : Text("Nothing in \(session.selectedSpaceTitle) yet.")
             } actions: {
                 Button("Capture a Thought") { session.capture() }
                     .buttonStyle(.glass)
@@ -227,7 +227,7 @@ private struct TimelineRoot: View {
             // A toolbar badge doesn't redraw when its count changes on its own.
             .id(session.store.profile.unreadNotifications)
             .accessibilityLabel("Inbox")
-            .accessibilityValue(session.store.profile.unreadNotifications > 0 ? "\(session.store.profile.unreadNotifications) unread" : "")
+            .accessibilityValue(session.store.profile.unreadNotifications > 0 ? Text("\(session.store.profile.unreadNotifications) unread") : Text(verbatim: ""))
         }
 
         ToolbarItem(placement: .bottomBar) {
@@ -297,7 +297,7 @@ struct TimelineRow: View {
                     swipeCommits += 1
                     session.store.setPinned(memo.name, !memo.pinned)
                 } label: {
-                    Label(memo.pinned ? "Unpin" : "Pin", systemImage: memo.pinned ? "pin.slash" : "pin")
+                    Label(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin")
                 }
                 .tint(.memosBlue)
             }
@@ -341,13 +341,13 @@ struct MemoActions: View {
     var body: some View {
         let isMine = memo.creator == session.user
         if isMine {
-            Button(memo.pinned ? "Unpin" : "Pin", systemImage: memo.pinned ? "pin.slash" : "pin") {
+            Button(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin") {
                 session.store.setPinned(memo.name, !memo.pinned)
             }
             if !forAccessibility {
                 Button("Edit", systemImage: "pencil") { session.edit(memo.name) }
             }
-            Button(memo.isArchived ? "Restore" : "Archive", systemImage: memo.isArchived ? "tray.and.arrow.up" : "archivebox") {
+            Button(memo.isArchived ? "Restore" : "Archive" as LocalizedStringKey, systemImage: memo.isArchived ? "tray.and.arrow.up" : "archivebox") {
                 session.store.setArchived(memo.name, !memo.isArchived)
             }
         }
@@ -382,7 +382,7 @@ private struct TitleMenu: View {
             .pickerStyle(.palette)
         }
         Section {
-            spaceButton(nil, title: "All Spaces", monogram: "∗", count: counts[nil] ?? 0)
+            spaceButton(nil, title: String(localized: "All Spaces"), monogram: "∗", count: counts[nil] ?? 0)
             ForEach(session.store.profile.spaces, id: \.name) { space in
                 spaceButton(space.name, title: space.title, monogram: space.monogram, count: counts[space.name] ?? 0)
             }
@@ -397,7 +397,7 @@ private struct TitleMenu: View {
         } label: {
             // A menu shows a second Text in the label as the subtitle.
             Label(title, systemImage: session.selectedSpace == name ? "checkmark" : (name == nil ? "square.stack.3d.up" : "square.stack"))
-            Text(count == 1 ? "1 memo" : "\(count.formatted()) memos")
+            Text("\(count) memos")
         }
     }
 }
@@ -423,7 +423,7 @@ private struct FilterMenu: View {
                         Button {
                             session.path.append(.view(view.name))
                         } label: {
-                            Text("\(view.emoji.map { "\($0) " } ?? "")\(view.displayTitle)")
+                            Text(verbatim: "\(view.emoji.map { "\($0) " } ?? "")\(view.displayTitle)")
                         }
                     }
                 }

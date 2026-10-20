@@ -173,11 +173,11 @@ struct PlacesMapView: View {
                         .frame(width: 44, height: 44)
                         .glassEffect(.regular.interactive(), in: .circle)
                     if session.showsScopeToggle {
-                        mapButton(includeOthers ? "person.2.fill" : "person", label: includeOthers ? "Showing everyone" : "Showing yours") {
+                        mapButton(includeOthers ? "person.2.fill" : "person", label: includeOthers ? Text("Showing everyone") : Text("Showing yours")) {
                             includeOthers.toggle()
                         }
                     }
-                    mapButton("list.bullet", label: "List places") { showsList = true }
+                    mapButton("list.bullet", label: Text("List places")) { showsList = true }
                 }
             }
             .padding()
@@ -217,7 +217,7 @@ struct PlacesMapView: View {
         }
     }
 
-    private func mapButton(_ systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+    private func mapButton(_ systemImage: String, label: Text, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
@@ -242,7 +242,7 @@ struct TagsView: View {
                 session.path.append(.filtered(title: "#\(entry.tag)", tokens: [.tag(entry.tag)]))
             } label: {
                 HStack {
-                    Text("#\(entry.tag)")
+                    Text(verbatim: "#\(entry.tag)")
                         .foregroundStyle(.memosBlue)
                         .padding(.leading, CGFloat(entry.tag.filter { $0 == "/" }.count) * 16)
                     Spacer()

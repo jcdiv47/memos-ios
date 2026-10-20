@@ -124,7 +124,7 @@ struct MemoHeader: View {
                 .accessibilityLabel(memo.visibility.label)
         }
         if let spaceTitle {
-            Text("· \(spaceTitle)")
+            Text(verbatim: "· \(spaceTitle)")
         }
     }
 }
@@ -193,7 +193,7 @@ struct ReactionSummary: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(reaction.emoji)
-                        Text("\(reaction.count)")
+                        Text(reaction.count, format: .number)
                             .font(.footnote.weight(.medium))
                             .monospacedDigit()
                             .foregroundStyle(mine ? Color.memosBlue : Color.ink2)
@@ -205,7 +205,7 @@ struct ReactionSummary: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(onTap == nil)
-                .accessibilityLabel("\(reaction.emoji) \(reaction.count)")
+                .accessibilityLabel(Text(verbatim: "\(reaction.emoji) \(reaction.count)"))
             }
         }
         // Reactions land from a refresh after the request, outside any animation of their own.

@@ -41,22 +41,23 @@ public enum SearchToken: Hashable, Sendable {
         }
     }
 
+    /// The chip's title, in the reader's language. Tags and Space titles are shown as written.
     public var label: String {
         switch self {
         case .tag(let tag): "#\(tag)"
-        case .openTasks: "Open tasks"
-        case .tasks: "Tasks"
-        case .links: "Links"
-        case .code: "Code"
-        case .places: "Places"
-        case .pinned: "Pinned"
+        case .openTasks: String(localized: "Open tasks", bundle: .module, comment: "A search filter: memos with unchecked tasks.")
+        case .tasks: String(localized: "Tasks", bundle: .module, comment: "A search filter: memos with a task list.")
+        case .links: String(localized: "Links", bundle: .module, comment: "A search filter: memos with a link.")
+        case .code: String(localized: "Code", bundle: .module, comment: "A search filter: memos with code.")
+        case .places: String(localized: "Places", bundle: .module, comment: "A search filter: memos with a location.")
+        case .pinned: String(localized: "Pinned", bundle: .module, comment: "A search filter: pinned memos.")
         case .visibility(let visibility): visibility.label
         case .space(_, let title): title
-        case .date(.today): "Today"
-        case .date(.thisWeek): "This week"
-        case .date(.thisMonth): "This month"
+        case .date(.today): String(localized: "Today", bundle: .module, comment: "A search filter: memos created in the last 24 hours.")
+        case .date(.thisWeek): String(localized: "This week", bundle: .module, comment: "A search filter: memos created in the last 7 days.")
+        case .date(.thisMonth): String(localized: "This month", bundle: .module, comment: "A search filter: memos created in the last 30 days.")
         case .date(.between(let start, let end)):
-            "\(start.formatted(date: .abbreviated, time: .omitted)) – \(end.formatted(date: .abbreviated, time: .omitted))"
+            (start..<end).formatted(date: .abbreviated, time: .omitted)
         }
     }
 
@@ -80,13 +81,13 @@ public enum SearchToken: Hashable, Sendable {
 }
 
 extension MemoVisibility {
+    /// The visibility's name, in the reader's language, matching the web's.
     public var label: String {
         switch self {
-        case .private: "Private"
-        case .protected: "Protected"
-        case .public: "Public"
-        case .space: "Space"
-        default: "Private"
+        case .protected: String(localized: "Protected", bundle: .module, comment: "Memo visibility: anyone signed in to the server can read it.")
+        case .public: String(localized: "Public", bundle: .module, comment: "Memo visibility: anyone can read it, even signed out.")
+        case .space: String(localized: "Space", bundle: .module, comment: "Memo visibility: only the members of the memo's Space can read it.")
+        default: String(localized: "Private", bundle: .module, comment: "Memo visibility: only you can read it.")
         }
     }
 

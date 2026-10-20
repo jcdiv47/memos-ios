@@ -11,7 +11,7 @@ struct QuickVoiceMemoSheet: View {
     var body: some View {
         let voice = session.voice
         VStack(spacing: 18) {
-            Text(voice.phase == .transcribing ? "Transcribing…" : "Recording a private memo")
+            (voice.phase == .transcribing ? Text("Transcribing…") : Text("Recording a private memo"))
                 .font(.headline)
                 .foregroundStyle(.ink)
             switch voice.phase {

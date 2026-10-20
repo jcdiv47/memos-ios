@@ -25,7 +25,7 @@ struct RouteDestination: View {
         case .tags:
             TagsView()
         case .archived:
-            FilteredTimelineView(title: "Archived", filter: nil, state: .archived, zoom: zoom)
+            FilteredTimelineView(title: String(localized: "Archived"), filter: nil, state: .archived, zoom: zoom)
         case .view(let name):
             if let view = session.store.profile.views.first(where: { $0.name == name }) {
                 FilteredTimelineView(title: view.displayTitle, filter: view.filter, view: view, zoom: zoom)
@@ -103,7 +103,7 @@ struct FilteredTimelineView: View {
         .background(.paper)
         .overlay {
             if memos.isEmpty && !feed.isLoading {
-                ContentUnavailableView(state == .archived ? "Nothing archived" : "No memos match", systemImage: state == .archived ? "archivebox" : "line.3.horizontal.decrease")
+                ContentUnavailableView(state == .archived ? "Nothing archived" : "No memos match" as LocalizedStringKey, systemImage: state == .archived ? "archivebox" : "line.3.horizontal.decrease")
             }
         }
         .navigationTitle(view.map { "\($0.emoji.map { "\($0) " } ?? "")\($0.displayTitle)" } ?? title)

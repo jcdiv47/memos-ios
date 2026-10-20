@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "MemosKit",
+    defaultLocalization: "en",
     platforms: [.iOS(.v26), .macOS(.v26)],
     products: [
         .library(name: "MemosAPI", targets: ["MemosAPI"]),
@@ -21,13 +22,15 @@ let package = Package(
             dependencies: [
                 .product(name: "Connect", package: "connect-swift"),
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
-            ]
+            ],
+            resources: [.process("Localizable.xcstrings")]
         ),
         // Offline store, sync, filters, Markdown and the visibility rules. Shared by
         // the app and its extensions; nothing here imports SwiftUI.
         .target(
             name: "MemosCore",
-            dependencies: ["MemosAPI"]
+            dependencies: ["MemosAPI"],
+            resources: [.process("Localizable.xcstrings")]
         ),
         .testTarget(
             name: "MemosCoreTests",

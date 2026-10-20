@@ -41,7 +41,7 @@ final class VoiceRecorder {
     func start() async {
         guard phase != .recording else { return }
         guard await AVAudioApplication.requestRecordPermission() else {
-            phase = .failed("Allow microphone access in Settings to record voice memos.")
+            phase = .failed(String(localized: "Allow microphone access in Settings to record voice memos."))
             return
         }
         let speechAllowed = await Self.requestSpeechAuthorization()
@@ -87,7 +87,7 @@ final class VoiceRecorder {
             startedAt = .now
             phase = .recording
         } catch {
-            phase = .failed("Couldn’t start recording.")
+            phase = .failed(String(localized: "Couldn’t start recording."))
         }
     }
 

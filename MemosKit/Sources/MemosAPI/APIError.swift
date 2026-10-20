@@ -30,5 +30,5 @@ public struct APIError: Error, Sendable, CustomStringConvertible {
 
     public var description: String { message.isEmpty ? "\(code)" : message }
 
-    public static let sessionExpired = APIError(code: .unauthenticated, message: "Your session has expired. Sign in again.")
+    public static let sessionExpired = APIError(code: .unauthenticated, message: String(localized: "Your session has expired. Sign in again.", bundle: .module))
 }

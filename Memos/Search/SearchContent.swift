@@ -90,7 +90,7 @@ struct SearchContent: View {
     }
 
     private func countLabel(_ count: Int) -> String {
-        count == 1 ? "1 memo" : "\(count) memos"
+        String(localized: "\(count) memos")
     }
 
     @ViewBuilder
@@ -98,9 +98,9 @@ struct SearchContent: View {
         let description: String = {
             let what = search.query.words.isEmpty ? search.tokens.filter { if case .space = $0 { false } else { true } }.map(\.label).joined(separator: " ") : search.text
             if case .space(_, let title) = search.query.spaceToken {
-                return "No memos match ‘\(what)’ in \(title)."
+                return String(localized: "No memos match ‘\(what)’ in \(title).", comment: "Search found nothing: what was searched for, then the Space searched in.")
             }
-            return "No memos match ‘\(what)’."
+            return String(localized: "No memos match ‘\(what)’.", comment: "Search found nothing; what was searched for.")
         }()
         VStack(spacing: 12) {
             Text(description)
@@ -203,9 +203,9 @@ private struct SearchSuggestions: View {
                             search.addToken(.tag(tag.tag))
                         } label: {
                             HStack {
-                                Text("#\(tag.tag)").foregroundStyle(.memosBlue)
+                                Text(verbatim: "#\(tag.tag)").foregroundStyle(.memosBlue)
                                 Spacer()
-                                Text("\(tag.count)").foregroundStyle(.ink2).monospacedDigit()
+                                Text(tag.count, format: .number).foregroundStyle(.ink2).monospacedDigit()
                             }
                         }
                     }
@@ -264,7 +264,7 @@ struct SaveViewSheet: View {
             Form {
                 Section {
                     HStack {
-                        TextField("🔖", text: $emoji)
+                        TextField(text: $emoji, prompt: Text(verbatim: "🔖")) { Text("Emoji") }
                             .frame(width: 44)
                             .multilineTextAlignment(.center)
                             .onChange(of: emoji) { _, value in

@@ -100,7 +100,11 @@ struct ActivityWidgetView: View {
                         .monospacedDigit()
                 }
                 if streak > 0 {
-                    Label("\(streak)", systemImage: "flame.fill")
+                    Label {
+                        Text(streak, format: .number)
+                    } icon: {
+                        Image(systemName: "flame.fill")
+                    }
                         .monospacedDigit()
                         .foregroundStyle(.memosBlue)
                         .widgetAccentable()

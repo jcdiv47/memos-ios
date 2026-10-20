@@ -66,11 +66,11 @@ struct MemoDetailView: View {
                         }
 
                         if let location = memo.locationIfSet {
-                            Label(location.placeholder.isEmpty ? "Location" : location.placeholder, systemImage: "mappin.and.ellipse")
+                            Label(location.placeholder.isEmpty ? String(localized: "Location") : location.placeholder, systemImage: "mappin.and.ellipse")
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
                                 .accessibilityElement(children: .ignore)
-                                .accessibilityLabel(location.placeholder.isEmpty ? "Location" : "Location, \(location.placeholder)")
+                                .accessibilityLabel(location.placeholder.isEmpty ? Text("Location") : Text("Location, \(location.placeholder)"))
                         }
 
                         if let linkPreview {
@@ -252,7 +252,7 @@ struct MemoDetailView: View {
             }
             _ = try? await session.engine.refresh(memo.name)
         } catch {
-            show(error.isConnectivity ? "Connect to react." : "Couldn’t react: \(error.description)")
+            show(error.isConnectivity ? "Connect to react." : "Couldn’t react: \(error.description)" as LocalizedStringResource)
         }
     }
 
@@ -276,7 +276,7 @@ struct MemoDetailView: View {
             withAnimation(.memosSpring) { comments.append(created) }
             return true
         } catch {
-            show(error.isConnectivity ? "Connect to comment." : "Couldn’t comment: \(error.description)")
+            show(error.isConnectivity ? "Connect to comment." : "Couldn’t comment: \(error.description)" as LocalizedStringResource)
             return false
         }
     }
@@ -285,7 +285,7 @@ struct MemoDetailView: View {
     /// never lags behind what you see.
     private func editComment(_ comment: Memo, to text: String) async -> Bool {
         guard session.isOnline else {
-            show(String(localized: "Connect to edit comments."))
+            show("Connect to edit comments.")
             return false
         }
         var request = Memos_Api_UpdateMemoRequest()
@@ -301,14 +301,14 @@ struct MemoDetailView: View {
             await refreshStoredCopy(of: comment.name)
             return true
         } catch {
-            show(error.isConnectivity ? String(localized: "Connect to edit comments.") : String(localized: "Couldn’t edit the comment: \(error.description)"))
+            show(error.isConnectivity ? "Connect to edit comments." : "Couldn’t edit the comment: \(error.description)" as LocalizedStringResource)
             return false
         }
     }
 
     private func deleteComment(_ comment: Memo) async {
         guard session.isOnline else {
-            show(String(localized: "Connect to delete comments."))
+            show("Connect to delete comments.")
             return
         }
         var request = Memos_Api_DeleteMemoRequest()
@@ -318,7 +318,7 @@ struct MemoDetailView: View {
         } catch where error.code == .notFound {
             // Already gone.
         } catch {
-            show(error.isConnectivity ? String(localized: "Connect to delete comments.") : String(localized: "Couldn’t delete the comment: \(error.description)"))
+            show(error.isConnectivity ? "Connect to delete comments." : "Couldn’t delete the comment: \(error.description)" as LocalizedStringResource)
             return
         }
         withAnimation(.memosSpring) { comments.removeAll { $0.name == comment.name } }
@@ -340,11 +340,20 @@ struct MemoDetailView: View {
             let token = ResourceName.lastSegment(share.name)
             shareURL = session.client.serverURL.appending(path: "memos/shares/\(token)")
         } catch {
-            show(error.isConnectivity ? "Connect to create a share link." : error.description)
+            if error.isConnectivity {
+                show("Connect to create a share link.")
+            } else {
+                show(verbatim: error.description)
+            }
         }
     }
 
-    private func show(_ message: String) {
+    private func show(_ message: LocalizedStringResource) {
+        show(verbatim: String(localized: message))
+    }
+
+    /// For text that is already in the reader's language, such as a server's error message.
+    private func show(verbatim message: String) {
         withAnimation(.memosSpring) { notice = message }
     }
 }
@@ -423,7 +432,7 @@ private struct CommentsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !comments.isEmpty {
-                Text(comments.count == 1 ? "1 comment" : "\(comments.count) comments")
+                Text("\(comments.count) comments")
                     .font(.headline)
                     .foregroundStyle(.ink)
                     .padding(.top, 8)
