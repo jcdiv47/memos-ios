@@ -13,6 +13,8 @@ final class AccountSession {
     let files: AttachmentFiles
     let people: PeopleDirectory
     let voice = VoiceRecorder()
+    /// The composer's unsaved work.
+    let drafts: DraftStore
 
     /// The timeline's navigation stack.
     var path: [Route] = []
@@ -51,6 +53,7 @@ final class AccountSession {
         self.client = client
         let location = AccountLocation(container: SharedContainer.directory, serverURL: client.serverURL, user: user)
         store = MemoStore(location: location)
+        drafts = DraftStore(directory: location.draftsDirectory)
         engine = SyncEngine(client: client, store: store)
         files = AttachmentFiles(client: client, store: store)
         people = PeopleDirectory(client: client, me: user)
@@ -133,6 +136,7 @@ final class AccountSession {
 
     func stop() async {
         connectivity.stop()
+        drafts.flush()
         await store.save()
     }
 
@@ -148,6 +152,7 @@ final class AccountSession {
         // Ask for time to finish writing the local copy and the queue before suspension.
         let task = UIApplication.shared.beginBackgroundTask(withName: "Save memos")
         defer { UIApplication.shared.endBackgroundTask(task) }
+        drafts.flush()
         await store.save()
         SpotlightIndex.update(store)
         WidgetCenter.shared.reloadAllTimelines()

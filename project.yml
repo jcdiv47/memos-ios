@@ -74,7 +74,7 @@ targets:
         NSMicrophoneUsageDescription: Memos records voice memos and transcribes them.
         NSSpeechRecognitionUsageDescription: Memos transcribes voice memos on this iPhone when your server can’t.
         NSLocationWhenInUseUsageDescription: Memos adds the place you’re at to a memo when you ask it to.
-        NSCameraUsageDescription: Memos can attach a photo you take to a memo.
+        NSCameraUsageDescription: Memos attaches photos you take and documents you scan to your memos.
         NSUserActivityTypes: [CreateMemoIntent, SearchMemosIntent]
     entitlements:
       path: Memos/Memos.entitlements

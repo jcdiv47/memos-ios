@@ -15,9 +15,12 @@ struct ComposerView: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var isPickingPhotos = false
     @State private var isImportingFiles = false
+    @State private var isTakingPhoto = false
+    @State private var isScanning = false
     @State private var confirmDiscard = false
     @State private var saved = 0
-    @FocusState private var editorFocused: Bool
+    @State private var editorFocused = false
+    @State private var hasBegun = false
 
     init(request: ComposerRequest) {
         self.request = request
@@ -41,11 +44,17 @@ struct ComposerView: View {
         }
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
-        .interactiveDismissDisabled(model?.hasChanges ?? false)
+        // Swiping the sheet away keeps the draft; only a recording would be lost.
+        .interactiveDismissDisabled(isCapturingVoice)
         .sensoryFeedback(.success, trigger: saved)
         .onAppear {
             if model == nil { model = ComposerModel(request: request, session: session) }
         }
+        .onDisappear { model?.keepDraft() }
+    }
+
+    private var isCapturingVoice: Bool {
+        session.voice.phase == .recording || session.voice.phase == .transcribing
     }
 
     private var title: String {
@@ -63,27 +72,23 @@ struct ComposerView: View {
                 }
             }
 
-            TextEditor(text: $model.text, selection: $model.selection)
-                .font(.memoBody)
-                .foregroundStyle(.ink)
-                .scrollContentBackground(.hidden)
-                .focused($editorFocused)
+            MemoTextView(model: model, isFocused: $editorFocused)
                 .overlay(alignment: .topLeading) {
-                    if model.plainText.isEmpty {
+                    if model.text.isEmpty {
                         Text("Capture a thought…")
                             .font(.memoBody)
                             .foregroundStyle(.ink2)
                             .padding(.top, 8)
                             .padding(.leading, 5)
                             .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(.card, in: .rect(cornerRadius: 14))
-                .onChange(of: model.text) { model.highlightTags() }
 
-            if !model.attachments.isEmpty || model.location != nil {
+            if !model.attachments.isEmpty || model.location != nil || model.preparing > 0 {
                 AttachmentStrip(model: model)
             }
 
@@ -93,6 +98,10 @@ struct ComposerView: View {
                 Text(error)
                     .font(.metadata)
                     .foregroundStyle(.danger)
+            } else if let notice = model.notice {
+                Text(notice)
+                    .font(.metadata)
+                    .foregroundStyle(.ink2)
             }
         }
         .padding(.horizontal, 16)
@@ -101,10 +110,20 @@ struct ComposerView: View {
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
         .safeAreaInset(edge: .bottom, spacing: 0) {
             FormattingBar {
-                formattingActions(model)
+                // Suggestions take the formatting buttons' place while a tag is typed, so the
+                // bar never changes height under the text.
+                if model.tagSuggestions.isEmpty {
+                    formattingActions(model)
+                        .disabled(model.isComposing)
+                        .transition(.opacity)
+                } else {
+                    TagSuggestions(tags: model.tagSuggestions) { model.completeTag($0) }
+                        .transition(.opacity)
+                }
             } trailing: {
                 captureActions(model)
             }
+            .animation(.memosFade, value: model.tagSuggestions.isEmpty)
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
@@ -118,12 +137,13 @@ struct ComposerView: View {
                 Button("Save") { save(model) }
                     .buttonStyle(.glassProminent)
                     .tint(.memosBlue)
-                    .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || session.voice.phase == .recording || session.voice.phase == .transcribing)
+                    .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || isCapturingVoice)
                     .keyboardShortcut(.return, modifiers: .command)
             }
         }
         .confirmationDialog("Discard this memo?", isPresented: $confirmDiscard) {
-            Button("Discard", role: .destructive) { close(model) }
+            Button("Discard", role: .destructive) { discard(model) }
+            Button("Keep Draft") { close(model) }
         }
         .photosPicker(isPresented: $isPickingPhotos, selection: $photoItems, maxSelectionCount: 10, matching: .any(of: [.images, .livePhotos]))
         .onChange(of: photoItems) { _, items in
@@ -136,27 +156,59 @@ struct ComposerView: View {
         .fileImporter(isPresented: $isImportingFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { model.addFiles(urls, store: session.store) }
         }
+        .fullScreenCover(isPresented: $isTakingPhoto) {
+            CameraPicker { image in
+                isTakingPhoto = false
+                if let image { Task { await model.addCameraPhoto(image, store: session.store) } }
+            }
+            .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $isScanning) {
+            DocumentScanner { pages in
+                isScanning = false
+                Task { await model.addScan(pages, store: session.store) }
+            }
+            .ignoresSafeArea()
+        }
         .task { await begin(model) }
     }
 
     @ViewBuilder
     private func formattingActions(_ model: ComposerModel) -> some View {
-        Button { model.insert("#") } label: { Image(systemName: "number") }
+        Button { model.insertTag() } label: { Image(systemName: "number") }
             .accessibilityLabel("Tag")
-        Button { model.insertLinePrefix("- [ ] ") } label: { Image(systemName: "checklist") }
+        Button { model.format(.taskList) } label: { Image(systemName: "checklist") }
             .accessibilityLabel("Task")
-        Button { model.insertLinePrefix("- ") } label: { Image(systemName: "list.bullet") }
+        Button { model.format(.bulletList) } label: { Image(systemName: "list.bullet") }
             .accessibilityLabel("Bulleted list")
-        Button { model.wrap("**") } label: { Image(systemName: "bold") }
+        Button { model.format(.bold) } label: { Image(systemName: "bold") }
             .accessibilityLabel("Bold")
-        Button { model.wrap("`") } label: { Image(systemName: "chevron.left.forwardslash.chevron.right") }
-            .accessibilityLabel("Code")
+        // Code lives in the menu: a sixth button no longer fits beside attach and record on a
+        // 402-point phone.
+        Menu {
+            ForEach(MarkdownFormat.menuSections, id: \.self) { formats in
+                Section {
+                    ForEach(formats, id: \.self) { format in
+                        Button(format.title, systemImage: format.systemImage) { model.format(format) }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "textformat")
+        }
+        .accessibilityLabel("Format")
     }
 
     @ViewBuilder
     private func captureActions(_ model: ComposerModel) -> some View {
         Menu {
             Button("Photo Library", systemImage: "photo.on.rectangle") { isPickingPhotos = true }
+            if CameraPicker.isAvailable {
+                Button("Take Photo", systemImage: "camera") { isTakingPhoto = true }
+            }
+            if DocumentScanner.isSupported {
+                Button("Scan Document", systemImage: "doc.viewfinder") { isScanning = true }
+            }
             Button("Files", systemImage: "folder") { isImportingFiles = true }
             Button("Current Location", systemImage: "location") { Task { await model.addCurrentLocation() } }
         } label: {
@@ -174,6 +226,9 @@ struct ComposerView: View {
     // MARK: Lifecycle
 
     private func begin(_ model: ComposerModel) async {
+        // The task runs again when the camera's full-screen cover goes away; that's no new start.
+        guard !hasBegun else { return }
+        hasBegun = true
         guard case .new(_, _, let record, let voiceMemo) = request.mode else {
             editorFocused = true
             return
@@ -197,29 +252,26 @@ struct ComposerView: View {
     }
 
     private func finishRecording(_ model: ComposerModel) async {
+        let before = model.text
         guard let recording = await session.voice.stop(client: session.client, online: session.isOnline) else { return }
-        apply(recording, to: model)
+        apply(recording, to: model, after: before)
     }
 
     private func waitForTranscript(_ model: ComposerModel) async {
+        // A restored draft stays ahead of the transcript.
+        let before = model.text
         while session.voice.phase == .transcribing || session.voice.phase == .recording {
-            if model.plainText != session.voice.transcript {
-                model.text = AttributedString(session.voice.transcript)
-            }
+            let combined = ComposerModel.joining(session.voice.transcript, to: before)
+            if model.text != combined { model.replaceText(combined) }
             try? await Task.sleep(for: .milliseconds(100))
         }
         if let recording = session.voice.lastRecording {
-            apply(recording, to: model)
+            apply(recording, to: model, after: before)
         }
     }
 
-    private func apply(_ recording: VoiceRecorder.Recording, to model: ComposerModel) {
-        let existing = model.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let transcript = recording.transcript
-        let combined = existing.isEmpty || existing == transcript ? transcript : existing + "\n\n" + transcript
-        model.text = AttributedString(combined)
-        model.selection = AttributedTextSelection(range: model.text.endIndex..<model.text.endIndex)
-        model.highlightTags()
+    private func apply(_ recording: VoiceRecorder.Recording, to model: ComposerModel, after text: String) {
+        model.replaceText(ComposerModel.joining(recording.transcript, to: text))
         model.addAudio(recording.file, store: session.store)
         session.voice.reset()
         editorFocused = true
@@ -231,11 +283,48 @@ struct ComposerView: View {
         dismiss()
     }
 
+    /// Closes the composer; the draft stays for next time.
     private func close(_ model: ComposerModel) {
         session.voice.cancel()
         session.voice.reset()
-        model.discardStaged(store: session.store)
+        model.keepDraft()
         dismiss()
+    }
+
+    private func discard(_ model: ComposerModel) {
+        session.voice.cancel()
+        session.voice.reset()
+        model.discard(store: session.store)
+        dismiss()
+    }
+}
+
+/// Your tags matching the one being typed, in the formatting bar. Tapping one finishes the tag.
+private struct TagSuggestions: View {
+    let tags: [String]
+    var onSelect: (String) -> Void
+
+    var body: some View {
+        ForEach(tags, id: \.self) { tag in
+            Button { onSelect(tag) } label: {
+                Text(verbatim: "#\(tag)")
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+            }
+            .buttonStyle(TagSuggestionStyle())
+            .accessibilityLabel(Text("Add tag \(tag)"))
+        }
+    }
+}
+
+private struct TagSuggestionStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.tint)
+            .padding(.horizontal, 10)
+            .frame(minHeight: 48)
+            .contentShape(.rect)
+            .opacity(configuration.isPressed ? 0.5 : 1)
     }
 }
 
@@ -248,7 +337,16 @@ private struct FormattingBar<Leading: View, Trailing: View>: View {
     var body: some View {
         GlassEffectContainer {
             HStack {
-                group { leading }
+                group {
+                    // Scrolls when it doesn't fit: a narrow phone, large text or many tags.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 0) { leading }
+                        ScrollView(.horizontal) {
+                            HStack(spacing: 0) { leading }
+                        }
+                        .scrollIndicators(.hidden)
+                    }
+                }
                 Spacer(minLength: 8)
                 group { trailing }
             }
@@ -387,7 +485,7 @@ private struct AttachmentStrip: View {
                         model.remove(attachment, store: session.store)
                     }
                 }
-                if model.isLocating {
+                if model.isLocating || model.preparing > 0 {
                     ProgressView().frame(width: 64, height: 64)
                 }
             }

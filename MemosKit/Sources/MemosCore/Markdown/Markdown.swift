@@ -213,22 +213,6 @@ struct BlockParser {
     }
 }
 
-// MARK: - Editing
-
-public enum MarkdownEditing {
-    /// Flips the task checkbox on `line`, the same rewrite of the memo content the web makes.
-    /// Returns the content unchanged when that line holds no task.
-    public static func toggleTask(atLine line: Int, in content: String) -> String {
-        var lines = content.components(separatedBy: "\n")
-        guard lines.indices.contains(line), let item = BlockParser.listItem(lines[line], line: line),
-              case .task(let checked) = item.marker,
-              let range = lines[line].range(of: checked ? "[x]" : "[ ]", options: checked ? .caseInsensitive : [])
-        else { return content }
-        lines[line].replaceSubrange(range, with: checked ? "[ ]" : "[x]")
-        return lines.joined(separator: "\n")
-    }
-}
-
 // MARK: - Analysis
 
 /// What the server derives from a memo's content (`Memo.tags` and `Memo.property`), computed

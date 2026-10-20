@@ -40,11 +40,22 @@ struct CaptureField: View {
                     .accessibilityLabel("Stop and transcribe")
                 } else {
                     // Grows taller at large text sizes instead of truncating.
-                    Text("Capture a thought…")
-                        .foregroundStyle(.ink2)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .glassEffectID("field", in: glass)
+                    Group {
+                        if session.drafts.hasNewMemoDraft {
+                            Label {
+                                Text("Continue draft")
+                            } icon: {
+                                Image(systemName: "pencil.line")
+                                    .foregroundStyle(.memosBlue)
+                            }
+                        } else {
+                            Text("Capture a thought…")
+                        }
+                    }
+                    .foregroundStyle(.ink2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .glassEffectID("field", in: glass)
 
                     Image(systemName: "mic")
                         .foregroundStyle(isHoldingMic ? Color.memosBlue : Color.ink2)
@@ -75,11 +86,12 @@ struct CaptureField: View {
         }
         .matchedTransitionSource(id: "capture", in: zoom)
         .animation(.memosSpring, value: voice.isRecording)
+        .animation(.memosFade, value: session.drafts.hasNewMemoDraft)
         .sensoryFeedback(trigger: voice.isRecording) { _, recording in
             recording ? .start : .stop
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Capture a thought")
+        .accessibilityLabel(session.drafts.hasNewMemoDraft ? Text("Continue draft") : Text("Capture a thought"))
         .accessibilityIdentifier("captureField")
         .accessibilityAddTraits(.isButton)
     }

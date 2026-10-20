@@ -5,35 +5,70 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The draft in the composer: text, audience, attachments and place.
+/// The draft in the composer: text, audience, attachments and place. Every change is kept as a
+/// draft until the memo is saved or discarded, so closing the sheet or the app loses nothing.
 @Observable
 final class ComposerModel {
-    var text = AttributedString()
-    var selection = AttributedTextSelection()
-    var visibility: MemoVisibility = .private
-    var space: String?
+    var text = "" {
+        didSet { if text != oldValue { draftChanged() } }
+    }
+    /// The selection in UTF-16 offsets, as the text view counts them.
+    var selection = NSRange(location: 0, length: 0)
+    /// Whether an input method has marked text, which formatting has to leave alone.
+    private(set) var isComposing = false
+    /// Your tags that match the `#tag` at the cursor.
+    private(set) var tagSuggestions: [String] = []
+    var visibility: MemoVisibility = .private {
+        didSet { if visibility != oldValue { draftChanged() } }
+    }
+    var space: String? {
+        didSet { if space != oldValue { draftChanged() } }
+    }
     /// A one-tap alternative audience, such as “Share with Studio”.
-    var suggestion: MemoVisibility?
-    var attachments: [Attachment] = []
-    var location: MemoLocation?
+    var suggestion: MemoVisibility? {
+        didSet { if suggestion != oldValue { draftChanged() } }
+    }
+    var attachments: [Attachment] = [] {
+        didSet { if attachments.map(\.name) != oldValue.map(\.name) { draftChanged() } }
+    }
+    var location: MemoLocation? {
+        didSet { if location != oldValue { draftChanged() } }
+    }
     var isLocating = false
+    /// Photos and scans still being turned into files.
+    private(set) var preparing = 0
     var error: String?
+    /// Something worth knowing that isn't a failure, like a draft that no longer applied.
+    var notice: String?
 
     /// The memo being edited, or nil for a new one.
     private(set) var editing: Memo?
 
-    var plainText: String { String(text.characters) }
-    var isEmpty: Bool { plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty }
+    @ObservationIgnored let editor = EditorProxy()
+    @ObservationIgnored private let drafts: DraftStore
+    @ObservationIgnored private let draftKey: DraftKey
+    @ObservationIgnored private let store: MemoStore
+    /// Your tags, most used first, for completion. Counted the first time a tag is typed rather
+    /// than while the sheet is opening.
+    @ObservationIgnored private lazy var tags: [String] = store.tagCounts().map(\.tag)
+    /// Off while the fields are filled in, and once the memo is saved or discarded: neither
+    /// should write the draft.
+    @ObservationIgnored private var keepsDraft = false
+
+    var isEmpty: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty }
 
     var hasChanges: Bool {
         guard let editing else { return !isEmpty }
-        return plainText != editing.content || visibility != editing.visibility || space != editing.spaceName
+        return text != editing.content || visibility != editing.visibility || space != editing.spaceName
             || attachments.map(\.name) != editing.attachments.map(\.name) || location != editing.locationIfSet
     }
 
     init(request: ComposerRequest, session: AccountSession) {
+        drafts = session.drafts
+        store = session.store
         switch request.mode {
         case .new(let origin, let text, _, _):
+            draftKey = .newMemo
             let initial = VisibilityRules.initial(defaultVisibility: session.defaultVisibility, origin: origin)
             visibility = initial.visibility
             suggestion = initial.suggestion
@@ -41,71 +76,114 @@ final class ComposerModel {
             case .timeline(let space), .view(let space, _): self.space = space
             case .shareSheet, .silent: space = nil
             }
-            setText(text)
+            if let draft = drafts.draft(for: .newMemo) {
+                restore(draft, session: session)
+                // Shared or linked text joins the draft rather than replacing it.
+                self.text = Self.joining(text, to: self.text)
+            } else {
+                self.text = text
+            }
         case .edit(let name):
-            guard let memo = session.store.own[name] else { return }
+            draftKey = .edit(name)
+            guard let memo = session.store.own[name] else { break }
             editing = memo
             visibility = memo.visibility
             space = memo.spaceName
             attachments = memo.attachments
             location = memo.locationIfSet
             if space != nil && visibility == .private { suggestion = .space }
-            setText(memo.content)
+            text = memo.content
+            if let draft = drafts.draft(for: draftKey) {
+                if draft.isCurrent(for: memo) {
+                    restore(draft, session: session)
+                } else {
+                    // Saving it would quietly undo whatever changed since.
+                    removeStaged(draft.attachments, store: session.store)
+                    drafts.remove(draftKey)
+                    notice = String(localized: "This memo changed since you last edited it, so your unsaved changes were discarded.")
+                }
+            }
+        }
+        selection = NSRange(location: (text as NSString).length, length: 0)
+        keepsDraft = true
+    }
+
+    private func restore(_ draft: ComposerDraft, session: AccountSession) {
+        text = draft.text
+        visibility = draft.visibility
+        space = draft.space
+        suggestion = draft.suggestion
+        location = draft.location
+        // A staged file can be missing if the app stopped between staging it and saving the draft.
+        attachments = draft.attachments.filter { attachment in
+            session.store.isStaged(attachment) || editing?.attachments.contains { $0.name == attachment.name } == true
+        }
+        if let space, session.store.profile.user != nil, session.space(named: space) == nil {
+            setSpace(nil)
         }
     }
 
-    private func setText(_ string: String) {
-        text = AttributedString(string)
-        selection = AttributedTextSelection(range: text.endIndex..<text.endIndex)
-        highlightTags()
+    /// `addition` after `base`, with a blank line between them.
+    static func joining(_ addition: String, to base: String) -> String {
+        guard !addition.isEmpty else { return base }
+        let trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed == addition ? addition : trimmed + "\n\n" + addition
     }
 
     // MARK: Text
 
-    /// Tags you type with # turn Memos Blue.
-    func highlightTags() {
-        let plain = plainText
-        let matches = TagScanner.matches(in: plain, excluding: TagScanner.codeSpans(in: plain))
-        var tagRanges: [Range<AttributedString.Index>] = []
-        for match in matches {
-            let lower = plain.distance(from: plain.startIndex, to: match.range.lowerBound)
-            let length = plain.distance(from: match.range.lowerBound, to: match.range.upperBound)
-            let start = text.characters.index(text.startIndex, offsetBy: lower)
-            tagRanges.append(start..<text.characters.index(start, offsetBy: length))
+    /// Called by the text view after every keystroke and selection change.
+    func editorDidChange(text: String, selection: NSRange, isComposing: Bool) {
+        if self.text != text { self.text = text }
+        if self.selection != selection { self.selection = selection }
+        if self.isComposing != isComposing { self.isComposing = isComposing }
+        if !isComposing { updateTagSuggestions() }
+    }
+
+    /// Replaces the whole text, as a transcript does, leaving the cursor at the end.
+    func replaceText(_ string: String) {
+        text = string
+        selection = NSRange(location: (string as NSString).length, length: 0)
+    }
+
+    func format(_ format: MarkdownFormat) {
+        let (text, selection) = current
+        apply(MarkdownEditing.edit(format, in: text, selection: selection))
+    }
+
+    func insertTag() {
+        let (text, selection) = current
+        apply(MarkdownEditing.insertTagMarker(in: text, selection: selection))
+    }
+
+    /// Finishes the `#tag` at the cursor with `tag` and a space.
+    func completeTag(_ tag: String) {
+        let (text, selection) = current
+        guard let token = MarkdownEditing.tagToken(in: text, at: selection.location) else { return }
+        apply(MarkdownEditing.completeTag(tag, replacing: token, in: text))
+    }
+
+    private var current: (text: String, selection: NSRange) {
+        editor.snapshot ?? (text, selection)
+    }
+
+    /// Through the text view, so the edit can be undone; straight to the text before there is one.
+    private func apply(_ edit: TextEdit) {
+        if editor.isAttached {
+            editor.apply(edit)
+        } else {
+            text = edit.applied(to: text)
+            selection = edit.selection
+            updateTagSuggestions()
         }
-        let current = text.runs.compactMap { run in run.foregroundColor == .memosBlue ? run.range : nil }
-        guard current != tagRanges else { return }
-        text.transform(updating: &selection) { text in
-            text.foregroundColor = nil
-            for range in tagRanges {
-                text[range].foregroundColor = .memosBlue
-            }
+    }
+
+    private func updateTagSuggestions() {
+        var suggestions: [String] = []
+        if selection.length == 0, let token = MarkdownEditing.tagToken(in: text, at: selection.location) {
+            suggestions = MarkdownEditing.tagSuggestions(for: token.prefix, in: tags)
         }
-    }
-
-    /// Inserts `string` at the cursor, replacing any selection.
-    func insert(_ string: String) {
-        text.replaceSelection(&selection, withCharacters: string)
-        highlightTags()
-    }
-
-    /// Starts a new line with `prefix` (a checkbox or a bullet), unless the cursor is already at
-    /// the start of a line.
-    func insertLinePrefix(_ prefix: String) {
-        let plain = plainText
-        let needsNewline = !plain.isEmpty && !plain.hasSuffix("\n") && cursorAtEnd
-        insert((needsNewline ? "\n" : "") + prefix)
-    }
-
-    /// Wraps the selection in `marker` (`**` for bold, `` ` `` for code), or inserts a pair.
-    func wrap(_ marker: String) {
-        let selected = String(text[selection].characters)
-        insert(marker + selected + marker)
-    }
-
-    private var cursorAtEnd: Bool {
-        if case .insertionPoint(let index) = selection.indices(in: text) { return index == text.endIndex }
-        return false
+        if suggestions != tagSuggestions { tagSuggestions = suggestions }
     }
 
     // MARK: Audience
@@ -137,9 +215,28 @@ final class ComposerModel {
         for item in items {
             guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
             let type = item.supportedContentTypes.first { $0.conforms(to: .image) || $0.conforms(to: .movie) } ?? .jpeg
-            let name = "IMG_\(Int(Date.now.timeIntervalSince1970) % 100_000).\(type.preferredFilenameExtension ?? "jpg")"
+            let name = "IMG_\(Self.stamp).\(type.preferredFilenameExtension ?? "jpg")"
             stage(data: data, filename: name, type: type, store: store)
         }
+    }
+
+    func addCameraPhoto(_ image: UIImage, store: MemoStore) async {
+        preparing += 1
+        defer { preparing -= 1 }
+        guard let data = await CapturedMedia.jpeg(image) else {
+            error = String(localized: "Couldn’t add the photo.")
+            return
+        }
+        stage(data: data, filename: "IMG_\(Self.stamp).jpg", type: .jpeg, store: store)
+    }
+
+    /// The scanned pages, as one PDF.
+    func addScan(_ pages: [UIImage], store: MemoStore) async {
+        guard !pages.isEmpty else { return }
+        preparing += 1
+        defer { preparing -= 1 }
+        let data = await CapturedMedia.pdf(pages)
+        stage(data: data, filename: "Scan_\(Self.stamp).pdf", type: .pdf, store: store)
     }
 
     func addFiles(_ urls: [URL], store: MemoStore) {
@@ -158,27 +255,59 @@ final class ComposerModel {
         try? FileManager.default.removeItem(at: url)
     }
 
+    private static var stamp: Int { Int(Date.now.timeIntervalSince1970) % 100_000 }
+
     private func stage(data: Data, filename: String, type: UTType, store: MemoStore) {
         do {
             let attachment = try store.stageUpload(data: data, filename: filename, mimeType: type.preferredMIMEType ?? "application/octet-stream")
             withAnimation(.memosSpring) { attachments.append(attachment) }
         } catch {
-            self.error = "Couldn’t add \(filename)."
+            self.error = String(localized: "Couldn’t add \(filename).")
         }
     }
 
     func remove(_ attachment: Attachment, store: MemoStore) {
         withAnimation(.memosSpring) { attachments.removeAll { $0.name == attachment.name } }
-        if store.isStaged(attachment), editing?.attachments.contains(where: { $0.name == attachment.name }) != true {
+        removeStaged([attachment], store: store)
+    }
+
+    /// Deletes staged files that never made it into a saved memo.
+    private func removeStaged(_ attachments: [Attachment], store: MemoStore) {
+        for attachment in attachments where store.isStaged(attachment) && editing?.attachments.contains(where: { $0.name == attachment.name }) != true {
             try? FileManager.default.removeItem(at: store.location.uploadFile(for: attachment.name))
         }
     }
 
-    /// Staged files that never made it into a saved memo.
-    func discardStaged(store: MemoStore) {
-        for attachment in attachments where store.isStaged(attachment) && editing?.attachments.contains(where: { $0.name == attachment.name }) != true {
-            try? FileManager.default.removeItem(at: store.location.uploadFile(for: attachment.name))
+    // MARK: Draft
+
+    private var draft: ComposerDraft {
+        ComposerDraft(
+            text: text, visibility: visibility, space: space, suggestion: suggestion,
+            attachments: attachments, location: location,
+            base: editing.map { BaseVersion(updateTime: $0.updatedAt, content: $0.content) }
+        )
+    }
+
+    private func draftChanged() {
+        guard keepsDraft else { return }
+        if hasChanges {
+            drafts.save(draft, for: draftKey)
+        } else {
+            drafts.remove(draftKey)
         }
+    }
+
+    /// Closing without saving: the draft and its staged files stay for next time.
+    func keepDraft() {
+        guard keepsDraft else { return }
+        drafts.flush()
+    }
+
+    /// Throws the draft away, with any files staged for it.
+    func discard(store: MemoStore) {
+        keepsDraft = false
+        removeStaged(attachments, store: store)
+        drafts.remove(draftKey)
     }
 
     // MARK: Location
@@ -187,7 +316,7 @@ final class ComposerModel {
         isLocating = true
         defer { isLocating = false }
         guard let fix = await LocationFetcher.current() else {
-            error = "Couldn’t find where you are. Check that Location Services are on for Memos."
+            error = String(localized: "Couldn’t find where you are. Check that Location Services are on for Memos.")
             return
         }
         var location = MemoLocation()
@@ -202,8 +331,10 @@ final class ComposerModel {
     /// Saves to the local copy; the upload follows in the background. Returns false when there's
     /// nothing to save.
     func save(to store: MemoStore) -> Bool {
-        let content = plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty || !attachments.isEmpty else { return false }
+        keepsDraft = false
+        drafts.remove(draftKey)
         if let editing {
             var fields: Set<MemoField> = []
             if content != editing.content { fields.insert(.content) }

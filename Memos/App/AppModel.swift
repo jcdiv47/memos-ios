@@ -103,6 +103,8 @@ final class AppModel {
         guard let session else { return }
         await session.stop()
         await session.client.signOut()
+        // First, so no pending draft write lands after the folder is gone.
+        session.drafts.removeAll()
         await AccountArchive.erase(session.store.location)
         SharedContainer.defaults.removeObject(forKey: "serverURL")
         SharedContainer.defaults.removeObject(forKey: "user")

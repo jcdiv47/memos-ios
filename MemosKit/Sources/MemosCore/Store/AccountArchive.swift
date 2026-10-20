@@ -39,6 +39,8 @@ public struct AccountLocation: Sendable, Equatable {
     public var filesDirectory: URL { directory.appending(path: "Files", directoryHint: .isDirectory) }
     /// Drop-off for memos saved by extensions while the app wasn't running.
     public var inboxDirectory: URL { directory.appending(path: "Inbox", directoryHint: .isDirectory) }
+    /// The composer's unsaved drafts.
+    public var draftsDirectory: URL { directory.appending(path: "Drafts", directoryHint: .isDirectory) }
 
     public func uploadFile(for attachment: String) -> URL {
         uploadsDirectory.appending(path: ResourceName.lastSegment(attachment))

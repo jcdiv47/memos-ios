@@ -43,7 +43,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Memos can attach a photo you take to a memo.</string>
+	<string>Memos attaches photos you take and documents you scan to your memos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Memos adds the place you’re at to a memo when you ask it to.</string>
 	<key>NSMicrophoneUsageDescription</key>
