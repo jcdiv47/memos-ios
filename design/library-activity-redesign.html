@@ -1,0 +1,672 @@
+<title>Memos Activity &amp; Library</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap">
+<style>
+/* Layout: a design proposal on Memos paper. Controls stay pinned; diagnosis, then the color system, then phones in rows, then the change list in one reading column. */
+:root {
+  /* Color: the page uses Memos' own web tokens, same as design/memos-ios-design.html */
+  --paper: oklch(0.982 0.0054 95.1);
+  --paper-2: oklch(0.952 0.0095 93);
+  --card: oklch(1 0 0);
+  --ink: oklch(0.244 0.027 95.7);
+  --ink-2: oklch(0.52 0.012 97);
+  --rule: oklch(0.885 0.007 97.4);
+  --accent: oklch(0.45 0.08 250);
+  --accent-soft: oklch(0.45 0.08 250 / 0.11);
+  --on-accent: oklch(0.982 0.0054 95.1);
+  --bezel: oklch(0.22 0.005 260);
+  /* Type */
+  --font-display: "Source Serif 4", ui-serif, "Iowan Old Style", Charter, Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: oklch(0.205 0.005 80);
+    --paper-2: oklch(0.25 0.006 80);
+    --card: oklch(0.26 0.006 80);
+    --ink: oklch(0.93 0.006 90);
+    --ink-2: oklch(0.72 0.008 85);
+    --rule: oklch(0.345 0.006 80);
+    --accent: oklch(0.72 0.12 250);
+    --accent-soft: oklch(0.72 0.12 250 / 0.16);
+    --on-accent: oklch(0.18 0.02 255);
+    --bezel: oklch(0.12 0.004 80);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: oklch(0.205 0.005 80);
+  --paper-2: oklch(0.25 0.006 80);
+  --card: oklch(0.26 0.006 80);
+  --ink: oklch(0.93 0.006 90);
+  --ink-2: oklch(0.72 0.008 85);
+  --rule: oklch(0.345 0.006 80);
+  --accent: oklch(0.72 0.12 250);
+  --accent-soft: oklch(0.72 0.12 250 / 0.16);
+  --on-accent: oklch(0.18 0.02 255);
+  --bezel: oklch(0.12 0.004 80);
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.55 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 80px; display: grid; gap: 64px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(32px, 5vw, 46px); line-height: 1.08; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 27px; line-height: 1.2; font-weight: 600; }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.muted { color: var(--ink-2); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--paper-2); border: 0.5px solid var(--rule); border-radius: 5px; padding: 1px 5px; }
+.intro { display: grid; gap: 14px; }
+.intro p { font-size: 17px; }
+.sec-head { display: grid; gap: 10px; margin-bottom: 26px; }
+
+/* controls */
+.controls {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center;
+  padding-block: 12px; background: color-mix(in oklch, var(--paper) 92%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 0.5px solid var(--rule);
+  margin-top: -40px;
+}
+.ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ctl > span { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.seg { display: inline-flex; background: var(--paper-2); border: 0.5px solid var(--rule); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { font-size: 13.5px; font-weight: 500; padding: 5px 13px; border-radius: 999px; cursor: pointer; color: var(--ink-2); display: inline-flex; gap: 7px; align-items: center; }
+.seg input:checked + label { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 0 0 0.5px var(--rule); }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 1px; }
+.seg .chip { display: inline-flex; gap: 1.5px; }
+.seg .chip i { width: 6px; height: 10px; border-radius: 1.5px; }
+
+/* diagnosis */
+.compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.panel { border-radius: 20px; padding: 18px 20px 20px; display: grid; gap: 14px; border: 0.5px solid var(--rule); }
+.panel h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.panel h3 small { font-weight: 500; font-size: 12.5px; }
+.strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; align-items: end; }
+.strip .sw { display: grid; gap: 6px; justify-items: center; font-size: 11px; position: relative; }
+.strip .sw i { width: 34px; height: 34px; border-radius: 7px; display: block; }
+.strip .ratio { position: absolute; left: calc(100% - 0px); top: 8px; transform: translateX(-50%); font: 600 11px/1 var(--font-mono); padding: 3px 5px; border-radius: 5px; font-variant-numeric: tabular-nums; z-index: 1; }
+.verdict { font-size: 13.5px; line-height: 1.5; }
+.panel .hm { max-width: 420px; }
+
+/* tokens */
+.tokens { overflow-x: auto; border: 0.5px solid var(--rule); border-radius: 18px; background: var(--card); }
+.tokens table { border-collapse: collapse; width: 100%; min-width: 680px; font-size: 13.5px; }
+.tokens th, .tokens td { text-align: left; padding: 10px 14px; border-bottom: 0.5px solid var(--rule); vertical-align: middle; }
+.tokens tr:last-child td { border-bottom: 0; }
+.tokens th { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
+.tok { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.tok i { width: 22px; height: 22px; border-radius: 6px; box-shadow: inset 0 0 0 0.5px rgb(127 127 127 / 0.35); }
+.tok.none { color: var(--ink-2); font-family: var(--font-body); font-style: italic; }
+.tokens td.role { color: var(--ink-2); max-width: 300px; }
+.tokens b { font-weight: 600; }
+.ramp-row { display: flex; gap: 4px; }
+.ramp-row i { width: 22px; height: 22px; border-radius: 5px; }
+.note-list { display: grid; gap: 10px; margin: 22px 0 0; padding: 0; list-style: none; max-width: 70ch; }
+.note-list li { display: grid; grid-template-columns: 18px 1fr; gap: 10px; }
+.note-list li::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); margin-top: 9px; }
+
+/* phones */
+.screens { display: flex; flex-wrap: wrap; gap: 44px 48px; }
+figure { margin: 0; width: 300px; max-width: 100%; display: grid; gap: 16px; align-content: start; }
+figcaption { font-size: 13.5px; line-height: 1.5; display: grid; gap: 6px; }
+figcaption b { font-size: 15px; display: flex; gap: 8px; align-items: center; }
+figcaption .rec { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: var(--accent); color: var(--on-accent); border-radius: 999px; padding: 2px 8px; }
+figcaption ul { margin: 2px 0 0; padding-left: 18px; display: grid; gap: 3px; }
+.phone { width: 300px; max-width: 100%; aspect-ratio: 393 / 852; border-radius: 46px; background: var(--bezel); padding: 9px; box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.45); }
+.screen {
+  position: relative; height: 100%; border-radius: 38px; overflow: hidden;
+  background: var(--a-paper); color: var(--a-ink);
+  font: 12.5px/1.3 var(--font-body); font-variant-numeric: tabular-nums;
+}
+.sbar { position: absolute; top: 0; left: 0; right: 0; height: 40px; display: flex; justify-content: space-between; align-items: center; padding: 6px 28px 0 32px; font-weight: 600; font-size: 12.5px; z-index: 3; }
+.sbar .r { display: flex; gap: 5px; align-items: center; }
+.sbar .batt { width: 21px; height: 10px; border-radius: 3px; border: 1px solid currentColor; opacity: 0.9; position: relative; }
+.sbar .batt::after { content: ""; position: absolute; inset: 1.5px 4px 1.5px 1.5px; background: currentColor; border-radius: 1px; }
+.island { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); width: 84px; height: 24px; border-radius: 20px; background: #000; z-index: 4; }
+.nav { position: absolute; top: 44px; left: 12px; right: 12px; height: 38px; display: grid; grid-template-columns: 38px 1fr 38px; align-items: center; z-index: 3; }
+.nav .t { text-align: center; font-family: var(--font-display); font-weight: 700; font-size: 16.5px; }
+.glass {
+  background: color-mix(in oklch, var(--a-card) 74%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: inset 0 0 0 0.5px var(--a-rim), 0 4px 14px -6px rgb(0 0 0 / 0.35);
+}
+.rb { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--a-ink); }
+.rb .av { width: 26px; height: 26px; border-radius: 50%; background: var(--a-fill); display: grid; place-items: center; font-weight: 600; font-size: 12px; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.body { position: absolute; inset: 88px 10px 0; display: grid; gap: 9px; align-content: start; }
+.dock { position: absolute; left: 14px; right: 14px; bottom: 18px; display: flex; gap: 8px; z-index: 3; }
+.pill { flex: 1; height: 40px; border-radius: 999px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 15px; color: var(--a-ink2); font-size: 13px; }
+.pill .icon { width: 16px; height: 16px; }
+.pill.lone { flex: none; width: 196px; margin: 0 auto; }
+.dock .rb { width: 40px; height: 40px; }
+.fade { position: absolute; left: 0; right: 0; bottom: 0; height: 110px; background: linear-gradient(to top, var(--a-paper) 30%, transparent); z-index: 2; pointer-events: none; }
+
+.a-card { background: var(--a-card); border-radius: 18px; box-shadow: inset 0 0 0 0.5px var(--a-hairline); }
+.act { padding: 11px 13px 12px; display: grid; gap: 9px; }
+.act .hd { display: flex; justify-content: space-between; align-items: baseline; }
+.act .hd b { font-size: 13.5px; font-weight: 600; }
+.act .hd span, .act .ft { color: var(--a-ink2); font-size: 11px; }
+.act .hd .chev { display: inline-flex; align-items: center; gap: 2px; }
+.act .hd .chev .icon { width: 11px; height: 11px; stroke-width: 2.4; color: var(--a-ink3); }
+.act .ft { display: flex; justify-content: space-between; align-items: center; }
+.act .ft b { color: var(--a-ink); font-weight: 600; }
+.legend { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; color: var(--a-ink2); }
+.legend i { width: 8px; height: 8px; border-radius: 2px; }
+.legend span { margin: 0 3px; }
+
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { padding: 10px 11px; display: grid; grid-template-columns: 28px 1fr; gap: 0 9px; align-items: center; border-radius: 16px; }
+.tile .ic { grid-row: span 2; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--a-accent-soft); color: var(--a-accent); }
+.tile .ic .icon { width: 15px; height: 15px; }
+.tile b { font-size: 12.5px; font-weight: 600; }
+.tile span { font-size: 11px; color: var(--a-ink2); }
+.tile.zero .ic { background: var(--a-fill); color: var(--a-ink3); }
+.tile.zero span { color: var(--a-ink3); }
+.grp { font-size: 11.5px; font-weight: 600; color: var(--a-ink2); padding: 5px 8px 0; }
+.list { overflow: hidden; }
+.row { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 9px 12px; min-height: 40px; }
+.row + .row { box-shadow: inset 0 0.5px 0 var(--a-hairline); }
+.row .em { font-size: 15px; text-align: center; }
+.row .ttl { display: grid; gap: 1px; min-width: 0; }
+.row code { font-size: 9.5px; color: var(--a-ink2); background: none; border: 0; padding: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .cnt { color: var(--a-ink2); display: inline-flex; align-items: center; gap: 6px; }
+.row .cnt .icon { width: 11px; height: 11px; stroke-width: 2.4; color: var(--a-ink3); }
+.row .li { color: var(--a-accent); display: grid; place-items: center; }
+.row .li .icon { width: 17px; height: 17px; }
+.row.zero .cnt { color: var(--a-ink3); }
+.row.add { color: var(--a-accent); }
+.row.add .em { color: var(--a-accent); display: grid; place-items: center; }
+
+/* heatmap */
+.hm { display: grid; gap: 5px; }
+.hm .months { display: grid; font-size: 9.5px; color: var(--a-ink2); height: 12px; }
+.hm .months span { white-space: nowrap; }
+.hm .body2 { display: grid; grid-template-columns: auto 1fr; gap: 5px; }
+.hm .wd { display: grid; grid-template-rows: repeat(7, 1fr); font-size: 9px; color: var(--a-ink2); gap: 2.5px; }
+.hm .wd span { display: flex; align-items: center; line-height: 1; }
+.hm .grid { display: grid; grid-template-rows: repeat(7, auto); grid-auto-flow: column; gap: 2.5px; }
+.hm .grid i { aspect-ratio: 1; border-radius: 2.5px; display: block; }
+.hm .grid i.future { visibility: hidden; }
+.hm .grid i.today { outline: 1.5px solid var(--a-ink); outline-offset: 1px; }
+
+/* Activity screen */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); padding: 11px 4px; }
+.stats div { display: grid; gap: 1px; padding: 0 10px; }
+.stats div + div { box-shadow: inset 0.5px 0 0 var(--a-hairline); }
+.stats b { font-size: 17px; font-weight: 600; }
+.stats span { font-size: 10.5px; color: var(--a-ink2); }
+.months-list .row { grid-template-columns: 1fr 70px 46px; }
+.months-list .bar { height: 5px; border-radius: 3px; background: var(--a-fill); overflow: hidden; }
+.months-list .bar i { display: block; height: 100%; background: var(--h3); border-radius: 3px; }
+.months-list .n { text-align: right; color: var(--a-ink2); }
+
+.changes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.change { background: var(--card); border: 0.5px solid var(--rule); border-radius: 16px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+.change h3 { margin: 0; font-size: 15px; }
+.change p { font-size: 13.5px; color: var(--ink-2); }
+.change code { font-size: 12px; }
+
+@media (max-width: 520px) {
+  .controls { gap: 10px; }
+  .screens { justify-content: center; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hm .grid i, .screen, .tok i, .strip i { transition: background-color .25s ease; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.4 3.4 0 0 1 4.8 4.8l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4l7.7-7.7"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4L3.5 6.3v13.5L9 17.5l6 2.5 5.5-2.3V4.2L15 6.5 9 4zM9 4v13.5M15 6.5V20"/></symbol>
+  <symbol id="i-hash" viewBox="0 0 24 24"><path d="M5 9h15M4 15h15M10 4L8 20M16 4l-2 16"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header class="intro">
+    <span class="eyebrow">Memos for iPhone · design proposal</span>
+    <h1>Activity colors and the Library screen</h1>
+    <p>Two fixes and a small color system to hold them. The heatmap moves to a stepped scale whose levels are evenly spaced in contrast, and dark mode moves from blue-grey slate to a warm graphite that matches the paper of light mode. The Library gets the layout the original spec drew: activity at the top and a full bottom row. Pick a scale and a Library layout, then tell me in chat which ones to build.</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Preview settings">
+    <div class="ctl">
+      <span id="lbl-ramp">Heatmap scale</span>
+      <div class="seg" role="radiogroup" aria-labelledby="lbl-ramp">
+        <input type="radio" name="ramp" id="ramp-blue" value="blue" checked><label for="ramp-blue"><span class="chip" data-chip="blue"></span>Memos Blue</label>
+        <input type="radio" name="ramp" id="ramp-tide" value="tide"><label for="ramp-tide"><span class="chip" data-chip="tide"></span>Tide</label>
+        <input type="radio" name="ramp" id="ramp-graphite" value="graphite"><label for="ramp-graphite"><span class="chip" data-chip="graphite"></span>Graphite</label>
+      </div>
+    </div>
+    <div class="ctl">
+      <span id="lbl-scheme">Screens</span>
+      <div class="seg" role="radiogroup" aria-labelledby="lbl-scheme">
+        <input type="radio" name="scheme" id="scheme-dark" value="dark" checked><label for="scheme-dark">Dark</label>
+        <input type="radio" name="scheme" id="scheme-light" value="light"><label for="scheme-light">Light</label>
+      </div>
+    </div>
+  </div>
+
+  <section id="stage-diag">
+    <div class="sec-head">
+      <span class="eyebrow">1 · Why the heatmap looks flat</span>
+      <h2>Most of the range is spent on the first step</h2>
+      <p>Today a day's square is Memos Blue at an opacity of 25% plus 75% × count ÷ busiest day. With one 9-memo day, a 1-memo day and a 2-memo day get 33% and 42%, which look the same. Empty days use Paper 2, which in dark mode is <em>darker</em> than the page, so the grid reads as holes rather than a calendar. The numbers between the swatches are WCAG contrast ratios between neighbouring levels.</p>
+    </div>
+    <div class="compare">
+      <div class="panel" data-surface="current">
+        <h3>Current <small class="muted" data-cur-note></small></h3>
+        <div class="hm" data-weeks="20" data-set="current"></div>
+        <div class="strip" data-strip="current"></div>
+        <p class="verdict muted" data-verdict="current"></p>
+      </div>
+      <div class="panel" data-surface="proposed">
+        <h3>Proposed <small class="muted" data-ramp-name></small></h3>
+        <div class="hm" data-weeks="20" data-set="proposed"></div>
+        <div class="strip" data-strip="proposed"></div>
+        <p class="verdict muted" data-verdict="proposed"></p>
+      </div>
+    </div>
+    <ul class="note-list">
+      <li><span><b>Four fixed levels instead of a continuous opacity.</b> The cut points are the quartiles of your active days, so one 20-memo day doesn't push everything else to the bottom level.</span></li>
+      <li><span><b>Every level is an opaque color</b> picked in OKLCH, with lightness spaced so each step is about 1.6–1.8:1 from the next. In dark mode more memos means brighter; in light mode, darker.</span></li>
+      <li><span><b>Empty days sit one step above the card</b> (the new Fill token), so the calendar's shape is visible in both modes. Today gets an ink ring, which also works with the Graphite scale.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">2 · Color system</span>
+      <h2>Warm graphite for dark mode, plus two new tokens</h2>
+      <p>Light mode already has warm paper and ink. Dark mode switched to cool blue-grey, so the app changed character between modes and the blue accent had nothing to stand out against. The proposed dark neutrals keep the same warm hue as light mode at very low chroma, and depth goes the iOS way: surfaces get lighter as they come forward. Contrast is measured against Card.</p>
+    </div>
+    <div class="tokens">
+      <table>
+        <thead><tr><th>Token</th><th>Dark today</th><th>Dark proposed</th><th>Light proposed</th><th>On Card</th><th>Role</th></tr></thead>
+        <tbody id="token-rows"></tbody>
+      </table>
+    </div>
+    <ul class="note-list">
+      <li><span><b>Fill replaces Paper 2 for wells and chips.</b> It's darker than Card in light mode and lighter in dark mode, like the system's tertiary fill. Paper 2 stays only for code blocks, where a recessed look is right.</span></li>
+      <li><span><b>Ink 3 is new</b>, for chevrons, zero counts and placeholders. Chevrons currently use Hairline, which measures about 1.2:1 on Card in dark mode and nearly disappears.</span></li>
+      <li><span><b>Activity 1–4</b> is its own ramp in <code>Theme.swift</code>, next to <code>CodePalette</code>, with Increase Contrast variants. The widget uses it in full color and keeps opacity steps (30, 50, 75, 100%) for tinted Home Screens.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">3 · Activity screen</span>
+      <h2>A calendar you can read at a glance</h2>
+      <p>Month and weekday labels give the grid its dates, a legend explains the steps, and three figures above it answer the questions people actually open this screen for. The month list gets bars on the same scale.</p>
+    </div>
+    <div class="screens">
+      <figure>
+        <div class="phone"><div class="screen">
+          <div class="island"></div>
+          <div class="sbar"><span>9:41</span><span class="r"><span class="batt"></span></span></div>
+          <div class="nav"><span class="rb glass"><svg class="icon"><use href="#i-back"/></svg></span><span class="t">Activity</span><span></span></div>
+          <div class="body">
+            <div class="a-card stats">
+              <div><b data-stat="month"></b><span>This month</span></div>
+              <div><b data-stat="streak"></b><span>Day streak</span></div>
+              <div><b data-stat="days"></b><span>Active days</span></div>
+            </div>
+            <div class="a-card act">
+              <div class="hm" data-weeks="15" data-set="proposed" data-labels="1"></div>
+              <div class="ft"><span>Tap a day</span><span class="legend" data-legend></span></div>
+            </div>
+            <div class="grp">By month</div>
+            <div class="a-card list months-list" data-months></div>
+          </div>
+        </div></div>
+        <figcaption><b>Activity</b>The grid keeps scrolling back 26 weeks; its weekday column stays pinned on the left. Squares are 14 pt with 3 pt gaps, as today.<span class="muted">Activity numbers here are sample data.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">4 · Library</span>
+      <h2>Three ways to finish the bottom of the screen</h2>
+      <p>The Library has two problems at the bottom. The list ends about 60% of the way down, leaving an empty slab. Below that, the capture field floats alone in the middle of the bottom bar, because the Search circle from the spec never made it in. Each option fixes both. Row counts are yours, from the screenshot; the activity grid is sample data.</p>
+    </div>
+    <div class="screens">
+      <figure>
+        <div class="phone"><div class="screen">
+          <div class="island"></div>
+          <div class="sbar"><span>9:41</span><span class="r"><span class="batt"></span></span></div>
+          <div class="nav"><span class="rb glass"><svg class="icon"><use href="#i-back"/></svg></span><span class="t">Library</span><span class="rb glass"><span class="av">J</span></span></div>
+          <div class="body">
+            <div class="a-card act">
+              <div class="hd"><b>Activity</b><span class="chev"><span data-stat="summary"></span><svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="hm" data-weeks="17" data-set="proposed"></div>
+              <div class="ft"><span><b data-stat="month"></b> this month</span><span class="legend" data-legend></span></div>
+            </div>
+            <div class="tiles">
+              <div class="a-card tile"><span class="ic"><svg class="icon"><use href="#i-clip"/></svg></span><b>Attachments</b><span>6</span></div>
+              <div class="a-card tile zero"><span class="ic"><svg class="icon"><use href="#i-map"/></svg></span><b>Map</b><span>No places</span></div>
+              <div class="a-card tile"><span class="ic"><svg class="icon"><use href="#i-hash"/></svg></span><b>Tags</b><span>6</span></div>
+              <div class="a-card tile"><span class="ic"><svg class="icon"><use href="#i-archive"/></svg></span><b>Archived</b><span>31</span></div>
+            </div>
+            <div class="grp">Saved views</div>
+            <div class="a-card list">
+              <div class="row"><span class="em">🔖</span><span class="ttl">Bookmarks<code>"bookmark" in tags</code></span><span class="cnt">1<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="em">🗂️</span><span class="ttl">No Archive<code>size(tags) == 0 || !("archive" in tags)</code></span><span class="cnt">100<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row add"><span class="em"><svg class="icon"><use href="#i-plus"/></svg></span><span class="ttl">New saved view</span><span></span></div>
+            </div>
+          </div>
+          <div class="fade"></div>
+          <div class="dock"><span class="pill glass">Capture a thought…<svg class="icon"><use href="#i-mic"/></svg></span><span class="rb glass"><svg class="icon"><use href="#i-search"/></svg></span></div>
+        </div></div>
+        <figcaption><b>A · Activity leads <span class="rec">Recommended</span></b>
+          The layout from the original spec. The heatmap is the most useful thing on the screen, so it comes first and fills the space the list left empty.
+          <ul><li>The bottom row matches the timeline: capture field plus Search.</li><li>Four destinations become tiles; a zero count dims.</li><li>"New saved view" ends the list with an action instead of a gap.</li></ul>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone"><div class="screen">
+          <div class="island"></div>
+          <div class="sbar"><span>9:41</span><span class="r"><span class="batt"></span></span></div>
+          <div class="nav"><span class="rb glass"><svg class="icon"><use href="#i-back"/></svg></span><span class="t">Library</span><span class="rb glass"><span class="av">J</span></span></div>
+          <div class="body">
+            <div class="a-card list">
+              <div class="row"><span class="li"><svg class="icon"><use href="#i-cal"/></svg></span><span class="ttl">Activity</span><span class="cnt"><span data-stat="summary"></span><svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="li"><svg class="icon"><use href="#i-clip"/></svg></span><span class="ttl">Attachments</span><span class="cnt">6<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row zero"><span class="li"><svg class="icon"><use href="#i-map"/></svg></span><span class="ttl">Map</span><span class="cnt">No places<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="li"><svg class="icon"><use href="#i-hash"/></svg></span><span class="ttl">Tags</span><span class="cnt">6<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="li"><svg class="icon"><use href="#i-archive"/></svg></span><span class="ttl">Archived</span><span class="cnt">31<svg class="icon"><use href="#i-chev"/></svg></span></div>
+            </div>
+            <div class="grp">Saved views</div>
+            <div class="a-card list">
+              <div class="row"><span class="em">🔖</span><span class="ttl">Bookmarks<code>"bookmark" in tags</code></span><span class="cnt">1<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="em">🗂️</span><span class="ttl">No Archive<code>size(tags) == 0 || !("archive" in tags)</code></span><span class="cnt">100<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row add"><span class="em"><svg class="icon"><use href="#i-plus"/></svg></span><span class="ttl">New saved view</span><span></span></div>
+            </div>
+          </div>
+          <div class="fade"></div>
+          <div class="dock"><span class="pill glass">Capture a thought…<svg class="icon"><use href="#i-mic"/></svg></span><span class="rb glass"><svg class="icon"><use href="#i-search"/></svg></span></div>
+        </div></div>
+        <figcaption><b>B · Keep the list</b>
+          The smallest change: today's list with visible chevrons, accent icons and the full bottom row.
+          <ul><li>Least code; reads like Settings.</li><li>The lower third is still empty on most phones; the edge fade and full row only make it look deliberate.</li></ul>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone"><div class="screen">
+          <div class="island"></div>
+          <div class="sbar"><span>9:41</span><span class="r"><span class="batt"></span></span></div>
+          <div class="nav"><span class="rb glass"><svg class="icon"><use href="#i-back"/></svg></span><span class="t">Library</span><span class="rb glass"><span class="av">J</span></span></div>
+          <div class="body">
+            <div class="a-card act">
+              <div class="hd"><b>Activity</b><span class="chev"><span data-stat="summary"></span><svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="hm" data-weeks="17" data-set="proposed"></div>
+            </div>
+            <div class="a-card list">
+              <div class="row"><span class="li"><svg class="icon"><use href="#i-clip"/></svg></span><span class="ttl">Attachments</span><span class="cnt">6<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row zero"><span class="li"><svg class="icon"><use href="#i-map"/></svg></span><span class="ttl">Map</span><span class="cnt">No places<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="li"><svg class="icon"><use href="#i-hash"/></svg></span><span class="ttl">Tags</span><span class="cnt">6<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="li"><svg class="icon"><use href="#i-archive"/></svg></span><span class="ttl">Archived</span><span class="cnt">31<svg class="icon"><use href="#i-chev"/></svg></span></div>
+            </div>
+            <div class="grp">Saved views</div>
+            <div class="a-card list">
+              <div class="row"><span class="em">🔖</span><span class="ttl">Bookmarks<code>"bookmark" in tags</code></span><span class="cnt">1<svg class="icon"><use href="#i-chev"/></svg></span></div>
+              <div class="row"><span class="em">🗂️</span><span class="ttl">No Archive<code>size(tags) == 0 || !("archive" in tags)</code></span><span class="cnt">100<svg class="icon"><use href="#i-chev"/></svg></span></div>
+            </div>
+          </div>
+          <div class="fade"></div>
+          <div class="dock"><span class="pill glass" style="padding-left:12px"><span style="display:flex;gap:7px;align-items:center"><svg class="icon"><use href="#i-search"/></svg>Search memos and views</span><svg class="icon"><use href="#i-mic"/></svg></span></div>
+        </div></div>
+        <figcaption><b>C · Library is for finding</b>
+          The bottom row becomes one wide search field, because Library is where you browse. Capture stays on the timeline, one swipe back.
+          <ul><li>Search is right where you'd look for it on this screen.</li><li>Breaks the "capture from anywhere" rule the rest of the app keeps.</li></ul>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="eyebrow">5 · What changes in the code</span>
+      <h2>Where each piece lands</h2>
+    </div>
+    <div class="changes">
+      <div class="change"><h3>Color assets</h3><p>Retune the dark values of Paper, Card, Hairline, Ink 2 and Memos Blue. Add <code>Fill</code> and <code>Ink3</code> colorsets, each with Increase Contrast variants.</p></div>
+      <div class="change"><h3>Activity scale</h3><p><code>MemoActivity.level(on:)</code> returns 0–4 from quartiles, replacing <code>intensity</code>. <code>ActivityPalette</code> in <code>Theme.swift</code> maps levels to colors.</p></div>
+      <div class="change"><h3>Activity screen</h3><p><code>ActivityView</code> gets the stats card, month and weekday labels, the legend, the today ring and month bars.</p></div>
+      <div class="change"><h3>Library</h3><p><code>LibraryView</code> takes the chosen layout. The bottom bar adds <code>DefaultToolbarItem(kind: .search, placement: .bottomBar)</code> beside <code>CaptureField</code>.</p></div>
+      <div class="change"><h3>Widget</h3><p><code>ActivityWidget</code> uses the same levels: palette colors in full color, stepped opacity when the Home Screen is tinted.</p></div>
+      <div class="change"><h3>Rows everywhere</h3><p>Chevrons and zero counts use Ink 3, so they stay visible without competing with the labels.</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  // OKLCH → sRGB hex, and WCAG contrast, so every number on the page is measured from the colors it shows.
+  const oklch = ([L, C, h]) => {
+    const a = C * Math.cos(h * Math.PI / 180), b = C * Math.sin(h * Math.PI / 180);
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+    const lin = [
+      4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+      -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+      -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+    ];
+    const enc = x => { x = Math.max(0, x); return Math.min(1, x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055); };
+    return '#' + lin.map(x => Math.round(enc(x) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+  };
+  const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lum = hex => { const [r, g, b] = rgb(hex).map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const contrast = (x, y) => { const a = lum(x), b = lum(y); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); };
+  const mix = (fg, bg, t) => '#' + rgb(fg).map((c, i) => Math.round((c * t + rgb(bg)[i] * (1 - t)) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+  const asHex = v => typeof v === 'string' ? v : oklch(v);
+
+  const APP = {
+    dark: { paper: [0.215, 0.005, 80], card: [0.26, 0.006, 80], fill: [0.305, 0.006, 80], hairline: [0.345, 0.006, 80], ink: [0.93, 0.006, 90], ink2: [0.72, 0.008, 85], ink3: [0.56, 0.008, 85], accent: [0.72, 0.12, 250] },
+    light: { paper: [0.982, 0.0054, 95], card: [1, 0, 0], fill: [0.945, 0.009, 92], hairline: [0.885, 0.007, 97], ink: [0.244, 0.027, 95.7], ink2: [0.52, 0.012, 97], ink3: [0.62, 0.01, 95], accent: [0.47, 0.095, 250] },
+  };
+  // From Assets.xcassets today. Paper 2 is what the heatmap and chips use as their well.
+  const CURRENT = {
+    dark: { paper: '#1D1F23', card: '#272A2F', fill: '#15171B', hairline: '#373B40', ink: '#E9E8E4', ink2: '#9A9FA5', ink3: null, accent: '#67A3E0' },
+    light: { paper: '#FAF9F5', card: '#FFFFFF', fill: '#F1EFE8', hairline: '#DAD9D4', ink: '#242011', ink2: '#6B6961', ink3: null, accent: '#305880' },
+  };
+  const RAMPS = {
+    blue: { name: 'Memos Blue', dark: [[0.45, 0.09, 252], [0.58, 0.12, 250], [0.72, 0.12, 245], [0.87, 0.08, 240]], light: [[0.80, 0.065, 245], [0.66, 0.105, 248], [0.52, 0.11, 252], [0.38, 0.09, 258]] },
+    tide: { name: 'Tide', dark: [[0.44, 0.09, 272], [0.57, 0.12, 252], [0.72, 0.12, 222], [0.87, 0.11, 188]], light: [[0.83, 0.08, 192], [0.68, 0.11, 218], [0.53, 0.13, 250], [0.38, 0.12, 272]] },
+    graphite: { name: 'Graphite', dark: [[0.44, 0.008, 85], [0.58, 0.01, 85], [0.74, 0.01, 88], [0.90, 0.012, 90]], light: [[0.80, 0.01, 90], [0.64, 0.012, 90], [0.47, 0.015, 92], [0.30, 0.02, 95]] },
+  };
+  const ROLES = {
+    paper: ['Paper', 'The page behind everything'],
+    card: ['Card', 'Memos, lists, the activity card'],
+    fill: ['Fill', 'New. Empty days, chips, avatars. Paper 2 today'],
+    hairline: ['Hairline', 'Card edges and row separators'],
+    ink: ['Ink', 'Text'],
+    ink2: ['Ink 2', 'Metadata, counts, section labels'],
+    ink3: ['Ink 3', 'New. Chevrons, zero counts, placeholders'],
+    accent: ['Memos Blue', 'Accent: links, tags, selected states'],
+  };
+
+  // Sample activity: about five months of use, lighter on weekends. Seeded, so it is stable across loads.
+  let seed = 7;
+  const rand = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const today = new Date(2026, 9, 21);
+  const DAY = 864e5;
+  const counts = new Map();
+  const key = d => d.toISOString().slice(0, 10);
+  for (let i = 150; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * DAY);
+    const weekend = d.getDay() === 0 || d.getDay() === 6;
+    const active = rand() < (weekend ? 0.38 : 0.6);
+    const n = active ? Math.min(9, 1 + Math.floor(-Math.log(1 - rand()) * 1.5)) : 0;
+    counts.set(key(d), i === 0 ? 2 : n);
+  }
+  const countOn = d => counts.get(key(d)) || 0;
+  const active = [...counts.values()].filter(n => n > 0).sort((a, b) => a - b);
+  const q = p => active[Math.min(active.length - 1, Math.floor(p * active.length))];
+  const cuts = [q(0.25), q(0.5), q(0.75)];
+  const level = n => n === 0 ? 0 : n <= cuts[0] ? 1 : n <= cuts[1] ? 2 : n <= cuts[2] ? 3 : 4;
+  const max = active[active.length - 1];
+  const opacity = n => n === 0 ? 0 : 0.25 + 0.75 * n / max;
+
+  const totals = { memos: active.reduce((a, b) => a + b, 0), days: active.length };
+  totals.month = [...counts].filter(([k]) => k.startsWith('2026-10')).reduce((a, [, n]) => a + n, 0);
+  let streak = 0;
+  for (let d = today; countOn(d) > 0; d = new Date(d.getTime() - DAY)) streak++;
+  totals.streak = streak;
+  const stat = {
+    month: totals.month, streak: totals.streak, days: totals.days,
+    summary: `${totals.memos} memos · ${totals.days} days`,
+  };
+  document.querySelectorAll('[data-stat]').forEach(el => { el.textContent = stat[el.dataset.stat]; });
+
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // Columns are weeks starting Sunday, newest on the right, as Calendar.current does in en_US.
+  function buildHeatmap(el) {
+    const weeks = +el.dataset.weeks;
+    const labels = el.dataset.labels === '1';
+    const start = new Date(today.getTime() - (today.getDay() + (weeks - 1) * 7) * DAY);
+    let months = '', grid = '', lastLabel = -3;
+    for (let w = 0; w < weeks; w++) {
+      for (let r = 0; r < 7; r++) {
+        const d = new Date(start.getTime() + (w * 7 + r) * DAY);
+        if (r === 0 && labels) {
+          const first = new Date(d.getTime() + 6 * DAY);
+          if ((w === 0 || first.getDate() <= 7) && w - lastLabel >= 3) {
+            months += `<span style="grid-column:${w + 1} / span 3">${MONTHS[first.getMonth()]}</span>`;
+            lastLabel = w;
+          }
+        }
+        if (d > today) { grid += '<i class="future"></i>'; continue; }
+        const n = countOn(d);
+        const label = `${LONG[d.getMonth()]} ${d.getDate()}: ${n} ${n === 1 ? 'memo' : 'memos'}`;
+        grid += `<i data-n="${n}" title="${label}"${+d === +today ? ' class="today"' : ''}></i>`;
+      }
+    }
+    const gridHTML = `<div class="grid" style="grid-template-columns:repeat(${weeks},1fr)" role="img" aria-label="Activity for the last ${weeks} weeks">${grid}</div>`;
+    el.innerHTML = labels
+      ? `<div class="body2"><span></span><div class="months" style="grid-template-columns:repeat(${weeks},1fr)">${months}</div><div class="wd"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>${gridHTML}</div>`
+      : gridHTML;
+  }
+  document.querySelectorAll('.hm').forEach(buildHeatmap);
+
+  // Month list on the Activity screen.
+  const byMonth = new Map();
+  counts.forEach((n, k) => { if (n) byMonth.set(k.slice(0, 7), (byMonth.get(k.slice(0, 7)) || 0) + n); });
+  const monthRows = [...byMonth].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 4);
+  const mMax = Math.max(...monthRows.map(([, n]) => n));
+  document.querySelector('[data-months]').innerHTML = monthRows.map(([k, n]) =>
+    `<div class="row"><span>${LONG[+k.slice(5) - 1]} ${k.slice(0, 4)}</span><span class="bar"><i style="width:${Math.round(n / mMax * 100)}%"></i></span><span class="n">${n}</span></div>`).join('');
+
+  const fmt = r => r.toFixed(2).replace(/0$/, '');
+
+  function render(rampKey, scheme) {
+    const app = Object.fromEntries(Object.entries(APP[scheme]).map(([k, v]) => [k, oklch(v)]));
+    const ramp = RAMPS[rampKey][scheme].map(oklch);
+    const cur = CURRENT[scheme];
+    const curSteps = [1, 2, 3, 4].map(k => mix(cur.accent, cur.paper, 0.25 + 0.75 * k / 4));
+    const root = document.documentElement.style;
+    const vars = {
+      '--a-paper': app.paper, '--a-card': app.card, '--a-fill': app.fill, '--a-hairline': app.hairline,
+      '--a-ink': app.ink, '--a-ink2': app.ink2, '--a-ink3': app.ink3, '--a-accent': app.accent,
+      '--a-accent-soft': app.accent + (scheme === 'dark' ? '29' : '1C'),
+      '--a-rim': scheme === 'dark' ? 'rgb(255 255 255 / 0.14)' : 'rgb(255 255 255 / 0.9)',
+      '--h0': app.fill, '--h1': ramp[0], '--h2': ramp[1], '--h3': ramp[2], '--h4': ramp[3],
+    };
+    Object.entries(vars).forEach(([k, v]) => root.setProperty(k, v));
+
+    // Heatmap cells: proposed ones by level, current ones by today's continuous opacity.
+    document.querySelectorAll('.hm[data-set="proposed"] .grid i[data-n]').forEach(i => { i.style.background = `var(--h${level(+i.dataset.n)})`; });
+    document.querySelectorAll('.hm[data-set="current"] .grid i[data-n]').forEach(i => {
+      const n = +i.dataset.n;
+      i.style.background = n === 0 ? cur.fill : mix(cur.accent, cur.paper, opacity(n));
+    });
+    document.querySelectorAll('[data-legend]').forEach(el => {
+      el.innerHTML = '<span>Less</span>' + [0, 1, 2, 3, 4].map(l => `<i style="background:var(--h${l})"></i>`).join('') + '<span>More</span>';
+    });
+
+    // Panels sit on the page color each heatmap is drawn on.
+    const curPanel = document.querySelector('[data-surface="current"]');
+    curPanel.style.background = cur.paper; curPanel.style.color = cur.ink;
+    curPanel.style.setProperty('--a-ink2', cur.ink2);
+    curPanel.style.setProperty('--a-paper', cur.paper);
+    const propPanel = document.querySelector('[data-surface="proposed"]');
+    propPanel.style.background = app.card; propPanel.style.color = app.ink;
+    [curPanel, propPanel].forEach(p => p.querySelectorAll('.verdict').forEach(v => { v.style.color = p === curPanel ? cur.ink2 : app.ink2; }));
+    curPanel.querySelector('[data-cur-note]').textContent = `on Paper, ${scheme}`;
+    curPanel.querySelector('[data-cur-note]').style.color = cur.ink2;
+    propPanel.querySelector('[data-ramp-name]').textContent = `${RAMPS[rampKey].name}, on Card, ${scheme}`;
+    propPanel.querySelector('[data-ramp-name]').style.color = app.ink2;
+
+    const strip = (el, steps, bg, ink2, labels) => {
+      el.innerHTML = steps.map((c, i) => {
+        const r = i < steps.length - 1 ? `<span class="ratio" style="background:${bg};color:${ink2}">${fmt(contrast(c, steps[i + 1]))}</span>` : '';
+        return `<span class="sw"><i style="background:${c};box-shadow:inset 0 0 0 0.5px ${ink2}33"></i><span style="color:${ink2}">${labels[i]}</span>${r}</span>`;
+      }).join('');
+    };
+    const curLabels = ['Empty', ...[1, 2, 3, 4].map(i => `${Math.round((0.25 + 0.75 * i / 4) * 100)}%`)];
+    strip(document.querySelector('[data-strip="current"]'), [cur.fill, ...curSteps], cur.paper, cur.ink2, curLabels);
+    strip(document.querySelector('[data-strip="proposed"]'), [app.fill, ...ramp], app.card, app.ink2, ['Empty', '1', '2', '3', '4']);
+
+    const curAdj = [cur.fill, ...curSteps].slice(0, 4).map((c, i) => contrast(c, [cur.fill, ...curSteps][i + 1]));
+    const propAdj = [app.fill, ...ramp].slice(0, 4).map((c, i) => contrast(c, [app.fill, ...ramp][i + 1]));
+    const emptyCur = contrast(cur.fill, cur.paper), emptyProp = contrast(app.fill, app.card);
+    const curDarker = lum(cur.fill) < lum(cur.paper) && scheme === 'dark';
+    document.querySelector('[data-verdict="current"]').textContent =
+      `Empty is ${fmt(emptyCur)}:1 against the page${curDarker ? ', and darker than it' : ''}. After the first step the levels are only ${fmt(Math.min(...curAdj.slice(1)))}–${fmt(Math.max(...curAdj.slice(1)))}:1 apart, and real days fall between them.`;
+    document.querySelector('[data-verdict="proposed"]').textContent =
+      `Empty sits ${fmt(emptyProp)}:1 above the card. Neighbouring levels are ${fmt(Math.min(...propAdj))}–${fmt(Math.max(...propAdj))}:1 apart, and level 4 is ${fmt(contrast(ramp[3], app.card))}:1 from the card. Days are cut at ${cuts[0]}, ${cuts[1]} and ${cuts[2]} memos.`;
+
+    // Token table: current dark, proposed dark and light, measured against each mode's Card.
+    const dark = Object.fromEntries(Object.entries(APP.dark).map(([k, v]) => [k, oklch(v)]));
+    const light = Object.fromEntries(Object.entries(APP.light).map(([k, v]) => [k, oklch(v)]));
+    const tok = hex => hex ? `<span class="tok"><i style="background:${hex}"></i>${hex}</span>` : '<span class="tok none">none</span>';
+    const onCard = k => ['ink', 'ink2', 'ink3', 'accent', 'hairline', 'fill'].includes(k)
+      ? `${fmt(contrast(dark[k], dark.card))} / ${fmt(contrast(light[k], light.card))}` : '—';
+    let rows = Object.keys(ROLES).map(k => `<tr><td><b>${ROLES[k][0]}</b></td><td>${tok(CURRENT.dark[k])}</td><td>${tok(dark[k])}</td><td>${tok(light[k])}</td><td class="tok">${onCard(k)}</td><td class="role">${ROLES[k][1]}</td></tr>`).join('');
+    const rampCells = arr => `<span class="ramp-row">${arr.map(c => `<i style="background:${c}" title="${c}"></i>`).join('')}</span>`;
+    rows += `<tr><td><b>Activity 1–4</b></td><td>${rampCells(CURRENT.dark.accent ? [1, 2, 3, 4].map(k => mix(CURRENT.dark.accent, CURRENT.dark.paper, 0.25 + 0.75 * k / 4)) : [])}</td><td>${rampCells(RAMPS[rampKey].dark.map(oklch))}</td><td>${rampCells(RAMPS[rampKey].light.map(oklch))}</td><td class="tok">${fmt(contrast(oklch(RAMPS[rampKey].dark[0]), dark.card))} / ${fmt(contrast(oklch(RAMPS[rampKey].light[0]), light.card))}</td><td class="role">New. Heatmap levels, ${RAMPS[rampKey].name}. Level 1 shown in the ratio</td></tr>`;
+    document.getElementById('token-rows').innerHTML = rows;
+  }
+
+  // Chips in the scale picker show each ramp's four levels in the page's current mode.
+  const pageDark = () => document.documentElement.dataset.theme === 'dark' || (document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const paintChips = () => document.querySelectorAll('[data-chip]').forEach(el => {
+    el.innerHTML = RAMPS[el.dataset.chip][pageDark() ? 'dark' : 'light'].map(c => `<i style="background:${oklch(c)}"></i>`).join('');
+  });
+
+  const state = () => [document.querySelector('input[name="ramp"]:checked').value, document.querySelector('input[name="scheme"]:checked').value];
+  document.querySelectorAll('input[name="ramp"], input[name="scheme"]').forEach(i => i.addEventListener('change', () => render(...state())));
+  if (!pageDark()) document.getElementById('scheme-light').checked = true;
+  paintChips();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintChips);
+  new MutationObserver(paintChips).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  render(...state());
+})();
+</script>

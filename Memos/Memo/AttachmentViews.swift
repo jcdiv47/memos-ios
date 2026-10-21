@@ -75,7 +75,7 @@ struct AttachmentImage: View {
 
     var body: some View {
         ZStack {
-            Rectangle().fill(.paper2)
+            Rectangle().fill(.well)
             if let image = image ?? session.files.cachedImage(attachment, thumbnail: thumbnail) {
                 Image(uiImage: image)
                     .resizable()
@@ -123,7 +123,7 @@ struct FileRow: View {
             Spacer(minLength: 0)
         }
         .padding(10)
-        .background(.paper2, in: .rect(cornerRadius: 10))
+        .background(.well, in: .rect(cornerRadius: 10))
     }
 }
 
@@ -161,7 +161,7 @@ struct AudioAttachmentView: View {
             }
         }
         .padding(10)
-        .background(.paper2, in: .rect(cornerRadius: 10))
+        .background(.well, in: .rect(cornerRadius: 10))
         .task(id: attachment.name) {
             if let url = try? await session.files.file(attachment) {
                 player.loadDuration(url)

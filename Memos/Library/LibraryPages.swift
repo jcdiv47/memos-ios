@@ -2,7 +2,7 @@ import MapKit
 import MemosCore
 import SwiftUI
 
-/// The activity grid: one square per day, darker for days with more memos. Tap a day to see it.
+/// The activity grid with its dates, a summary above and memos by month below. Tap a day to see it.
 struct ActivityView: View {
     @Environment(AccountSession.self) private var session
     private let weeks = 26
@@ -13,57 +13,116 @@ struct ActivityView: View {
         let today = calendar.startOfDay(for: .now)
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 3) {
-                        ForEach(activity.weeks(weeks + 1, through: today), id: \.self) { week in
-                            VStack(spacing: 3) {
-                                ForEach(week, id: \.self) { day in
-                                    if day <= today {
-                                        let count = activity.count(on: day)
-                                        Button {
-                                            let next = calendar.date(byAdding: .day, value: 1, to: day)!
-                                            session.path.append(.filtered(title: day.formatted(date: .abbreviated, time: .omitted), tokens: [.date(.between(day, next))]))
-                                        } label: {
-                                            RoundedRectangle(cornerRadius: 3)
-                                                .fill(count == 0 ? Color.paper2 : Color.memosBlue.opacity(activity.intensity(on: day)))
-                                                .frame(width: 14, height: 14)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .disabled(count == 0)
-                                        .accessibilityLabel("\(day.formatted(date: .complete, time: .omitted)): \(count) memos")
-                                    } else {
-                                        Color.clear.frame(width: 14, height: 14)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, Metrics.timelineInset)
-                }
-                .defaultScrollAnchor(.trailing)
+            VStack(alignment: .leading, spacing: 12) {
+                stats(activity, today: today)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(monthCounts(calendar: calendar), id: \.month) { entry in
-                        HStack {
-                            Text(entry.month.formatted(.dateTime.month(.wide).year()))
-                                .foregroundStyle(.ink)
-                            Spacer()
-                            Text("\(entry.count) memos")
-                                .foregroundStyle(.ink2)
-                                .monospacedDigit()
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 6) {
+                        weekdayLabels(calendar: calendar)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            ActivityHeatmap(activity: activity, today: today, weeks: weeks + 1, showsMonths: true) { day in
+                                let next = calendar.date(byAdding: .day, value: 1, to: day)!
+                                session.path.append(.filtered(title: day.formatted(date: .abbreviated, time: .omitted), tokens: [.date(.between(day, next))]))
+                            }
+                            // Room for today's ring.
+                            .padding(3)
                         }
-                        .font(.subheadline)
-                        Divider()
+                        .defaultScrollAnchor(.trailing)
+                        .padding(-3)
                     }
+                    HStack {
+                        Text("Tap a day to see its memos")
+                        Spacer(minLength: 8)
+                        ActivityLegend()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.ink2)
                 }
-                .padding(.horizontal, Metrics.timelineInset)
+                .padding(Metrics.cardPadding)
+                .cardBackground()
+
+                let months = monthCounts(calendar: calendar)
+                if !months.isEmpty {
+                    Text("By month")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.ink2)
+                        .padding(.leading, 6)
+                        .padding(.top, 8)
+                    VStack(spacing: 0) {
+                        let busiest = months.map(\.count).max() ?? 1
+                        ForEach(Array(months.enumerated()), id: \.element.month) { index, entry in
+                            if index > 0 {
+                                Divider().overlay(.hairline)
+                            }
+                            HStack(spacing: 12) {
+                                Text(entry.month.formatted(.dateTime.month(.wide).year()))
+                                    .foregroundStyle(.ink)
+                                Spacer(minLength: 8)
+                                MonthBar(fraction: Double(entry.count) / Double(busiest))
+                                Text(entry.count.formatted())
+                                    .foregroundStyle(.ink2)
+                                    .monospacedDigit()
+                                    .frame(minWidth: 28, alignment: .trailing)
+                            }
+                            .font(.subheadline)
+                            .padding(.vertical, 12)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(Text(entry.month.formatted(.dateTime.month(.wide).year())))
+                            .accessibilityValue(Text("\(entry.count) memos"))
+                        }
+                    }
+                    .padding(.horizontal, Metrics.cardPadding)
+                    .cardBackground()
+                }
             }
+            .padding(.horizontal, Metrics.timelineInset)
             .padding(.vertical)
         }
         .background(.paper)
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func stats(_ activity: MemoActivity, today: Date) -> some View {
+        HStack(spacing: 0) {
+            stat(activity.memoCount(inMonthOf: today), label: "This month")
+            Divider().overlay(.hairline)
+            stat(activity.streak(through: today), label: "Day streak")
+            Divider().overlay(.hairline)
+            stat(activity.counts.count, label: "Active days")
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.vertical, 12)
+        .cardBackground()
+    }
+
+    private func stat(_ value: Int, label: LocalizedStringKey) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value.formatted())
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.ink)
+                .monospacedDigit()
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.ink2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Metrics.cardPadding)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Every other weekday, beside the grid's rows, under a gap the height of the month row.
+    private func weekdayLabels(calendar: Calendar) -> some View {
+        VStack(alignment: .leading, spacing: ActivityHeatmap.spacing) {
+            Color.clear.frame(width: 0, height: ActivityHeatmap.monthRowHeight)
+            ForEach(0..<7, id: \.self) { row in
+                Text(row % 2 == 1 ? calendar.shortStandaloneWeekdaySymbols[(calendar.firstWeekday - 1 + row) % 7] : "")
+                    .frame(height: ActivityHeatmap.cell)
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.ink2)
+        .accessibilityHidden(true)
     }
 
     private func monthCounts(calendar: Calendar) -> [(month: Date, count: Int)] {
@@ -73,6 +132,125 @@ struct ActivityView: View {
             counts[month, default: 0] += 1
         }
         return counts.sorted { $0.key > $1.key }.map { ($0.key, $0.value) }
+    }
+}
+
+/// A month's share of the busiest month, on the activity scale.
+private struct MonthBar: View {
+    let fraction: Double
+    private let width: CGFloat = 72
+
+    var body: some View {
+        Capsule()
+            .fill(.well)
+            .frame(width: width, height: 5)
+            .overlay(alignment: .leading) {
+                Capsule()
+                    .fill(.activity3)
+                    .frame(width: max(5, width * fraction))
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// “Less ▢▢▢▢▢ More”, explaining the grid's steps.
+struct ActivityLegend: View {
+    var body: some View {
+        HStack(spacing: 3) {
+            Text(String(localized: "activity.legend.less", defaultValue: "Less", comment: "An end of the activity grid's legend: Less ▢▢▢▢▢ More."))
+                .padding(.trailing, 2)
+            ForEach(0..<5) { level in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.activity(level: level))
+                    .frame(width: 9, height: 9)
+            }
+            Text(String(localized: "activity.legend.more", defaultValue: "More", comment: "An end of the activity grid's legend: Less ▢▢▢▢▢ More."))
+                .padding(.leading, 2)
+        }
+        .font(.caption2)
+        .foregroundStyle(.ink2)
+        .accessibilityHidden(true)
+    }
+}
+
+/// One square per day and a column per week, newest on the right; days after today stay blank.
+/// With `onSelect`, active days are buttons.
+struct ActivityHeatmap: View {
+    let activity: MemoActivity
+    let today: Date
+    let weeks: Int
+    var cell: CGFloat = Self.cell
+    var showsMonths = false
+    var onSelect: ((Date) -> Void)?
+
+    static let cell: CGFloat = 14
+    static let spacing: CGFloat = 3
+    static let monthRowHeight: CGFloat = 14
+
+    var body: some View {
+        let columns = activity.weeks(weeks, through: today)
+        let labels = monthLabels(columns)
+        HStack(alignment: .top, spacing: Self.spacing) {
+            ForEach(Array(columns.enumerated()), id: \.element) { index, week in
+                VStack(spacing: Self.spacing) {
+                    if showsMonths {
+                        Color.clear
+                            .frame(width: cell, height: Self.monthRowHeight)
+                            .overlay(alignment: .leading) {
+                                if let month = labels[index] {
+                                    Text(month.formatted(.dateTime.month(.abbreviated)))
+                                        .font(.caption2)
+                                        .foregroundStyle(.ink2)
+                                        .fixedSize()
+                                }
+                            }
+                    }
+                    ForEach(week, id: \.self) { day in
+                        square(day)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func square(_ day: Date) -> some View {
+        if day > today {
+            Color.clear.frame(width: cell, height: cell)
+        } else {
+            let count = activity.count(on: day)
+            let shape = RoundedRectangle(cornerRadius: cell * 0.22)
+                .fill(Color.activity(level: activity.level(on: day)))
+                .frame(width: cell, height: cell)
+                .overlay {
+                    if day == today {
+                        RoundedRectangle(cornerRadius: cell * 0.22 + 2)
+                            .strokeBorder(.ink, lineWidth: 1.25)
+                            .padding(-2.5)
+                    }
+                }
+            if let onSelect {
+                Button { onSelect(day) } label: { shape }
+                    .buttonStyle(.plain)
+                    .disabled(count == 0)
+                    .accessibilityLabel("\(day.formatted(date: .complete, time: .omitted)): \(count) memos")
+            } else {
+                shape
+            }
+        }
+    }
+
+    /// The month above each column that holds a month's first day, and above the first column
+    /// when the next label is far enough away not to collide with it.
+    private func monthLabels(_ columns: [[Date]]) -> [Date?] {
+        let calendar = Calendar.current
+        var labels: [Date?] = columns.map { week in
+            week.first { calendar.component(.day, from: $0) == 1 }
+        }
+        if let first = columns.first?.last, !labels.prefix(3).contains(where: { $0 != nil }) {
+            labels[0] = first
+        }
+        return labels
     }
 }
 
@@ -109,7 +287,7 @@ struct AttachmentsLibraryView: View {
                                     .foregroundStyle(.ink2)
                                     .padding(6)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .background(.paper2)
+                                    .background(.well)
                                 }
                             }
                             .clipShape(.rect(cornerRadius: 6))

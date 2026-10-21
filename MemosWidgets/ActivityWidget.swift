@@ -147,12 +147,11 @@ struct ActivityGrid: View {
     }
 
     /// The Library's scale. Tinted and clear Home Screens keep only each colour's opacity, so
-    /// there the empty squares need to be faint rather than opaque Paper 2.
+    /// there the levels become opacity steps and empty squares stay faint.
     private func fill(for day: Date) -> Color {
-        let fullColor = renderingMode == .fullColor
         if day > today { return .clear }
-        let intensity = activity.intensity(on: day)
-        if intensity == 0 { return fullColor ? .paper2 : .primary.opacity(0.15) }
-        return (fullColor ? Color.memosBlue : .primary).opacity(intensity)
+        let level = activity.level(on: day)
+        if renderingMode == .fullColor { return .activity(level: level) }
+        return .primary.opacity([0.15, 0.3, 0.5, 0.75, 1][level])
     }
 }

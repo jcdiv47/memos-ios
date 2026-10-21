@@ -388,7 +388,7 @@ private struct ConflictBanner: View {
             .font(.subheadline.weight(.medium))
         }
         .padding(12)
-        .background(.paper2, in: .rect(cornerRadius: 12))
+        .background(.well, in: .rect(cornerRadius: 12))
     }
 }
 

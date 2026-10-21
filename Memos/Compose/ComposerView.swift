@@ -508,7 +508,7 @@ private struct AttachmentStrip: View {
     private func chip<Content: View>(@ViewBuilder content: () -> Content, remove: @escaping () -> Void) -> some View {
         content()
             .foregroundStyle(.ink)
-            .background(.paper2)
+            .background(.well)
             .clipShape(.rect(cornerRadius: 10))
             .overlay(alignment: .topTrailing) {
                 Button(action: remove) {

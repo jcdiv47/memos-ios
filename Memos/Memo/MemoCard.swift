@@ -201,7 +201,7 @@ struct ReactionSummary: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(mine ? Color.memosBlue.opacity(0.12) : Color.paper2, in: .capsule)
+                    .background(mine ? Color.memosBlue.opacity(0.12) : Color.well, in: .capsule)
                 }
                 .buttonStyle(.plain)
                 .disabled(onTap == nil)

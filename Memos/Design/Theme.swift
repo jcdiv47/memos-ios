@@ -93,7 +93,7 @@ struct ChipStyle: ButtonStyle {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .foregroundStyle(prominent ? Color.memosBlue : Color.ink)
-            .background(prominent ? Color.memosBlue.opacity(0.12) : Color.paper2, in: .capsule)
+            .background(prominent ? Color.memosBlue.opacity(0.12) : Color.well, in: .capsule)
             .opacity(configuration.isPressed ? 0.6 : 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.memosPress, value: configuration.isPressed)
@@ -128,7 +128,7 @@ struct Avatar: View {
             .font(.system(size: size * 0.45, weight: .semibold, design: .rounded))
             .foregroundStyle(.ink)
             .frame(width: size, height: size)
-            .background(.paper2, in: .circle)
+            .background(.well, in: .circle)
             .accessibilityHidden(true)
     }
 }

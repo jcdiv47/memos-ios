@@ -34,10 +34,28 @@ import Testing
         #expect(activity.count(on: Self.day("2026-10-20")) == 1)
         #expect(activity.count(on: Self.day("2026-10-18")) == 0)
         #expect(activity.memoCount == 3)
-        #expect(activity.maxCount == 2)
-        #expect(activity.intensity(on: Self.day("2026-10-18")) == 0)
-        #expect(activity.intensity(on: Self.day("2026-10-20")) == 0.625)
-        #expect(activity.intensity(on: Self.day("2026-10-19")) == 1)
+        #expect(activity.memoCount(inMonthOf: Self.day("2026-10-01")) == 3)
+        #expect(activity.memoCount(inMonthOf: Self.day("2026-11-01")) == 0)
+    }
+
+    @Test func `levels follow the share of active days with fewer memos`() {
+        // Six days: three with 1 memo, then 2, 3 and 20.
+        var counts: [Date: Int] = [:]
+        for (offset, count) in [1, 1, 1, 2, 3, 20].enumerated() {
+            counts[Self.calendar.date(byAdding: .day, value: offset, to: Self.day("2026-10-01", hour: 0))!] = count
+        }
+        let activity = MemoActivity(counts: counts, calendar: Self.calendar)
+        #expect(activity.level(on: Self.day("2026-09-30")) == 0)
+        #expect(activity.level(on: Self.day("2026-10-01")) == 1)
+        #expect(activity.level(on: Self.day("2026-10-04")) == 3)
+        // The busiest day only lifts itself: a 3-memo day still reaches level 3, not level 1.
+        #expect(activity.level(on: Self.day("2026-10-05")) == 3)
+        #expect(activity.level(on: Self.day("2026-10-06")) == 4)
+    }
+
+    @Test func `writing the same amount every day stays on the first level`() {
+        let activity = MemoActivity(memos: ["2026-10-17", "2026-10-18", "2026-10-19"].map { Self.memo($0) }, calendar: Self.calendar)
+        #expect(activity.level(on: Self.day("2026-10-18")) == 1)
     }
 
     @Test func `a streak survives a today without memos yet`() {

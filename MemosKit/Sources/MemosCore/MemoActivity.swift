@@ -4,10 +4,10 @@ import Foundation
 public struct MemoActivity: Sendable, Equatable {
     /// Memo counts keyed by the start of each day.
     public let counts: [Date: Int]
-    /// The busiest day's count, which the darkest square stands for. At least 1.
-    public let maxCount: Int
     /// Every memo counted, across all days.
     public let memoCount: Int
+    /// Each count that occurs, mapped to its level from 1 to 4.
+    let levels: [Int: Int]
     let calendar: Calendar
 
     /// Counts memos that aren't archived, by the day they were created.
@@ -22,19 +22,31 @@ public struct MemoActivity: Sendable, Equatable {
     public init(counts: [Date: Int], calendar: Calendar = .current) {
         self.counts = counts
         self.calendar = calendar
-        maxCount = max(counts.values.max() ?? 1, 1)
         memoCount = counts.values.reduce(0, +)
+        // A count's level comes from the share of active days with fewer memos, so the steps
+        // follow how you actually write and one very busy day doesn't flatten the rest.
+        let active = counts.values.filter { $0 > 0 }.sorted()
+        var levels: [Int: Int] = [:]
+        for (index, count) in active.enumerated() where levels[count] == nil {
+            levels[count] = 1 + min(3, index * 4 / active.count)
+        }
+        self.levels = levels
     }
 
     public func count(on day: Date) -> Int {
         counts[calendar.startOfDay(for: day)] ?? 0
     }
 
-    /// How strongly to tint a day's square: 0 for an empty day, otherwise from a quarter for one
-    /// memo up to full for the busiest day, so a single memo still reads at a glance.
-    public func intensity(on day: Date) -> Double {
-        let count = count(on: day)
-        return count == 0 ? 0 : 0.25 + 0.75 * Double(count) / Double(maxCount)
+    /// Which of the grid's colours a day takes: 0 for an empty day, otherwise 1 to 4 by where
+    /// its count falls among your active days, in quarters.
+    public func level(on day: Date) -> Int {
+        levels[count(on: day)] ?? 0
+    }
+
+    /// Memos written in the calendar month containing `date`.
+    public func memoCount(inMonthOf date: Date) -> Int {
+        guard let month = calendar.dateInterval(of: .month, for: date) else { return 0 }
+        return counts.filter { month.contains($0.key) }.values.reduce(0, +)
     }
 
     /// Days in a row with at least one memo, up to today. Today doesn't break the streak until
