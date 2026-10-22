@@ -9,7 +9,6 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    @State private var displayName = ""
     @State private var confirmSignOut = false
     @State private var cacheSize: Int64?
     @State private var error: String?
@@ -24,10 +23,8 @@ struct SettingsView: View {
                     HStack(spacing: 14) {
                         UserAvatar(user: session.user, size: 52)
                         VStack(alignment: .leading, spacing: 2) {
-                            TextField("Name", text: $displayName)
+                            Text(verbatim: user?.displayLabel ?? ResourceName.lastSegment(session.user))
                                 .font(.headline)
-                                .onSubmit { Task { await saveDisplayName() } }
-                                .disabled(!session.isOnline)
                             Text(verbatim: "@\(user?.username ?? ResourceName.lastSegment(session.user))")
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
@@ -107,7 +104,6 @@ struct SettingsView: View {
                 }
             }
             .task {
-                displayName = user?.displayName ?? ""
                 cacheSize = await session.files.cacheSize()
             }
         }
@@ -117,19 +113,6 @@ struct SettingsView: View {
         let pending = session.store.outbox.count
         if pending == 0 { return String(localized: "This removes your memos from this iPhone. They stay on your server.") }
         return String(localized: "\(pending) changes haven’t uploaded yet and will be lost. This removes your memos from this iPhone. They stay on your server.")
-    }
-
-    private func saveDisplayName() async {
-        guard var updated = user, displayName != updated.displayName else { return }
-        updated.displayName = displayName
-        var request = Memos_Api_UpdateUserRequest()
-        request.user = updated
-        request.updateMask.paths = ["display_name"]
-        do {
-            session.store.profile.user = try await session.client.call(session.client.users.updateUser(request:headers:), request)
-        } catch {
-            self.error = error.description
-        }
     }
 
     /// The `memo_visibility` setting the web uses, so changing it here changes it there too.
