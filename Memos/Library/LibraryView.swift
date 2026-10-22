@@ -182,7 +182,7 @@ private struct ActivityCard: View {
 }
 
 /// The trailing chevron on rows that open a page.
-private struct Chevron: View {
+struct Chevron: View {
     var body: some View {
         Image(systemName: "chevron.right")
             .font(.footnote.weight(.semibold))

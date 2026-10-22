@@ -41,34 +41,26 @@ struct ActivityView: View {
                 .padding(Metrics.cardPadding)
                 .cardBackground()
 
-                let months = monthCounts(calendar: calendar)
-                if !months.isEmpty {
-                    Text("By month")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.ink2)
-                        .padding(.leading, 6)
-                        .padding(.top, 8)
+                let years = monthCounts(calendar: calendar, through: today)
+                let busiest = years.flatMap(\.months).map(\.count).max() ?? 1
+                ForEach(years, id: \.year) { year in
+                    HStack {
+                        Text(year.year.formatted(.dateTime.year()))
+                        Spacer(minLength: 8)
+                        Text("\(year.months.map(\.count).reduce(0, +)) memos")
+                            .fontWeight(.regular)
+                            .monospacedDigit()
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.ink2)
+                    .padding(.horizontal, 6)
+                    .padding(.top, 8)
                     VStack(spacing: 0) {
-                        let busiest = months.map(\.count).max() ?? 1
-                        ForEach(Array(months.enumerated()), id: \.element.month) { index, entry in
+                        ForEach(Array(year.months.enumerated()), id: \.element.month) { index, entry in
                             if index > 0 {
                                 Divider().overlay(.hairline)
                             }
-                            HStack(spacing: 12) {
-                                Text(entry.month.formatted(.dateTime.month(.wide).year()))
-                                    .foregroundStyle(.ink)
-                                Spacer(minLength: 8)
-                                MonthBar(fraction: Double(entry.count) / Double(busiest))
-                                Text(entry.count.formatted())
-                                    .foregroundStyle(.ink2)
-                                    .monospacedDigit()
-                                    .frame(minWidth: 28, alignment: .trailing)
-                            }
-                            .font(.subheadline)
-                            .padding(.vertical, 12)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(Text(entry.month.formatted(.dateTime.month(.wide).year())))
-                            .accessibilityValue(Text("\(entry.count) memos"))
+                            monthRow(entry.month, count: entry.count, busiest: busiest, calendar: calendar)
                         }
                     }
                     .padding(.horizontal, Metrics.cardPadding)
@@ -125,31 +117,74 @@ struct ActivityView: View {
         .accessibilityHidden(true)
     }
 
-    private func monthCounts(calendar: Calendar) -> [(month: Date, count: Int)] {
+    /// A row that opens the month's memos; empty months stay, dimmed, so gaps read as gaps.
+    private func monthRow(_ month: Date, count: Int, busiest: Int, calendar: Calendar) -> some View {
+        Button {
+            let next = calendar.date(byAdding: .month, value: 1, to: month)!
+            session.path.append(.filtered(title: month.formatted(.dateTime.month(.wide).year()), tokens: [.date(.between(month, next))]))
+        } label: {
+            HStack(spacing: 12) {
+                Text(month.formatted(.dateTime.month(.wide)))
+                    .foregroundStyle(count == 0 ? Color.ink3 : Color.ink)
+                    .frame(minWidth: 96, alignment: .leading)
+                MonthBar(fraction: Double(count) / Double(busiest))
+                Text(count.formatted())
+                    .foregroundStyle(count == 0 ? Color.ink3 : Color.ink2)
+                    .monospacedDigit()
+                    .frame(minWidth: 24, alignment: .trailing)
+                Chevron()
+                    .opacity(count == 0 ? 0 : 1)
+            }
+            .font(.subheadline)
+            .padding(.vertical, 12)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(count == 0)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(month.formatted(.dateTime.month(.wide).year())))
+        .accessibilityValue(Text("\(count) memos"))
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// Every month from your first memo through this one, newest first, grouped by year.
+    private func monthCounts(calendar: Calendar, through today: Date) -> [(year: Date, months: [(month: Date, count: Int)])] {
         var counts: [Date: Int] = [:]
         for memo in session.store.own.values where !memo.isArchived {
             let month = calendar.date(from: calendar.dateComponents([.year, .month], from: memo.createdAt))!
             counts[month, default: 0] += 1
         }
-        return counts.sorted { $0.key > $1.key }.map { ($0.key, $0.value) }
+        guard let first = counts.keys.min() else { return [] }
+        let current = calendar.date(from: calendar.dateComponents([.year, .month], from: today))!
+        var months: [(month: Date, count: Int)] = []
+        var month = max(current, counts.keys.max()!)
+        while month >= first {
+            months.append((month, counts[month] ?? 0))
+            month = calendar.date(byAdding: .month, value: -1, to: month)!
+        }
+        let years = Dictionary(grouping: months) { calendar.date(from: calendar.dateComponents([.year], from: $0.month))! }
+        return years.sorted { $0.key > $1.key }.map { ($0.key, $0.value) }
     }
 }
 
-/// A month's share of the busiest month, on the activity scale.
+/// A month's share of the busiest month, on the activity scale, filling the row's free width.
 private struct MonthBar: View {
     let fraction: Double
-    private let width: CGFloat = 72
 
     var body: some View {
-        Capsule()
-            .fill(.well)
-            .frame(width: width, height: 5)
-            .overlay(alignment: .leading) {
-                Capsule()
-                    .fill(.activity3)
-                    .frame(width: max(5, width * fraction))
-            }
-            .accessibilityHidden(true)
+        GeometryReader { proxy in
+            Capsule()
+                .fill(.well)
+                .overlay(alignment: .leading) {
+                    if fraction > 0 {
+                        Capsule()
+                            .fill(.activity3)
+                            .frame(width: max(6, proxy.size.width * fraction))
+                    }
+                }
+        }
+        .frame(height: 6)
+        .accessibilityHidden(true)
     }
 }
 
