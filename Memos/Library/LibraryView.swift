@@ -71,7 +71,7 @@ struct LibraryView: View {
                 Button {
                     session.isSettingsPresented = true
                 } label: {
-                    Avatar(name: session.store.profile.user?.displayLabel ?? "Y", size: 30)
+                    UserAvatar(user: session.user, size: 30)
                 }
                 .accessibilityLabel("Settings")
             }

@@ -439,7 +439,7 @@ private struct CommentsSection: View {
             }
             ForEach(comments, id: \.name) { comment in
                 HStack(alignment: .top, spacing: 10) {
-                    Avatar(name: session.people.name(for: comment.creator), size: 26)
+                    UserAvatar(user: comment.creator, size: 26)
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Text(session.people.name(for: comment.creator))

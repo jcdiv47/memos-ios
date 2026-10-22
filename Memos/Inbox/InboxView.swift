@@ -141,7 +141,7 @@ private struct NotificationRow: View {
     var body: some View {
         let sender = notification.senderUser.name.isEmpty ? session.people.name(for: notification.sender) : notification.senderUser.displayLabel
         HStack(alignment: .top, spacing: 12) {
-            Avatar(name: sender, size: 32)
+            UserAvatar(user: notification.sender, size: 32)
                 .overlay(alignment: .topTrailing) {
                     if notification.status == .unread {
                         Circle().fill(.memosBlue).frame(width: 9, height: 9).offset(x: 2, y: -2)

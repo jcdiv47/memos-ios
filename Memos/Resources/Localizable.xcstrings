@@ -3232,17 +3232,6 @@
         }
       }
     },
-    "You" : {
-      "comment" : "Stands in for your own name as the author of a memo or comment.",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你"
-          }
-        }
-      }
-    },
     "You can only add to your own memos." : {
       "localizations" : {
         "zh-Hans" : {

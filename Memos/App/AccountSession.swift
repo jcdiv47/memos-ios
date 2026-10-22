@@ -56,7 +56,7 @@ final class AccountSession {
         drafts = DraftStore(directory: location.draftsDirectory)
         engine = SyncEngine(client: client, store: store)
         files = AttachmentFiles(client: client, store: store)
-        people = PeopleDirectory(client: client, me: user)
+        people = PeopleDirectory(client: client, store: store)
         preferencePrefix = "\(client.serverURL.absoluteString)|\(user)"
         scope = UserDefaults.standard.bool(forKey: "timeline.everyone.\(preferencePrefix)") ? .everyone : .mine
         selectedSpace = UserDefaults.standard.string(forKey: "timeline.space.\(preferencePrefix)")

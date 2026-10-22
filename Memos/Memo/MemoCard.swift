@@ -81,7 +81,7 @@ struct MemoHeader: View {
         let name = session.people.name(for: memo.creator)
         HStack(alignment: .center, spacing: 8) {
             if showsAuthor {
-                Avatar(name: name, size: 28)
+                UserAvatar(user: memo.creator, size: 28)
             }
             VStack(alignment: .leading, spacing: 1) {
                 if showsAuthor {

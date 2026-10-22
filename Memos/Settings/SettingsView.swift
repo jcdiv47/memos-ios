@@ -22,7 +22,7 @@ struct SettingsView: View {
             Form {
                 Section {
                     HStack(spacing: 14) {
-                        Avatar(name: user?.displayLabel ?? "?", size: 52)
+                        UserAvatar(user: session.user, size: 52)
                         VStack(alignment: .leading, spacing: 2) {
                             TextField("Name", text: $displayName)
                                 .font(.headline)
