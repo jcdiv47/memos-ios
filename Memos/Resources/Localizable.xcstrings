@@ -432,6 +432,16 @@
         }
       }
     },
+    "Account" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账户"
+          }
+        }
+      }
+    },
     "Action" : {
       "localizations" : {
         "zh-Hans" : {

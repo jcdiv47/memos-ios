@@ -67,15 +67,7 @@ struct LibraryView: View {
         .navigationTitle("Library")
         .toolbarTitleDisplayMode(.inlineLarge)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    session.isSettingsPresented = true
-                } label: {
-                    UserAvatar(user: session.user, size: 30)
-                }
-                .accessibilityLabel("Settings")
-            }
-            // The timeline's bottom row without the Library button: capture, then Search.
+            // The timeline's bottom row: capture, then Search.
             ToolbarItem(placement: .bottomBar) {
                 CaptureField()
             }

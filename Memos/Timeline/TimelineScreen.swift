@@ -1,8 +1,9 @@
 import MemosCore
 import SwiftUI
 
-/// Home. One glass row at the top (the title with its Space menu, the filter and Inbox buttons)
-/// and one at the bottom (Library, the capture field and Search). Memos pass under both.
+/// Home. One glass row at the top (the “…” menu for Inbox and Settings, the title with its Space
+/// menu, the filter and Library) and one at the bottom (the capture field and Search). Memos pass
+/// under both.
 struct TimelineScreen: View {
     /// False when an enclosing split view presents the composer, Inbox and Settings itself.
     var presentsSheets = true
@@ -215,21 +216,11 @@ private struct TimelineRoot: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            AccountMenu()
+        }
         ToolbarItemGroup(placement: .topBarTrailing) {
             FilterMenu()
-            Button {
-                session.isInboxPresented = true
-            } label: {
-                Image(systemName: "bell")
-            }
-            .badge(session.store.profile.unreadNotifications)
-            // A toolbar badge doesn't redraw when its count changes on its own.
-            .id(session.store.profile.unreadNotifications)
-            .accessibilityLabel("Inbox")
-            .accessibilityValue(session.store.profile.unreadNotifications > 0 ? Text("\(session.store.profile.unreadNotifications) unread") : Text(verbatim: ""))
-        }
-
-        ToolbarItem(placement: .bottomBar) {
             Button {
                 session.path.append(.library)
             } label: {
@@ -237,7 +228,7 @@ private struct TimelineRoot: View {
             }
             .accessibilityLabel("Library")
         }
-        ToolbarSpacer(.fixed, placement: .bottomBar)
+
         ToolbarItem(placement: .bottomBar) {
             CaptureField()
         }
@@ -398,6 +389,39 @@ private struct TitleMenu: View {
             Label(title, systemImage: session.selectedSpace == name ? "checkmark" : (name == nil ? "square.stack.3d.up" : "square.stack"))
             Text("\(count) memos")
         }
+    }
+}
+
+/// The “…” menu in the title row, opening Inbox and Settings. Inbox is rarely urgent, so unread
+/// notifications show as a dot rather than a count.
+private struct AccountMenu: View {
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        let unread = session.store.profile.unreadNotifications
+        Menu {
+            Button {
+                session.isInboxPresented = true
+            } label: {
+                Label("Inbox", systemImage: "bell")
+                // A menu shows a second Text in the label as the subtitle.
+                if unread > 0 { Text("\(unread) unread") }
+            }
+            Button("Settings", systemImage: "gearshape") { session.isSettingsPresented = true }
+        } label: {
+            Image(systemName: "ellipsis")
+                .overlay(alignment: .topTrailing) {
+                    if unread > 0 {
+                        Circle()
+                            .fill(.memosBlue)
+                            .stroke(.paper, lineWidth: 2)
+                            .frame(width: 9, height: 9)
+                            .offset(x: 5, y: -11)
+                    }
+                }
+        }
+        .accessibilityLabel("Account")
+        .accessibilityValue(unread > 0 ? Text("\(unread) unread") : Text(verbatim: ""))
     }
 }
 
