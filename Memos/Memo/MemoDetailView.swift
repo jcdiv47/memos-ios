@@ -447,6 +447,8 @@ private struct CommentsSection: View {
                             Text(MemoDate.short(comment.createdAt))
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
+                            Spacer(minLength: 0)
+                            RevealToggle(memo: comment)
                         }
                         SensitiveContent(memo: comment) {
                             MemoContentView(content: comment.content, showsTitle: false)

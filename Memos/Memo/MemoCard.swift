@@ -92,6 +92,7 @@ struct MemoHeader: View {
                 metadata
             }
             Spacer(minLength: 0)
+            RevealToggle(memo: memo)
             if memo.pinned {
                 Image(systemName: "pin.fill")
                     .font(.caption)
@@ -130,49 +131,48 @@ struct MemoHeader: View {
 }
 
 /// A memo's body, blurred when one of its tags is set to blur in your tag settings on the web,
-/// such as `#nsfw`. One tap shows it until the view goes away, as on the web.
+/// such as `#nsfw`, until ``RevealToggle`` shows it.
 struct SensitiveContent<Content: View>: View {
     let memo: Memo
     @ViewBuilder var content: Content
 
     @Environment(AccountSession.self) private var session
-    @State private var revealed = false
 
     var body: some View {
-        let sensitive = session.store.profile.tagBlurRules.blurs(memo)
-        let hidden = sensitive && !revealed
-        VStack(alignment: .leading, spacing: 10) {
-            content
-                // Centers the button across the card, with room for it under a one-line memo.
-                .frame(maxWidth: .infinity, minHeight: hidden ? 44 : nil, alignment: .topLeading)
-                .blur(radius: hidden ? 16 : 0)
-                .allowsHitTesting(!hidden)
-                .accessibilityHidden(hidden)
-                .overlay {
-                    if hidden {
-                        Button("Show sensitive content", systemImage: "eye") {
-                            withAnimation(.memosSpring) { revealed = true }
-                        }
-                        .font(.subheadline.weight(.medium))
-                        .buttonStyle(.glass)
-                        .tint(.ink)
-                    }
-                }
+        let hidden = session.store.profile.tagBlurRules.blurs(memo) && !session.revealedMemos.contains(memo.name)
+        content
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .blur(radius: hidden ? 16 : 0)
+            .allowsHitTesting(!hidden)
+            .accessibilityHidden(hidden)
+    }
+}
 
-            // The web has no way back; here one tap blurs it again.
-            if sensitive && revealed {
-                Button {
-                    withAnimation(.memosSpring) { revealed = false }
-                } label: {
-                    Label("Hide", systemImage: "eye.slash")
-                        .padding(.vertical, 6)
-                        .contentShape(.rect)
+/// The eye beside a sensitive memo's pin: shows its blurred body, and blurs it again, which the
+/// web has no way to do. Nothing for a memo with no blurred tag.
+struct RevealToggle: View {
+    let memo: Memo
+
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        if session.store.profile.tagBlurRules.blurs(memo) {
+            let revealed = session.revealedMemos.contains(memo.name)
+            Button {
+                withAnimation(.memosSpring) {
+                    if revealed { session.revealedMemos.remove(memo.name) } else { session.revealedMemos.insert(memo.name) }
                 }
-                .buttonStyle(.plain)
-                .font(.metadata)
-                .foregroundStyle(.ink2)
-                .accessibilityLabel("Hide sensitive content")
+            } label: {
+                Image(systemName: revealed ? "eye.slash.fill" : "eye.fill")
+                    .contentTransition(.symbolEffect(.replace))
+                    .font(.caption)
+                    .foregroundStyle(.ink2)
+                    // A pin-sized symbol, with a finger-sized target.
+                    .frame(minWidth: 28, minHeight: 28)
+                    .contentShape(.rect)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(revealed ? Text("Hide sensitive content") : Text("Show sensitive content"))
         }
     }
 }

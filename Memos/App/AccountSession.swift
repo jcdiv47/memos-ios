@@ -26,6 +26,9 @@ final class AccountSession {
     var isQuickVoiceMemoPresented = false
     /// Set by deep links and the search intent; the timeline opens search with it.
     var pendingSearch: SearchQuery?
+    /// Memos with a blurred tag you've shown, so the card and its detail agree. Forgotten on
+    /// relaunch, as the web forgets on reload.
+    var revealedMemos: Set<String> = []
 
     /// Mine or Everyone, from the title menu. Persisted per account.
     var scope: MemoQuery.Scope {
