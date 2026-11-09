@@ -246,6 +246,9 @@ public nonisolated struct Memos_Api_Memo: @unchecked Sendable {
     /// Whether the content contains an unchecked task.
     public var hasIncompleteTasks_p: Bool = false
 
+    /// Whether the content contains a Markdown image.
+    public var hasInlineImage_p: Bool = false
+
     public var unknownFields = SwiftProtobuf.UnknownStorage()
 
     public init() {}
@@ -279,7 +282,10 @@ public nonisolated struct Memos_Api_ListMemosRequest: Sendable {
   ///     supports == and comparisons against null, e.g. space != null),
   ///   tags (list<string>; match with `"work" in tags`, not `tag == "work"`),
   ///   has_task_list / has_link / has_code / has_incomplete_tasks (bool),
-  ///   has_location (bool; true when the memo has a location attached).
+  ///   has_location (bool; true when the memo has a location attached),
+  ///   has_attachments (bool; true when a file is attached to the memo),
+  ///   has_image (bool; true when the content contains a Markdown image or an
+  ///     image file is attached).
   /// Note: the time fields here are created_ts / updated_ts, which differ from
   /// the create_time / update_time names used by order_by.
   /// Examples:
@@ -1235,7 +1241,7 @@ nonisolated extension Memos_Api_Memo: SwiftProtobuf.Message, SwiftProtobuf._Mess
 
 nonisolated extension Memos_Api_Memo.Property: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = Memos_Api_Memo.protoMessageName + ".Property"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}title\0\u{3}has_link\0\u{3}has_code\0\u{3}has_task_list\0\u{3}has_incomplete_tasks\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}title\0\u{3}has_link\0\u{3}has_code\0\u{3}has_task_list\0\u{3}has_incomplete_tasks\0\u{3}has_inline_image\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1248,6 +1254,7 @@ nonisolated extension Memos_Api_Memo.Property: SwiftProtobuf.Message, SwiftProto
       case 3: try { try decoder.decodeSingularBoolField(value: &self.hasCode_p) }()
       case 4: try { try decoder.decodeSingularBoolField(value: &self.hasTaskList_p) }()
       case 5: try { try decoder.decodeSingularBoolField(value: &self.hasIncompleteTasks_p) }()
+      case 6: try { try decoder.decodeSingularBoolField(value: &self.hasInlineImage_p) }()
       default: break
       }
     }
@@ -1269,6 +1276,9 @@ nonisolated extension Memos_Api_Memo.Property: SwiftProtobuf.Message, SwiftProto
     if self.hasIncompleteTasks_p != false {
       try visitor.visitSingularBoolField(value: self.hasIncompleteTasks_p, fieldNumber: 5)
     }
+    if self.hasInlineImage_p != false {
+      try visitor.visitSingularBoolField(value: self.hasInlineImage_p, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1278,6 +1288,7 @@ nonisolated extension Memos_Api_Memo.Property: SwiftProtobuf.Message, SwiftProto
     if lhs.hasCode_p != rhs.hasCode_p {return false}
     if lhs.hasTaskList_p != rhs.hasTaskList_p {return false}
     if lhs.hasIncompleteTasks_p != rhs.hasIncompleteTasks_p {return false}
+    if lhs.hasInlineImage_p != rhs.hasInlineImage_p {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

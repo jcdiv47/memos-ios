@@ -370,6 +370,15 @@ public nonisolated struct Memos_Api_UserSetting: Sendable {
     set {value = .tagsSetting(newValue)}
   }
 
+  /// The value of the EDITOR setting.
+  public var editorSetting: Memos_Api_UserSetting.EditorSetting {
+    get {
+      if case .editorSetting(let v)? = value {return v}
+      return Memos_Api_UserSetting.EditorSetting()
+    }
+    set {value = .editorSetting(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   /// The setting value. The set field matches the setting key.
@@ -380,6 +389,8 @@ public nonisolated struct Memos_Api_UserSetting: Sendable {
     case webhooksSetting(Memos_Api_UserSetting.WebhooksSetting)
     /// The value of the TAGS setting.
     case tagsSetting(Memos_Api_UserSetting.TagsSetting)
+    /// The value of the EDITOR setting.
+    case editorSetting(Memos_Api_UserSetting.EditorSetting)
 
   }
 
@@ -396,6 +407,9 @@ public nonisolated struct Memos_Api_UserSetting: Sendable {
 
     /// Per-user tag metadata.
     case tags // = 3
+
+    /// Memo editor preferences.
+    case editor // = 4
     case UNRECOGNIZED(Int)
 
     public init() {
@@ -408,6 +422,7 @@ public nonisolated struct Memos_Api_UserSetting: Sendable {
       case 1: self = .general
       case 2: self = .webhooks
       case 3: self = .tags
+      case 4: self = .editor
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -418,6 +433,7 @@ public nonisolated struct Memos_Api_UserSetting: Sendable {
       case .general: return 1
       case .webhooks: return 2
       case .tags: return 3
+      case .editor: return 4
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -428,6 +444,7 @@ public nonisolated struct Memos_Api_UserSetting: Sendable {
       .general,
       .webhooks,
       .tags,
+      .editor,
     ]
 
   }
@@ -512,6 +529,22 @@ public nonisolated struct Memos_Api_UserSetting: Sendable {
     public init() {}
 
     fileprivate var _backgroundColor: Google_Type_Color? = nil
+  }
+
+  /// EditorSetting holds the user's memo editor preferences.
+  public nonisolated struct EditorSetting: Sendable {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    /// Optional. Whether the official client's memo editor uses source mode,
+    /// which shows and edits memos as Markdown text instead of formatted text.
+    /// The official client calls this "Markdown mode".
+    public var sourceMode: Bool = false
+
+    public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    public init() {}
   }
 
   public init() {}
@@ -1677,7 +1710,9 @@ public nonisolated struct Memos_Api_LinkedIdentity: Sendable {
   /// Format: identity-providers/{idp}
   public var identityProvider: String = String()
 
-  /// Output only. The external user identifier from the identity provider.
+  /// The external user identifier from the identity provider: the subject that
+  /// signs in as this user. Set by signing in through the provider, or declared
+  /// in a configuration file for a declared user.
   public var externalUid: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1922,21 +1957,6 @@ public nonisolated struct Memos_Api_DeletePersonalAccessTokenRequest: Sendable {
 
   /// Required. The resource name of the personal access token to delete.
   /// Format: users/{user}/personalAccessTokens/{personal_access_token}
-  public var name: String = String()
-
-  public var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  public init() {}
-}
-
-/// Request message for UserService.ExportMemos.
-public nonisolated struct Memos_Api_ExportMemosRequest: Sendable {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  /// Required. The user whose memos are exported. Must be the caller.
-  /// Format: users/{user}
   public var name: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -2622,7 +2642,7 @@ nonisolated extension Memos_Api_DeleteUserRequest: SwiftProtobuf.Message, SwiftP
 
 nonisolated extension Memos_Api_UserSetting: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".UserSetting"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}name\0\u{3}general_setting\0\u{3}webhooks_setting\0\u{3}tags_setting\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}name\0\u{3}general_setting\0\u{3}webhooks_setting\0\u{3}tags_setting\0\u{3}editor_setting\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -2670,6 +2690,19 @@ nonisolated extension Memos_Api_UserSetting: SwiftProtobuf.Message, SwiftProtobu
           self.value = .tagsSetting(v)
         }
       }()
+      case 5: try {
+        var v: Memos_Api_UserSetting.EditorSetting?
+        var hadOneofValue = false
+        if let current = self.value {
+          hadOneofValue = true
+          if case .editorSetting(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.value = .editorSetting(v)
+        }
+      }()
       default: break
       }
     }
@@ -2696,6 +2729,10 @@ nonisolated extension Memos_Api_UserSetting: SwiftProtobuf.Message, SwiftProtobu
       guard case .tagsSetting(let v)? = self.value else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
     }()
+    case .editorSetting?: try {
+      guard case .editorSetting(let v)? = self.value else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    }()
     case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
@@ -2710,7 +2747,7 @@ nonisolated extension Memos_Api_UserSetting: SwiftProtobuf.Message, SwiftProtobu
 }
 
 nonisolated extension Memos_Api_UserSetting.Key: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0KEY_UNSPECIFIED\0\u{1}GENERAL\0\u{1}WEBHOOKS\0\u{1}TAGS\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0KEY_UNSPECIFIED\0\u{1}GENERAL\0\u{1}WEBHOOKS\0\u{1}TAGS\0\u{1}EDITOR\0")
 }
 
 nonisolated extension Memos_Api_UserSetting.GeneralSetting: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -2852,6 +2889,36 @@ nonisolated extension Memos_Api_UserSetting.TagMetadata: SwiftProtobuf.Message, 
   public static func ==(lhs: Memos_Api_UserSetting.TagMetadata, rhs: Memos_Api_UserSetting.TagMetadata) -> Bool {
     if lhs._backgroundColor != rhs._backgroundColor {return false}
     if lhs.blurContent != rhs.blurContent {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Memos_Api_UserSetting.EditorSetting: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = Memos_Api_UserSetting.protoMessageName + ".EditorSetting"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}source_mode\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.sourceMode) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.sourceMode != false {
+      try visitor.visitSingularBoolField(value: self.sourceMode, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Memos_Api_UserSetting.EditorSetting, rhs: Memos_Api_UserSetting.EditorSetting) -> Bool {
+    if lhs.sourceMode != rhs.sourceMode {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -4858,36 +4925,6 @@ nonisolated extension Memos_Api_DeletePersonalAccessTokenRequest: SwiftProtobuf.
   }
 
   public static func ==(lhs: Memos_Api_DeletePersonalAccessTokenRequest, rhs: Memos_Api_DeletePersonalAccessTokenRequest) -> Bool {
-    if lhs.name != rhs.name {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-nonisolated extension Memos_Api_ExportMemosRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  public static let protoMessageName: String = _protobuf_package + ".ExportMemosRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}name\0")
-
-  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.name) }()
-      default: break
-      }
-    }
-  }
-
-  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.name.isEmpty {
-      try visitor.visitSingularStringField(value: self.name, fieldNumber: 1)
-    }
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  public static func ==(lhs: Memos_Api_ExportMemosRequest, rhs: Memos_Api_ExportMemosRequest) -> Bool {
     if lhs.name != rhs.name {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

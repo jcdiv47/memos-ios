@@ -1,4 +1,5 @@
 import Foundation
+import SwiftProtobuf
 import Testing
 @testable import MemosAPI
 
@@ -62,5 +63,21 @@ struct `Speaking to Memos 0.31` {
     @Test func `bodies of other methods pass through byte for byte`() {
         let body = Data(#"{"memos":[{"location":{"latitude":22.2855}}]}"#.utf8)
         #expect(V1Translation.response("MemoService/ListMemos", body) == body)
+    }
+}
+
+struct `Reading the instance's reactions` {
+    @Test func `a current server sends them as field 1`() throws {
+        // Memos 26.11 dropped enable_double_click_edit and moved reactions to field 1.
+        let bytes = Data([0x0A, 0x02, 0x68, 0x69, 0x0A, 0x01, 0x78])
+        let setting = try Memos_Api_InstanceSetting.MemoRelatedSetting(serializedBytes: bytes)
+        #expect(setting.reactions == ["hi", "x"])
+    }
+
+    @Test func `a 0.31 server's JSON still decodes, extra fields and all`() throws {
+        let json = #"{"enableDoubleClickEdit":true,"reactions":["hi","x"]}"#
+        let setting = try Memos_Api_InstanceSetting.MemoRelatedSetting(
+            jsonString: json, options: { var o = JSONDecodingOptions(); o.ignoreUnknownFields = true; return o }())
+        #expect(setting.reactions == ["hi", "x"])
     }
 }

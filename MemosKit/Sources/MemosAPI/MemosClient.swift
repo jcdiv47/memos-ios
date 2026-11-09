@@ -114,6 +114,13 @@ public final class MemosClient: Sendable {
         return nil
     }
 
+    /// Moves to the current API once a server signed in to as 0.31 has been upgraded, and saves
+    /// the switch, since the 0.31 API is gone from upgraded servers. Does nothing otherwise.
+    public func updateDialectAfterServerUpgrade() async {
+        guard dialect == .v1, (try? await detectDialect()) == .current else { return }
+        await session.saveDialect(.current)
+    }
+
     // MARK: Calls
 
     /// Sends an authenticated request. Refreshes the access token first when it is about to
@@ -318,6 +325,12 @@ actor SessionKeeper {
     func store(_ credentials: Credentials?) {
         cached = credentials
         store.save(credentials)
+    }
+
+    func saveDialect(_ dialect: ServerDialect) {
+        guard var credentials = store.load() ?? cached, credentials.serverURL == serverURL else { return }
+        credentials.dialect = dialect
+        store(credentials)
     }
 
     func validAccessToken() async throws(APIError) -> String {
