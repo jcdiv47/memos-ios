@@ -101,6 +101,7 @@ public final class SyncEngine {
                 self.isSyncing = false
                 self.running = nil
             }
+            await self.client.updateDialectAfterServerUpgrade()
             while self.isOnline && (self.wantsPush || self.wantsPull) {
                 let pull = self.wantsPull
                 let fullCompare = self.wantsFullCompare || self.dailyCompareDue
