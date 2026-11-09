@@ -109,8 +109,9 @@ public nonisolated struct Memos_Api_InstanceProfile: @unchecked Sendable {
   }
 
   /// The first administrator of the instance, for display purposes.
-  /// May be null on an instance that has lost all admins; use needs_setup to determine whether initial setup is
-  /// required.
+  /// Only set for signed-in callers; anonymous requests never receive it, so the admin's login identifier is not
+  /// disclosed before authentication. May also be null on an instance that has lost all admins; use needs_setup to
+  /// determine whether initial setup is required.
   public var admin: Memos_Api_User {
     get {_storage._admin ?? Memos_Api_User()}
     set {_uniqueStorage()._admin = newValue}
@@ -711,9 +712,6 @@ public nonisolated struct Memos_Api_InstanceSetting: Sendable {
     // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
     // methods supported on all messages.
 
-    /// Whether double-clicking a memo opens it for editing.
-    public var enableDoubleClickEdit: Bool = false
-
     /// The reactions users can choose from. Defaults to a built-in emoji set when empty.
     public var reactions: [String] = []
 
@@ -1187,6 +1185,79 @@ public nonisolated struct Memos_Api_GetInstanceStatsRequest: Sendable {
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
+}
+
+/// Request message for InstanceService.GetConfigurationStatus.
+public nonisolated struct Memos_Api_GetConfigurationStatusRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// ConfigurationStatus is what declarative configuration manages on the instance.
+public nonisolated struct Memos_Api_ConfigurationStatus: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// The state record serial; zero before any apply has changed something.
+  public var serial: Int64 = 0
+
+  /// Identifies the applied configuration, with sensitive values masked before hashing.
+  public var configDigest: String = String()
+
+  /// The apply path ("cli" or "startup") and the host of the last apply.
+  public var appliedBy: String = String()
+
+  /// The Memos version of the last apply.
+  public var version: String = String()
+
+  /// The resources the configuration manages.
+  public var managedResources: [Memos_Api_ConfigurationStatus.ManagedResource] = []
+
+  /// When the last apply that changed something ran.
+  public var applyTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_applyTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_applyTime = newValue}
+  }
+  /// Returns true if `applyTime` has been explicitly set.
+  public var hasApplyTime: Bool {self._applyTime != nil}
+  /// Clears the value of `applyTime`. Subsequent reads from it will return its default value.
+  public mutating func clearApplyTime() {self._applyTime = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  /// ManagedResource is one resource the configuration manages.
+  public nonisolated struct ManagedResource: Sendable {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    /// The resource name.
+    /// Format: identity-providers/{idp}, instance/settings/{setting}, or users/{user}
+    public var resource: String = String()
+
+    /// The configuration file that declares the resource.
+    public var source: String = String()
+
+    /// The field paths, in JSON names, the configuration manages; "*" means the whole resource.
+    public var managedFields: [String] = []
+
+    /// The managed field paths the configuration does not write after creation, so the API accepts edits to them.
+    public var ignoredFields: [String] = []
+
+    public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    public init() {}
+  }
+
+  public init() {}
+
+  fileprivate var _applyTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -1906,7 +1977,7 @@ nonisolated extension Memos_Api_InstanceSetting.Storage.S3Config: SwiftProtobuf.
 
 nonisolated extension Memos_Api_InstanceSetting.MemoRelatedSetting: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = Memos_Api_InstanceSetting.protoMessageName + ".MemoRelatedSetting"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}enable_double_click_edit\0\u{1}reactions\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}reactions\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1914,25 +1985,20 @@ nonisolated extension Memos_Api_InstanceSetting.MemoRelatedSetting: SwiftProtobu
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularBoolField(value: &self.enableDoubleClickEdit) }()
-      case 2: try { try decoder.decodeRepeatedStringField(value: &self.reactions) }()
+      case 1: try { try decoder.decodeRepeatedStringField(value: &self.reactions) }()
       default: break
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.enableDoubleClickEdit != false {
-      try visitor.visitSingularBoolField(value: self.enableDoubleClickEdit, fieldNumber: 1)
-    }
     if !self.reactions.isEmpty {
-      try visitor.visitRepeatedStringField(value: self.reactions, fieldNumber: 2)
+      try visitor.visitRepeatedStringField(value: self.reactions, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Memos_Api_InstanceSetting.MemoRelatedSetting, rhs: Memos_Api_InstanceSetting.MemoRelatedSetting) -> Bool {
-    if lhs.enableDoubleClickEdit != rhs.enableDoubleClickEdit {return false}
     if lhs.reactions != rhs.reactions {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -2641,6 +2707,129 @@ nonisolated extension Memos_Api_GetInstanceStatsRequest: SwiftProtobuf.Message, 
   }
 
   public static func ==(lhs: Memos_Api_GetInstanceStatsRequest, rhs: Memos_Api_GetInstanceStatsRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Memos_Api_GetConfigurationStatusRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".GetConfigurationStatusRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Memos_Api_GetConfigurationStatusRequest, rhs: Memos_Api_GetConfigurationStatusRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Memos_Api_ConfigurationStatus: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ConfigurationStatus"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}serial\0\u{3}config_digest\0\u{3}applied_by\0\u{1}version\0\u{3}managed_resources\0\u{3}apply_time\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularInt64Field(value: &self.serial) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.configDigest) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.appliedBy) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.version) }()
+      case 5: try { try decoder.decodeRepeatedMessageField(value: &self.managedResources) }()
+      case 6: try { try decoder.decodeSingularMessageField(value: &self._applyTime) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if self.serial != 0 {
+      try visitor.visitSingularInt64Field(value: self.serial, fieldNumber: 1)
+    }
+    if !self.configDigest.isEmpty {
+      try visitor.visitSingularStringField(value: self.configDigest, fieldNumber: 2)
+    }
+    if !self.appliedBy.isEmpty {
+      try visitor.visitSingularStringField(value: self.appliedBy, fieldNumber: 3)
+    }
+    if !self.version.isEmpty {
+      try visitor.visitSingularStringField(value: self.version, fieldNumber: 4)
+    }
+    if !self.managedResources.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.managedResources, fieldNumber: 5)
+    }
+    try { if let v = self._applyTime {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Memos_Api_ConfigurationStatus, rhs: Memos_Api_ConfigurationStatus) -> Bool {
+    if lhs.serial != rhs.serial {return false}
+    if lhs.configDigest != rhs.configDigest {return false}
+    if lhs.appliedBy != rhs.appliedBy {return false}
+    if lhs.version != rhs.version {return false}
+    if lhs.managedResources != rhs.managedResources {return false}
+    if lhs._applyTime != rhs._applyTime {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Memos_Api_ConfigurationStatus.ManagedResource: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = Memos_Api_ConfigurationStatus.protoMessageName + ".ManagedResource"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}resource\0\u{1}source\0\u{3}managed_fields\0\u{3}ignored_fields\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.resource) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.source) }()
+      case 3: try { try decoder.decodeRepeatedStringField(value: &self.managedFields) }()
+      case 4: try { try decoder.decodeRepeatedStringField(value: &self.ignoredFields) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.resource.isEmpty {
+      try visitor.visitSingularStringField(value: self.resource, fieldNumber: 1)
+    }
+    if !self.source.isEmpty {
+      try visitor.visitSingularStringField(value: self.source, fieldNumber: 2)
+    }
+    if !self.managedFields.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.managedFields, fieldNumber: 3)
+    }
+    if !self.ignoredFields.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.ignoredFields, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Memos_Api_ConfigurationStatus.ManagedResource, rhs: Memos_Api_ConfigurationStatus.ManagedResource) -> Bool {
+    if lhs.resource != rhs.resource {return false}
+    if lhs.source != rhs.source {return false}
+    if lhs.managedFields != rhs.managedFields {return false}
+    if lhs.ignoredFields != rhs.ignoredFields {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

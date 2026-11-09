@@ -173,13 +173,6 @@ public protocol Memos_Api_UserServiceClientInterface: Sendable {
     @available(iOS 13, *)
     func `deletePersonalAccessToken`(request: Memos_Api_DeletePersonalAccessTokenRequest, headers: Connect.Headers) async -> ResponseMessage<SwiftProtobuf.Google_Protobuf_Empty>
 
-    /// ExportMemos writes every memo the user created, with comments, archived
-    /// memos, and attachment files, as a Memos export file (a ZIP file, see
-    /// docs/design/memos-export-format.md). Only the user may export their own
-    /// memos. The body is the archive; content_type is its media type.
-    @available(iOS 13, *)
-    func `exportMemos`(request: Memos_Api_ExportMemosRequest, headers: Connect.Headers) async -> ResponseMessage<Google_Api_HttpBody>
-
     /// ImportMemos uploads a Memos export file in bounded chunks and imports it
     /// into the user's memos. The first call carries the spec and returns an
     /// upload_id; later calls carry that upload_id. A finishing call with
@@ -357,11 +350,6 @@ public final class Memos_Api_UserServiceClient: Memos_Api_UserServiceClientInter
     @available(iOS 13, *)
     public func `deletePersonalAccessToken`(request: Memos_Api_DeletePersonalAccessTokenRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<SwiftProtobuf.Google_Protobuf_Empty> {
         return await self.client.unary(path: "/memos.api.UserService/DeletePersonalAccessToken", idempotencyLevel: .unknown, request: request, headers: headers)
-    }
-
-    @available(iOS 13, *)
-    public func `exportMemos`(request: Memos_Api_ExportMemosRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Google_Api_HttpBody> {
-        return await self.client.unary(path: "/memos.api.UserService/ExportMemos", idempotencyLevel: .unknown, request: request, headers: headers)
     }
 
     @available(iOS 13, *)

@@ -26,8 +26,8 @@ public protocol Memos_Api_InstanceServiceClientInterface: Sendable {
     @available(iOS 13, *)
     func `batchGetInstanceSettings`(request: Memos_Api_BatchGetInstanceSettingsRequest, headers: Connect.Headers) async -> ResponseMessage<Memos_Api_BatchGetInstanceSettingsResponse>
 
-    /// UpdateInstanceSetting replaces an instance setting. Admin only. Settings configured by the deployment cannot be
-    /// updated. Empty write-only credentials keep the stored values.
+    /// UpdateInstanceSetting replaces an instance setting. Admin only. Fields declarative configuration manages cannot be
+    /// changed. Empty write-only credentials keep the stored values.
     @available(iOS 13, *)
     func `updateInstanceSetting`(request: Memos_Api_UpdateInstanceSettingRequest, headers: Connect.Headers) async -> ResponseMessage<Memos_Api_InstanceSetting>
 
@@ -38,6 +38,11 @@ public protocol Memos_Api_InstanceServiceClientInterface: Sendable {
     /// GetInstanceStats gets resource usage statistics for the instance. Admin only. Results are cached for 60 seconds.
     @available(iOS 13, *)
     func `getInstanceStats`(request: Memos_Api_GetInstanceStatsRequest, headers: Connect.Headers) async -> ResponseMessage<Memos_Api_InstanceStats>
+
+    /// GetConfigurationStatus gets what declarative configuration manages: the managed resources and the last apply.
+    /// Admin only. It carries resource names and field paths, never a configured value.
+    @available(iOS 13, *)
+    func `getConfigurationStatus`(request: Memos_Api_GetConfigurationStatusRequest, headers: Connect.Headers) async -> ResponseMessage<Memos_Api_ConfigurationStatus>
 }
 
 /// Concrete implementation of `Memos_Api_InstanceServiceClientInterface`.
@@ -76,5 +81,10 @@ public final class Memos_Api_InstanceServiceClient: Memos_Api_InstanceServiceCli
     @available(iOS 13, *)
     public func `getInstanceStats`(request: Memos_Api_GetInstanceStatsRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Memos_Api_InstanceStats> {
         return await self.client.unary(path: "/memos.api.InstanceService/GetInstanceStats", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
+    public func `getConfigurationStatus`(request: Memos_Api_GetConfigurationStatusRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Memos_Api_ConfigurationStatus> {
+        return await self.client.unary(path: "/memos.api.InstanceService/GetConfigurationStatus", idempotencyLevel: .unknown, request: request, headers: headers)
     }
 }
