@@ -81,14 +81,19 @@ struct FilteredTimelineView: View {
         let memos = self.memos
         List {
             if let filter, view != nil {
-                Text(filter)
-                    .font(.memoCode)
-                    .foregroundStyle(.ink2)
+                Group {
+                    if let summary = session.summary(ofFilter: filter) {
+                        Text(summary).font(.subheadline)
+                    } else {
+                        Text(filter).font(.memoCode)
+                    }
+                }
+                .foregroundStyle(.ink2)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
             ForEach(memos, id: \.name) { memo in
-                TimelineRow(memo: memo, zoom: zoom)
+                TimelineRow(memo: memo, zoom: zoom, namesEveryAuthor: includesOthers)
             }
             if (includesOthers || !evaluatesLocally), feed.hasMore, session.isOnline {
                 ProgressView()
@@ -103,7 +108,11 @@ struct FilteredTimelineView: View {
         .background(.paper)
         .overlay {
             if memos.isEmpty && !feed.isLoading {
-                ContentUnavailableView(state == .archived ? "Nothing archived" : "No memos match" as LocalizedStringKey, systemImage: state == .archived ? "archivebox" : "line.3.horizontal.decrease")
+                if state == .archived {
+                    ContentUnavailableView("Nothing archived", systemImage: "archivebox", description: Text("Swipe left on a memo to archive it."))
+                } else {
+                    ContentUnavailableView("No memos match", systemImage: "line.3.horizontal.decrease", description: Text("New memos that match show up here."))
+                }
             }
         }
         .navigationTitle(view.map { "\($0.emoji.map { "\($0) " } ?? "")\($0.displayTitle)" } ?? title)

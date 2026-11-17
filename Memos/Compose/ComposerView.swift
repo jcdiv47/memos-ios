@@ -67,6 +67,7 @@ struct ComposerView: View {
                 VoiceStatus(recorder: session.voice) {
                     Task { await finishRecording(model) }
                 }
+                .transition(.opacity)
             }
 
             MemoTextView(model: model, isFocused: $editorFocused)
@@ -84,8 +85,9 @@ struct ComposerView: View {
                 // The text lines up with the chips above it.
                 .padding(.horizontal, -5)
 
-            if !model.attachments.isEmpty || model.location != nil || model.preparing > 0 {
+            if !model.attachments.isEmpty || model.location != nil || model.preparing > 0 || model.isLocating {
                 AttachmentStrip(model: model)
+                    .transition(.opacity)
             }
 
             if let error = model.error {
@@ -100,6 +102,10 @@ struct ComposerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+        // Rows that come and go above and below the text ease the editor aside instead of
+        // shoving it.
+        .animation(.memosSpring, value: session.voice.phase)
+        .animation(.memosSpring, value: model.preparing > 0 || model.isLocating)
         // In the sheet's own layout rather than a keyboard toolbar: the input accessory attaches
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
         .safeAreaBar(edge: .bottom) {
@@ -211,6 +217,7 @@ struct ComposerView: View {
             Task { await toggleRecording(model) }
         } label: {
             Image(systemName: session.voice.isRecording ? "stop.fill" : "mic")
+                .contentTransition(.symbolEffect(.replace))
         }
         .accessibilityLabel(session.voice.isRecording ? Text("Stop recording") : Text("Record voice memo"))
     }

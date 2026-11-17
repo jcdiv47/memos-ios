@@ -370,7 +370,7 @@ struct PlacesMapView: View {
                             .padding(7)
                             .background(.memosBlue, in: .circle)
                     }
-                    .accessibilityLabel(memo.displayTitle)
+                    .accessibilityLabel(session.redactedTitle(of: memo))
                 }
             }
             UserAnnotation()
@@ -387,7 +387,7 @@ struct PlacesMapView: View {
                         .glassEffect(.regular.interactive(), in: .circle)
                     if session.showsScopeToggle {
                         mapButton(includeOthers ? "person.2.fill" : "person", label: includeOthers ? Text("Showing everyone") : Text("Showing yours")) {
-                            includeOthers.toggle()
+                            withAnimation(.memosSpring) { includeOthers.toggle() }
                         }
                     }
                     mapButton("list.bullet", label: Text("List places")) { showsList = true }
@@ -416,7 +416,7 @@ struct PlacesMapView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(memo.location.placeholder.isEmpty ? memo.location.latitude.formatted() : memo.location.placeholder)
                                 .foregroundStyle(.ink)
-                            Text(memo.displayTitle)
+                            Text(session.redactedTitle(of: memo))
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
                                 .lineLimit(1)
@@ -435,6 +435,7 @@ struct PlacesMapView: View {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.ink)
+                .contentTransition(.symbolEffect(.replace))
                 .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)

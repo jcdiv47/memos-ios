@@ -194,8 +194,7 @@ private struct SavedViewRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(view.displayTitle)
                     .foregroundStyle(.ink)
-                Text(view.filter)
-                    .font(.system(.caption, design: .monospaced))
+                description
                     .foregroundStyle(.ink2)
                     .lineLimit(1)
             }
@@ -209,6 +208,22 @@ private struct SavedViewRow: View {
         }
         .padding(.vertical, 10)
         .contentShape(.rect)
+    }
+
+    /// “#idea · Pinned” when the filter is one search could have built, the filter itself
+    /// otherwise.
+    @ViewBuilder
+    private var description: some View {
+        if let summary = session.summary(ofFilter: view.filter) {
+            // A view named for its filter, like “Open tasks”, needs no second line.
+            if summary.localizedCaseInsensitiveCompare(view.displayTitle) != .orderedSame {
+                Text(summary)
+                    .font(.footnote)
+            }
+        } else {
+            Text(view.filter)
+                .font(.system(.caption, design: .monospaced))
+        }
     }
 
     private var count: Int? {
@@ -241,5 +256,13 @@ struct LibraryStats {
         }
         dayCount = days.count
         tagCount = tags.count
+    }
+}
+
+extension AccountSession {
+    /// A saved view's filter in words, “#idea · Pinned”, when search could have built it.
+    func summary(ofFilter filter: String) -> String? {
+        guard let tokens = (try? MemoFilter(filter))?.tokens(spaceTitle: { self.space(named: $0)?.title }), !tokens.isEmpty else { return nil }
+        return tokens.map(\.label).joined(separator: " · ")
     }
 }

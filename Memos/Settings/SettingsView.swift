@@ -8,7 +8,6 @@ struct SettingsView: View {
     @Environment(AccountSession.self) private var session
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     @State private var confirmSignOut = false
     @State private var cacheSize: Int64?
     @State private var error: String?
@@ -56,7 +55,10 @@ struct SettingsView: View {
                 Section {
                     Toggle("Keep all attachments", isOn: $files.keepAll)
                     if let cacheSize {
-                        LabeledContent("Downloaded files", value: cacheSize.formatted(.byteCount(style: .file)))
+                        LabeledContent("Downloaded files") {
+                            // “Zero kB” reads like a measurement; nothing downloaded is “None”.
+                            cacheSize == 0 ? Text("None") : Text(cacheSize.formatted(.byteCount(style: .file)))
+                        }
                     }
                 } footer: {
                     Text("Downloads every photo and file for reading offline. Otherwise full-size files are kept as you open them, up to 500 MB.")
@@ -66,7 +68,7 @@ struct SettingsView: View {
 
                 Section("Developer") {
                     NavigationLink("Access tokens") { AccessTokensView() }
-                    Button("Webhooks") { openURL(session.client.serverURL.appending(path: "setting")) }
+                    WebLink("Webhooks", url: session.client.serverURL.appending(path: "setting"))
                 }
 
                 Section {
@@ -75,7 +77,7 @@ struct SettingsView: View {
                         LabeledContent("Version", value: version)
                     }
                     if user?.role == .admin {
-                        Button("Instance administration") { openURL(session.client.serverURL.appending(path: "setting")) }
+                        WebLink("Instance administration", url: session.client.serverURL.appending(path: "setting"))
                     }
                 }
 
@@ -99,7 +101,9 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                // Changes apply as they're made, so there's nothing to confirm: a plain close, where
+                // Inbox has it. Save stays the app's only tinted glass.
+                ToolbarItem(placement: .cancellationAction) {
                     Button(role: .close) { dismiss() }
                 }
             }
@@ -130,6 +134,35 @@ struct SettingsView: View {
     }
 }
 
+/// A row that opens a page on the server's website, drawn like a row rather than a tinted button,
+/// with the arrow that says it leaves the app.
+private struct WebLink: View {
+    let title: LocalizedStringKey
+    let url: URL
+    @Environment(\.openURL) private var openURL
+
+    init(_ title: LocalizedStringKey, url: URL) {
+        self.title = title
+        self.url = url
+    }
+
+    var body: some View {
+        Button { openURL(url) } label: {
+            HStack {
+                Text(title)
+                    .foregroundStyle(.ink)
+                Spacer()
+                Image(systemName: "arrow.up.forward")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.ink3)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(.rect)
+        }
+        .accessibilityHint("Opens in your browser")
+    }
+}
+
 private struct SyncSection: View {
     @Environment(AccountSession.self) private var session
 
@@ -146,6 +179,8 @@ private struct SyncSection: View {
                     Text("Never")
                 }
             }
+            // A quick sync would otherwise flash a spinner for a frame.
+            .animation(.memosFade, value: session.engine.isSyncing)
             LabeledContent("Waiting to upload", value: session.store.outbox.count.formatted())
             ForEach(session.store.outbox.filter { $0.failure != nil }) { change in
                 VStack(alignment: .leading, spacing: 4) {

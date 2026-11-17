@@ -7,6 +7,8 @@ struct MemoCard: View {
     var highlights: [String] = []
     /// Shows the memo's Space in the metadata row, when the timeline spans every Space.
     var showsSpace = true
+    /// Shows who wrote it. Your own timeline leaves it out: every memo there is yours.
+    var showsAuthor = true
 
     @Environment(AccountSession.self) private var session
 
@@ -14,7 +16,7 @@ struct MemoCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            MemoHeader(memo: memo, showsSpace: showsSpace)
+            MemoHeader(memo: memo, showsSpace: showsSpace, showsAuthor: showsAuthor)
 
             notice
 
@@ -38,6 +40,7 @@ struct MemoCard: View {
 
                     if let location = memo.locationIfSet, !location.placeholder.isEmpty {
                         Label(location.placeholder, systemImage: "mappin.and.ellipse")
+                            .labelStyle(.compact)
                             .font(.metadata)
                             .foregroundStyle(.ink2)
                             // The symbol’s own name is “Remove Map Pin”.
@@ -59,10 +62,12 @@ struct MemoCard: View {
     private var notice: some View {
         if session.store.conflictCounterpart(of: memo.name) != nil {
             Label("Edited on another device. Your version was saved separately.", systemImage: "arrow.triangle.branch")
+                .labelStyle(.compact)
                 .font(.metadata)
                 .foregroundStyle(.ink2)
         } else if let failed = session.store.failedChange(for: memo.name) {
             Label("Couldn’t upload: \(failed.failure ?? "")", systemImage: "exclamationmark.triangle")
+                .labelStyle(.compact)
                 .font(.metadata)
                 .foregroundStyle(.danger)
         }
@@ -96,8 +101,9 @@ struct MemoHeader: View {
             if memo.pinned {
                 Image(systemName: "pin.fill")
                     .font(.caption)
-                    .foregroundStyle(.ink2)
+                    .foregroundStyle(.memosBlue)
                     .accessibilityLabel("Pinned")
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
     }
@@ -130,6 +136,16 @@ struct MemoHeader: View {
     }
 }
 
+extension AccountSession {
+    /// A memo's title, or “Sensitive content” while a tag rule hides it, for places too small
+    /// to blur.
+    func redactedTitle(of memo: Memo) -> String {
+        store.profile.tagBlurRules.blurs(memo) && !revealedMemos.contains(memo.name)
+            ? String(localized: "Sensitive content")
+            : memo.displayTitle
+    }
+}
+
 /// A memo's body, blurred when one of its tags is set to blur in your tag settings on the web,
 /// such as `#nsfw`, until ``RevealToggle`` shows it.
 struct SensitiveContent<Content: View>: View {
@@ -139,12 +155,50 @@ struct SensitiveContent<Content: View>: View {
     @Environment(AccountSession.self) private var session
 
     var body: some View {
-        let hidden = session.store.profile.tagBlurRules.blurs(memo) && !session.revealedMemos.contains(memo.name)
-        content
+        let blurs = session.store.profile.tagBlurRules.blurs(memo)
+        let hidden = blurs && !session.revealedMemos.contains(memo.name)
+        let body = content
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .blur(radius: hidden ? 16 : 0)
             .allowsHitTesting(!hidden)
-            .accessibilityHidden(hidden)
+        Group {
+            if blurs {
+                // While hidden, one element stands in for the whole body: `accessibilityHidden`,
+                // and an element ignoring its children, both left the text, tasks and tags
+                // readable. Revealed, VoiceOver reads a copy of the body. The drawn body stays
+                // one view either way, so the blur itself animates rather than cross-fading.
+                body.accessibilityRepresentation {
+                    if hidden {
+                        Text("Sensitive content")
+                    } else {
+                        content
+                    }
+                }
+            } else {
+                body
+            }
+        }
+        .overlay {
+            if hidden {
+                // Says why the text is blurred, and the whole blurred area shows it: a bigger
+                // target than the eye. A tap rather than a button, which a timeline card would
+                // still list for VoiceOver beside the eye it duplicates.
+                Label("Sensitive", systemImage: "eye.slash")
+                    .labelStyle(.compact)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.ink2)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.well, in: .capsule)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(.rect)
+                    .onTapGesture {
+                        withAnimation(.memosSpring) { _ = session.revealedMemos.insert(memo.name) }
+                    }
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
+            }
+        }
     }
 }
 
@@ -183,33 +237,52 @@ struct ReactionSummary: View {
     var onTap: ((String) -> Void)?
 
     @Environment(AccountSession.self) private var session
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
             ForEach(memo.reactionCounts, id: \.emoji) { reaction in
-                let mine = reaction.creators.contains(session.user)
-                Button {
-                    onTap?(reaction.emoji)
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(reaction.emoji)
-                        Text(reaction.count, format: .number)
-                            .font(.footnote.weight(.medium))
-                            .monospacedDigit()
-                            .foregroundStyle(mine ? Color.memosBlue : Color.ink2)
-                            .contentTransition(.numericText(value: Double(reaction.count)))
+                let chip = ReactionChip(emoji: reaction.emoji, count: reaction.count, mine: reaction.creators.contains(session.user))
+                // On the timeline the chips only report; a disabled button would dim the emoji.
+                Group {
+                    if let onTap {
+                        Button { onTap(reaction.emoji) } label: { chip }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text(verbatim: "\(reaction.emoji) \(reaction.count)"))
+                    } else {
+                        chip
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(mine ? Color.memosBlue.opacity(0.12) : Color.well, in: .capsule)
                 }
-                .buttonStyle(.plain)
-                .disabled(onTap == nil)
-                .accessibilityLabel(Text(verbatim: "\(reaction.emoji) \(reaction.count)"))
+                // A new emoji pops in beside the others rather than fading up from nothing.
+                .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
         // Reactions land from a refresh after the request, outside any animation of their own.
-        .animation(.memosSpring, value: memo.reactions.count)
+        .animation(reduceMotion ? .memosFade : .reactionPop, value: memo.reactions.count)
+    }
+}
+
+/// One emoji and its count, tinted when you're among the reactors.
+private struct ReactionChip: View {
+    let emoji: String
+    let count: Int
+    let mine: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(emoji)
+            Text(count, format: .number)
+                .font(.footnote.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(mine ? Color.memosBlue : Color.ink2)
+                .contentTransition(.numericText(value: Double(count)))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(mine ? Color.memosBlue.opacity(0.12) : Color.well, in: .capsule)
+        .contentShape(.capsule)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(emoji) \(count)"))
     }
 }
 

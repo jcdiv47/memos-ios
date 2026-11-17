@@ -58,7 +58,6 @@ private struct TimelineRoot: View {
     @State private var feed = OthersFeed()
     @State private var isSearching = false
     @State private var newSpace: String?
-    @State private var savedCount = 0
 
     private var query: MemoQuery {
         let filter = session.quickFilter.flatMap { try? MemoFilter($0.filterClause) }
@@ -119,7 +118,6 @@ private struct TimelineRoot: View {
         } message: {
             Text("Spaces are shared with the people you invite. Invite them on the web.")
         }
-        .sensoryFeedback(.success, trigger: savedCount)
     }
 
     private var subtitle: String {
@@ -145,7 +143,7 @@ private struct TimelineRoot: View {
             }
 
             ForEach(memos, id: \.name) { memo in
-                TimelineRow(memo: memo, zoom: zoom, showsSpace: session.selectedSpace == nil)
+                TimelineRow(memo: memo, zoom: zoom, showsSpace: session.selectedSpace == nil, namesEveryAuthor: session.effectiveScope == .everyone)
                     .id(memo.name)
             }
 
@@ -256,6 +254,9 @@ struct TimelineRow: View {
     let zoom: Namespace.ID
     var showsSpace = true
     var highlights: [String] = []
+    /// Names the author on your own memos too, as the Everyone feed does so its cards line up.
+    /// Elsewhere a memo without a name is yours.
+    var namesEveryAuthor = false
 
     @Environment(AccountSession.self) private var session
     @State private var swipeCommits = 0
@@ -266,7 +267,7 @@ struct TimelineRow: View {
         Button {
             session.path.append(.memo(memo.name))
         } label: {
-            MemoCard(memo: memo, highlights: highlights, showsSpace: showsSpace)
+            MemoCard(memo: memo, highlights: highlights, showsSpace: showsSpace, showsAuthor: namesEveryAuthor || !isMine)
                 .matchedTransitionSource(id: memo.name, in: zoom)
         }
         .buttonStyle(.plain)
@@ -285,7 +286,7 @@ struct TimelineRow: View {
             } else if isMine {
                 Button {
                     swipeCommits += 1
-                    session.store.setPinned(memo.name, !memo.pinned)
+                    withAnimation(.memosSpring) { session.store.setPinned(memo.name, !memo.pinned) }
                 } label: {
                     Label(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin")
                 }
@@ -332,13 +333,13 @@ struct MemoActions: View {
         let isMine = memo.creator == session.user
         if isMine {
             Button(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin") {
-                session.store.setPinned(memo.name, !memo.pinned)
+                withAnimation(.memosSpring) { session.store.setPinned(memo.name, !memo.pinned) }
             }
             if !forAccessibility {
                 Button("Edit", systemImage: "pencil") { session.edit(memo.name) }
             }
             Button(memo.isArchived ? "Restore" : "Archive" as LocalizedStringKey, systemImage: memo.isArchived ? "tray.and.arrow.up" : "archivebox") {
-                session.store.setArchived(memo.name, !memo.isArchived)
+                withAnimation(.memosSpring) { session.store.setArchived(memo.name, !memo.isArchived) }
             }
         }
         Button("React", systemImage: "face.smiling") {
@@ -434,7 +435,7 @@ private struct FilterMenu: View {
             Section {
                 ForEach(SearchToken.commonFilters, id: \.self) { token in
                     Button {
-                        session.quickFilter = session.quickFilter == token ? nil : token
+                        withAnimation(.memosSpring) { session.quickFilter = session.quickFilter == token ? nil : token }
                     } label: {
                         Label(token.label, systemImage: session.quickFilter == token ? "checkmark" : token.systemImage)
                     }
@@ -452,10 +453,11 @@ private struct FilterMenu: View {
                 }
             }
             if session.quickFilter != nil {
-                Button("Clear Filter", systemImage: "xmark", role: .destructive) { session.quickFilter = nil }
+                Button("Clear Filter", systemImage: "xmark", role: .destructive) { withAnimation(.memosSpring) { session.quickFilter = nil } }
             }
         } label: {
             Image(systemName: session.quickFilter == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+                .contentTransition(.symbolEffect(.replace))
         }
         .accessibilityLabel("Filter")
     }

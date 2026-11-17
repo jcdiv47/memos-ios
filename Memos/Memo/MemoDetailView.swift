@@ -19,8 +19,12 @@ struct MemoDetailView: View {
     @State private var reactionPickerOpen = false
     @State private var editingComment: EditableComment?
     @State private var commentToDelete: Memo?
+    /// A reaction shown before the server confirms it, so a tap lands at once. Cleared when the
+    /// refreshed memo arrives, or on failure, which puts the chips back as they were.
+    @State private var pendingReaction: PendingReaction?
+    @State private var chipTaps = 0
 
-    private var memo: Memo? { session.store.memo(named: name) }
+    private var memo: Memo? { session.store.memo(named: name).map(withPendingReaction) }
 
     var body: some View {
         Group {
@@ -67,6 +71,7 @@ struct MemoDetailView: View {
 
                         if let location = memo.locationIfSet {
                             Label(location.placeholder.isEmpty ? String(localized: "Location") : location.placeholder, systemImage: "mappin.and.ellipse")
+                                .labelStyle(.compact)
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
                                 .accessibilityElement(children: .ignore)
@@ -82,8 +87,11 @@ struct MemoDetailView: View {
 
                 if !memo.reactions.isEmpty {
                     ReactionSummary(memo: memo) { emoji in
+                        chipTaps += 1
                         Task { await toggleReaction(emoji, on: memo) }
                     }
+                    .sensoryFeedback(.impact(weight: .light), trigger: chipTaps)
+                    .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
                 }
 
                 CommentsSection(
@@ -234,13 +242,35 @@ struct MemoDetailView: View {
 
     // MARK: Actions
 
+    private func withPendingReaction(_ memo: Memo) -> Memo {
+        guard let pendingReaction else { return memo }
+        var memo = memo
+        let isPending = { (reaction: Reaction) in reaction.reactionType == pendingReaction.emoji && reaction.creator == session.user }
+        if pendingReaction.adding {
+            if !memo.reactions.contains(where: isPending) {
+                var reaction = Reaction()
+                reaction.reactionType = pendingReaction.emoji
+                reaction.creator = session.user
+                memo.reactions.append(reaction)
+            }
+        } else {
+            memo.reactions.removeAll(where: isPending)
+        }
+        return memo
+    }
+
     private func toggleReaction(_ emoji: String, on memo: Memo) async {
         guard session.isOnline else {
             show("Connect to react.")
             return
         }
+        // One at a time: removing needs the server's name for the reaction.
+        guard pendingReaction == nil, let stored = session.store.memo(named: memo.name) else { return }
+        let existing = stored.reactions.first(where: { $0.reactionType == emoji && $0.creator == session.user })
+        withAnimation(reactionAnimation) { pendingReaction = PendingReaction(emoji: emoji, adding: existing == nil) }
+        defer { withAnimation(reactionAnimation) { pendingReaction = nil } }
         do {
-            if let existing = memo.reactions.first(where: { $0.reactionType == emoji && $0.creator == session.user }) {
+            if let existing {
                 var request = Memos_Api_DeleteMemoReactionRequest()
                 request.name = existing.name
                 _ = try await session.client.call(session.client.memos.deleteMemoReaction(request:headers:), request)
@@ -348,6 +378,11 @@ struct MemoDetailView: View {
         }
     }
 
+    /// The chosen emoji pops in; Reduce Motion keeps the change without the bounce.
+    private var reactionAnimation: Animation {
+        reduceMotion ? .memosFade : .reactionPop
+    }
+
     private func show(_ message: LocalizedStringResource) {
         show(verbatim: String(localized: message))
     }
@@ -356,6 +391,11 @@ struct MemoDetailView: View {
     private func show(verbatim message: String) {
         withAnimation(.memosSpring) { notice = message }
     }
+}
+
+private struct PendingReaction: Equatable {
+    let emoji: String
+    let adding: Bool
 }
 
 private struct IdentifiedURL: Identifiable {
@@ -433,6 +473,7 @@ private struct CommentsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             if !comments.isEmpty {
                 Text("\(comments.count) comments")
+                    .contentTransition(.numericText(value: Double(comments.count)))
                     .font(.headline)
                     .foregroundStyle(.ink)
                     .padding(.top, 8)
@@ -557,6 +598,7 @@ private struct DetailBar: View {
                 if pickerOpen {
                     HStack(spacing: 4) {
                         ForEach(session.store.profile.reactionChoices, id: \.self) { emoji in
+                            let isMine = memo.reactions.contains { $0.reactionType == emoji && $0.creator == session.user }
                             Button {
                                 reacted += 1
                                 withAnimation(pickerAnimation) { pickerOpen = false }
@@ -565,9 +607,16 @@ private struct DetailBar: View {
                                 Text(emoji)
                                     .font(.title2)
                                     .frame(width: 40, height: 44)
+                                    // Opaque inside the glass: the ones you've already used.
+                                    .background {
+                                        if isMine {
+                                            Circle().fill(Color.memosBlue.opacity(0.14)).frame(width: 38, height: 38)
+                                        }
+                                    }
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("React with \(emoji)")
+                            .accessibilityAddTraits(isMine ? .isSelected : [])
                         }
                         Button {
                             withAnimation(pickerAnimation) { pickerOpen = false }
@@ -603,14 +652,25 @@ private struct DetailBar: View {
                             Button {
                                 send()
                             } label: {
-                                Image(systemName: sending ? "ellipsis" : "arrow.up.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.memosBlue)
+                                Group {
+                                    if sending {
+                                        ProgressView()
+                                    } else {
+                                        Image(systemName: "arrow.up.circle.fill")
+                                            .font(.title2)
+                                            .foregroundStyle(.memosBlue)
+                                    }
+                                }
+                                .frame(width: 28, height: 28)
                             }
                             .disabled(sending)
                             .accessibilityLabel("Send comment")
+                            // Grows in under the thumb as you start typing, instead of popping.
+                            .transition(.scale(scale: 0.6).combined(with: .opacity))
                         }
                     }
+                    .animation(.memosFade, value: draft.isEmpty)
+                    .animation(.memosFade, value: sending)
                     .padding(.horizontal, 16)
                     .frame(minHeight: 48)
                     .glassEffect(.regular.interactive(), in: .capsule)

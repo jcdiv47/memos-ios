@@ -105,6 +105,21 @@ extension ButtonStyle where Self == ChipStyle {
     static var prominentChip: ChipStyle { ChipStyle(prominent: true) }
 }
 
+/// An icon tight against its text, on the text's baseline, for metadata inside cards. A List
+/// row's default label reserves an icon column, which leaves a gap that reads as a bug.
+struct CompactLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
+extension LabelStyle where Self == CompactLabelStyle {
+    static var compact: CompactLabelStyle { CompactLabelStyle() }
+}
+
 /// The springs from the motion table. Everything can be interrupted; bounce only where something
 /// lands on purpose.
 extension Animation {

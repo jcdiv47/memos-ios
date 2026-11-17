@@ -117,7 +117,7 @@ struct InboxView: View {
         request.updateMask.paths = ["status"]
         if let updated = try? await session.client.call(session.client.users.updateUserNotification(request:headers:), request),
            let index = notifications.firstIndex(where: { $0.name == updated.name }) {
-            notifications[index].status = updated.status
+            withAnimation(.memosFade) { notifications[index].status = updated.status }
             session.store.profile.unreadNotifications = notifications.count { $0.status == .unread }
         }
     }
@@ -138,9 +138,29 @@ private struct NotificationRow: View {
 
     @Environment(AccountSession.self) private var session
 
+    private var isPendingInvitation: Bool {
+        if case .spaceInvitation(let payload) = notification.payload { return payload.state == .pending }
+        return false
+    }
+
     var body: some View {
+        if isPendingInvitation {
+            // Accept and Decline are buttons of their own, which a row button would swallow.
+            content
+                .contentShape(.rect)
+                .onTapGesture { perform(.open) }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+        } else {
+            // A real button, so the row highlights under the finger like any list row.
+            Button { perform(.open) } label: { content }
+                .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var content: some View {
         let sender = notification.senderUser.name.isEmpty ? session.people.name(for: notification.sender) : notification.senderUser.displayLabel
-        HStack(alignment: .top, spacing: 12) {
+        return HStack(alignment: .top, spacing: 12) {
             UserAvatar(user: notification.sender, size: 32)
                 .overlay(alignment: .topTrailing) {
                     if notification.status == .unread {
@@ -172,10 +192,6 @@ private struct NotificationRow: View {
             }
             Spacer(minLength: 0)
         }
-        .contentShape(.rect)
-        .onTapGesture { perform(.open) }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
     }
 
     private func headline(_ sender: String) -> AttributedString {
@@ -195,11 +211,18 @@ private struct NotificationRow: View {
     }
 
     private var snippet: String? {
-        switch notification.payload {
+        let text: String? = switch notification.payload {
         case .memoComment(let payload): payload.memoSnippet
         case .memoMention(let payload): payload.memoSnippet
         case .spaceInvitation(let payload): payload.space.description_p.isEmpty ? nil : payload.space.description_p
         default: nil
         }
+        return text.map(Self.typographic)
+    }
+
+    /// The server cuts snippets with “ ...”; set it as one ellipsis against the last word.
+    static func typographic(_ snippet: String) -> String {
+        guard snippet.hasSuffix("...") else { return snippet }
+        return snippet.dropLast(3).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 }

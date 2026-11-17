@@ -36,7 +36,11 @@ struct SearchContent: View {
                         .foregroundStyle(.ink2)
                     Spacer()
                     Button("Save as view", systemImage: "bookmark") { isSavingView = true }
+                        .labelStyle(.compact)
                         .font(.subheadline)
+                        // One color for the symbol and its words, like any tinted text button,
+                        // and greyed with them when offline.
+                        .foregroundStyle(session.isOnline ? Color.memosBlue : Color.ink3)
                         .disabled(!session.isOnline)
                 }
                 .listRowBackground(Color.clear)
@@ -82,6 +86,8 @@ struct SearchContent: View {
                         }
                     }
                 }
+                // The status lines sit on paper like the results, not on a white band.
+                .listRowBackground(Color.clear)
             }
         }
         .listStyle(.plain)
@@ -133,10 +139,20 @@ private struct SearchRow: View {
             session.path.append(.memo(memo.name))
         } label: {
             VStack(alignment: .leading, spacing: 4) {
+                let hidden = session.store.profile.tagBlurRules.blurs(memo) && !session.revealedMemos.contains(memo.name)
                 Text(MarkdownCache.inline(excerpt, highlights: highlights))
                     .font(.subheadline)
                     .foregroundStyle(.ink)
                     .lineLimit(2)
+                    // Blurred as on its card until you show it there; the memo opens as usual.
+                    .blur(radius: hidden ? 6 : 0)
+                    .accessibilityRepresentation {
+                        if hidden {
+                            Text("Sensitive content")
+                        } else {
+                            Text(MarkdownCache.inline(excerpt, highlights: highlights))
+                        }
+                    }
                 Text(metadata)
                     .font(.metadata)
                     .foregroundStyle(.ink2)
@@ -153,8 +169,13 @@ private struct SearchRow: View {
     private var excerpt: String {
         let flat = MarkdownCache.plainText(of: memo)
         guard let word = highlights.first, let range = flat.range(of: word, options: .caseInsensitive) else { return flat }
-        let start = flat.index(range.lowerBound, offsetBy: -40, limitedBy: flat.startIndex) ?? flat.startIndex
-        return (start == flat.startIndex ? "" : "…") + flat[start...]
+        var start = flat.index(range.lowerBound, offsetBy: -40, limitedBy: flat.startIndex) ?? flat.startIndex
+        guard start != flat.startIndex else { return flat }
+        // Begin on a whole word, “…the collection”, never “…ets #quote”.
+        if let space = flat[start..<range.lowerBound].firstIndex(where: \.isWhitespace) {
+            start = flat.index(after: space)
+        }
+        return "…" + flat[start...]
     }
 
     private var metadata: String {

@@ -53,28 +53,37 @@ struct MemoEntity: IndexedEntity {
     var tags: [String]
 
     var title: String
+    /// Blurred by one of your tag rules. As in the widgets, Spotlight and the Shortcuts picker
+    /// then show “Sensitive content” and none of its text or tags. The content stays readable
+    /// to a shortcut that asks for it.
+    var sensitive = false
 
-    init(_ memo: Memo) {
+    init(_ memo: Memo, rules: TagBlurRules = TagBlurRules()) {
         id = memo.name
         title = memo.displayTitle
         content = memo.content
         createdAt = memo.createdAt
         tags = memo.tags
+        sensitive = rules.blurs(memo)
     }
 
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(
-            title: "\(title)",
+            title: sensitive ? "Sensitive content" : "\(title)",
             subtitle: "\(createdAt.formatted(date: .abbreviated, time: .shortened))"
         )
     }
 
     var attributeSet: CSSearchableItemAttributeSet {
         let attributes = CSSearchableItemAttributeSet()
+        attributes.contentCreationDate = createdAt
+        if sensitive {
+            attributes.title = String(localized: "Sensitive content")
+            return attributes
+        }
         attributes.title = title
         attributes.contentDescription = content
         attributes.keywords = tags
-        attributes.contentCreationDate = createdAt
         return attributes
     }
 }
@@ -83,20 +92,20 @@ struct MemoEntityQuery: EntityStringQuery {
     @MainActor
     func entities(for identifiers: [MemoEntity.ID]) async throws -> [MemoEntity] {
         let session = try await IntentEnvironment.session()
-        return identifiers.compactMap { session.store.memo(named: $0) }.map(MemoEntity.init)
+        return identifiers.compactMap { session.store.memo(named: $0) }.map { MemoEntity($0, rules: session.store.profile.tagBlurRules) }
     }
 
     @MainActor
     func entities(matching string: String) async throws -> [MemoEntity] {
         let session = try await IntentEnvironment.session()
         guard let filter = SearchQuery(text: string).filter(), let parsed = try? MemoFilter(filter) else { return [] }
-        return session.store.memos(MemoQuery(scope: .mine, filter: parsed, order: .newest)).prefix(30).map(MemoEntity.init)
+        return session.store.memos(MemoQuery(scope: .mine, filter: parsed, order: .newest)).prefix(30).map { MemoEntity($0, rules: session.store.profile.tagBlurRules) }
     }
 
     @MainActor
     func suggestedEntities() async throws -> [MemoEntity] {
         let session = try await IntentEnvironment.session()
-        return session.store.memos(MemoQuery(scope: .mine)).prefix(10).map(MemoEntity.init)
+        return session.store.memos(MemoQuery(scope: .mine)).prefix(10).map { MemoEntity($0, rules: session.store.profile.tagBlurRules) }
     }
 }
 
@@ -233,7 +242,7 @@ struct SearchMemosIntent: AppIntent {
     func perform() async throws -> some ReturnsValue<[MemoEntity]> {
         let session = try await IntentEnvironment.session()
         guard let filter = SearchQuery(text: query).filter(), let parsed = try? MemoFilter(filter) else { return .result(value: []) }
-        return .result(value: session.store.memos(MemoQuery(scope: .mine, filter: parsed, order: .newest)).prefix(50).map(MemoEntity.init))
+        return .result(value: session.store.memos(MemoQuery(scope: .mine, filter: parsed, order: .newest)).prefix(50).map { MemoEntity($0, rules: session.store.profile.tagBlurRules) })
     }
 }
 

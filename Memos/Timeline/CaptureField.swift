@@ -37,22 +37,30 @@ struct CaptureField: View {
                     }
                     .accessibilityLabel("Stop and transcribe")
                 } else {
-                    // Grows taller at large text sizes instead of truncating.
-                    Group {
-                        if session.drafts.hasNewMemoDraft {
-                            Label {
-                                Text("Continue draft")
-                            } icon: {
-                                Image(systemName: "pencil.line")
-                                    .foregroundStyle(.memosBlue)
+                    // A button, so the prompt answers the finger before the sheet rises.
+                    Button {
+                        session.capture()
+                    } label: {
+                        // Grows taller at large text sizes instead of truncating.
+                        Group {
+                            if session.drafts.hasNewMemoDraft {
+                                Label {
+                                    Text("Continue draft")
+                                } icon: {
+                                    Image(systemName: "pencil.line")
+                                        .foregroundStyle(.memosBlue)
+                                }
+                            } else {
+                                Text("Capture a thought…")
                             }
-                        } else {
-                            Text("Capture a thought…")
                         }
+                        .foregroundStyle(.ink2)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+                        .contentShape(.rect)
                     }
-                    .foregroundStyle(.ink2)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(PromptPressStyle())
+                    .accessibilityHidden(true)
                     .glassEffectID("field", in: glass)
 
                     Image(systemName: "mic")
@@ -97,5 +105,14 @@ struct CaptureField: View {
         // The composer opens right away; the transcript streams into it.
         session.composer = ComposerRequest(mode: .new(origin: .timeline(space: session.selectedSpace), text: "", record: false, voiceMemo: true))
         Task { _ = await session.voice.stop(client: session.client, online: session.isOnline) }
+    }
+}
+
+/// The capture prompt dims under the finger, on the press curve, like a toolbar button's label.
+private struct PromptPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.45 : 1)
+            .animation(.memosPress, value: configuration.isPressed)
     }
 }
