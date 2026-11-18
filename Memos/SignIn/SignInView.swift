@@ -37,8 +37,7 @@ struct SignInView: View {
                     serverForm
                 }
             }
-            .background(.paper)
-            .scrollContentBackground(.hidden)
+            .paperBackground()
             .animation(.memosSpring, value: instance != nil)
         }
         .task {
@@ -52,17 +51,17 @@ struct SignInView: View {
     private var serverForm: some View {
         Form {
             Section {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Spacing.m) {
                     Text("Memos")
                         .font(.largeTitleSerif)
                         .foregroundStyle(.ink)
                     Text("Sign in to your own Memos server. Your notes stay there, and on this iPhone.")
-                        .font(.callout)
+                        .font(.supporting)
                         .foregroundStyle(.ink2)
                 }
                 // Padding rather than a row inset: the row clips at its inset, and the serif
                 // overhangs it.
-                .padding(.horizontal, 4)
+                .padding(.horizontal, Spacing.xs)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
@@ -84,17 +83,13 @@ struct SignInView: View {
                     Text("The address you open Memos at in a browser.")
                 }
             }
-            .listRowBackground(Color.card)
+            .cardRows()
 
             Section {
                 Button {
                     Task { await check() }
                 } label: {
-                    HStack {
-                        Spacer()
-                        if isChecking { ProgressView() } else { Text("Continue").fontWeight(.semibold) }
-                        Spacer()
-                    }
+                    WideButtonLabel(title: "Continue", isWorking: isChecking)
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(serverText.trimmingCharacters(in: .whitespaces).isEmpty || isChecking)
@@ -171,7 +166,7 @@ private struct CredentialsForm: View {
             // A header rather than a row: rows clip the serif's overhang.
             Section {
             } header: {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(instance.title)
                         .font(.memoTitle)
                         .foregroundStyle(.ink)
@@ -185,13 +180,13 @@ private struct CredentialsForm: View {
                     }
                     if resuming {
                         Text("Sign in again to keep syncing. Nothing on this iPhone was lost.")
-                            .font(.callout)
+                            .font(.supporting)
                             .foregroundStyle(.ink2)
-                            .padding(.top, 8)
+                            .padding(.top, Spacing.m)
                     }
                 }
                 .textCase(nil)
-                .padding(.bottom, 8)
+                .padding(.bottom, Spacing.m)
             }
 
             if !instance.general.disallowPasswordAuth || instance.providers.isEmpty {
@@ -211,17 +206,13 @@ private struct CredentialsForm: View {
                 } footer: {
                     if let error { Text(error).foregroundStyle(.danger) }
                 }
-                .listRowBackground(Color.card)
+                .cardRows()
 
                 Section {
                     Button {
                         Task { await signIn() }
                     } label: {
-                        HStack {
-                            Spacer()
-                            if isSigningIn { ProgressView() } else { Text("Sign In").fontWeight(.semibold) }
-                            Spacer()
-                        }
+                        WideButtonLabel(title: "Sign In", isWorking: isSigningIn)
                     }
                     .buttonStyle(.glassProminent)
                     .disabled(username.isEmpty || password.isEmpty || isSigningIn)
@@ -242,7 +233,7 @@ private struct CredentialsForm: View {
                 } footer: {
                     Text("Your server’s administrator needs to allow memos://auth/callback as a redirect address for single sign-on.")
                 }
-                .listRowBackground(Color.card)
+                .cardRows()
             }
 
             tokenSection
@@ -282,7 +273,7 @@ private struct CredentialsForm: View {
                 Text("Create one on the web in Settings, under Access Tokens. The app stays signed in until the token expires or you revoke it.")
             }
         }
-        .listRowBackground(Color.card)
+        .cardRows()
     }
 
     private func signIn(token: String) async {

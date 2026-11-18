@@ -42,7 +42,7 @@ struct MemoDetailView: View {
     private func content(_ memo: Memo) -> some View {
         let isMine = memo.creator == session.user
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 MemoHeader(memo: memo)
 
                 if session.store.conflictCounterpart(of: memo.name) != nil {
@@ -50,7 +50,7 @@ struct MemoDetailView: View {
                 }
 
                 SensitiveContent(memo: memo) {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
                         if let audio = memo.audioAttachment {
                             AudioAttachmentView(attachment: audio)
                         }
@@ -106,23 +106,21 @@ struct MemoDetailView: View {
                     Text("It’s removed for everyone who can read this memo.")
                 }
             }
-            .padding(Metrics.timelineInset)
-            .padding(.bottom, 80)
+            .padding(Metrics.screenInset)
+            .padding(.bottom, Metrics.floatingBarClearance)
+            .readableWidth()
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
             DetailBar(memo: memo, pickerOpen: $reactionPickerOpen, onReact: { emoji in await toggleReaction(emoji, on: memo) }, onComment: { text in await comment(text, on: memo) })
-                .padding(.horizontal, Metrics.timelineInset)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Metrics.screenInset)
+                .padding(.bottom, Spacing.m)
+                .readableWidth()
         }
         .overlay(alignment: .top) {
             if let notice {
-                Text(notice)
-                    .font(.subheadline)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .glassEffect(in: .capsule)
-                    .padding(.top, 8)
+                Toast(message: notice)
+                    .padding(.top, Spacing.m)
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                     // Each new message gets its full time on screen.
                     .task(id: notice) {
@@ -374,9 +372,9 @@ private struct ConflictBanner: View {
     @Environment(AccountSession.self) private var session
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             Label("Edited on another device. Your version was saved separately.", systemImage: "arrow.triangle.branch")
-                .font(.subheadline)
+                .font(.supporting)
                 .foregroundStyle(.ink)
             HStack {
                 if let other = session.store.conflictCounterpart(of: memo.name) {
@@ -385,10 +383,9 @@ private struct ConflictBanner: View {
                 Spacer()
                 Button("Dismiss") { session.store.dismissConflict(memo.name) }
             }
-            .font(.subheadline.weight(.medium))
+            .font(.action)
         }
-        .padding(12)
-        .background(.well, in: .rect(cornerRadius: 12))
+        .wellBackground()
     }
 }
 
@@ -400,10 +397,10 @@ private struct LinkPreviewCard: View {
         Button {
             if let url = URL(string: metadata.url) { openURL(url) }
         } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: Spacing.l) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(metadata.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.emphasis)
                         .foregroundStyle(.ink)
                         .lineLimit(2)
                     Text(URL(string: metadata.url)?.host() ?? metadata.url)
@@ -414,7 +411,7 @@ private struct LinkPreviewCard: View {
                 Image(systemName: "arrow.up.right")
                     .foregroundStyle(.ink2)
             }
-            .padding(12)
+            .padding(Spacing.l)
             .cardBackground()
         }
         .buttonStyle(.plain)
@@ -430,20 +427,22 @@ private struct CommentsSection: View {
     @Environment(AccountSession.self) private var session
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
             if !comments.isEmpty {
                 Text("\(comments.count) comments")
                     .font(.headline)
                     .foregroundStyle(.ink)
-                    .padding(.top, 8)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.top, Spacing.m)
             }
             ForEach(comments, id: \.name) { comment in
-                HStack(alignment: .top, spacing: 10) {
-                    UserAvatar(user: comment.creator, size: 26)
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
+                HStack(alignment: .top, spacing: Spacing.m) {
+                    UserAvatar(user: comment.creator, size: AvatarSize.small)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        HStack(spacing: Spacing.s) {
                             Text(session.people.name(for: comment.creator))
-                                .font(.subheadline.weight(.semibold))
+                                .font(.emphasis)
+                                .foregroundStyle(.ink)
                             Text(MemoDate.short(comment.createdAt))
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
@@ -456,7 +455,7 @@ private struct CommentsSection: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
-                .contentShape(.contextMenuPreview, .rect(cornerRadius: 8))
+                .contentShape(.contextMenuPreview, .rect(cornerRadius: Radius.inner))
                 .contextMenu { actions(for: comment) }
                 .accessibilityActions { actions(for: comment) }
             }
@@ -506,7 +505,8 @@ private struct CommentEditor: View {
                 .foregroundStyle(.ink)
                 .focused($focused)
                 .scrollContentBackground(.hidden)
-                .padding(.horizontal, Metrics.timelineInset - 5)
+                // TextEditor insets its text by 5 points; this lines it up with the screen margin.
+                .padding(.horizontal, Metrics.screenInset - 5)
                 .background(.paper)
                 .navigationTitle("Edit Comment")
                 .navigationBarTitleDisplayMode(.inline)
@@ -552,10 +552,10 @@ private struct DetailBar: View {
     @FocusState private var commentFocused: Bool
 
     var body: some View {
-        GlassEffectContainer(spacing: 10) {
-            HStack(spacing: 10) {
+        GlassEffectContainer(spacing: Spacing.l) {
+            HStack(spacing: Spacing.l) {
                 if pickerOpen {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Spacing.xs) {
                         ForEach(session.store.profile.reactionChoices, id: \.self) { emoji in
                             Button {
                                 reacted += 1
@@ -564,7 +564,7 @@ private struct DetailBar: View {
                             } label: {
                                 Text(emoji)
                                     .font(.title2)
-                                    .frame(width: 40, height: 44)
+                                    .frame(width: 40, height: Metrics.minTapTarget)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("React with \(emoji)")
@@ -572,12 +572,12 @@ private struct DetailBar: View {
                         Button {
                             withAnimation(pickerAnimation) { pickerOpen = false }
                         } label: {
-                            Image(systemName: "xmark").frame(width: 32, height: 44)
+                            Image(systemName: "xmark").frame(width: 32, height: Metrics.minTapTarget)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Close reactions")
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, Spacing.m)
                     .glassEffect(.regular.interactive(), in: .capsule)
                     .glassEffectID("react", in: glass)
                 } else {
@@ -585,8 +585,8 @@ private struct DetailBar: View {
                         withAnimation(pickerAnimation) { pickerOpen = true }
                     } label: {
                         Image(systemName: "face.smiling")
-                            .font(.title3)
-                            .frame(width: 48, height: 48)
+                            .font(.barSymbol)
+                            .frame(width: FloatingBar.height, height: FloatingBar.height)
                     }
                     .buttonStyle(.plain)
                     .glassEffect(.regular.interactive(), in: .circle)
@@ -611,15 +611,15 @@ private struct DetailBar: View {
                             .accessibilityLabel("Send comment")
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 48)
+                    .padding(.horizontal, Spacing.xl)
+                    .frame(minHeight: FloatingBar.height)
                     .glassEffect(.regular.interactive(), in: .capsule)
                     .glassEffectID("comment", in: glass)
 
                     ShareLink(item: session.webURL(for: memo), subject: Text(memo.displayTitle), message: Text(memo.previewText)) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.title3)
-                            .frame(width: 48, height: 48)
+                            .font(.barSymbol)
+                            .frame(width: FloatingBar.height, height: FloatingBar.height)
                     }
                     .buttonStyle(.plain)
                     .glassEffect(.regular.interactive(), in: .circle)
@@ -655,9 +655,9 @@ private struct ShareLinkSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: Spacing.xl) {
             Text("Anyone with this link can read the memo.")
-                .font(.subheadline)
+                .font(.supporting)
                 .foregroundStyle(.ink2)
             Text(url.absoluteString)
                 .font(.memoCode)
@@ -677,6 +677,6 @@ private struct ShareLinkSheet: View {
                 .buttonStyle(.glassProminent)
             }
         }
-        .padding()
+        .padding(Spacing.xxl)
     }
 }

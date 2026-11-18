@@ -19,87 +19,91 @@ struct SettingsView: View {
         @Bindable var files = session.files
         NavigationStack {
             Form {
-                Section {
-                    HStack(spacing: 14) {
-                        UserAvatar(user: session.user, size: 52)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: user?.displayLabel ?? ResourceName.lastSegment(session.user))
-                                .font(.headline)
-                            Text(verbatim: "@\(user?.username ?? ResourceName.lastSegment(session.user))")
-                                .font(.metadata)
-                                .foregroundStyle(.ink2)
-                            if let email = user?.email, !email.isEmpty {
-                                Text(email)
+                // Every row on Card, like the cards on the timeline.
+                Group {
+                    Section {
+                        HStack(spacing: Spacing.l) {
+                            UserAvatar(user: session.user, size: AvatarSize.large)
+                            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                                Text(verbatim: user?.displayLabel ?? ResourceName.lastSegment(session.user))
+                                    .font(.headline)
+                                Text(verbatim: "@\(user?.username ?? ResourceName.lastSegment(session.user))")
                                     .font(.metadata)
                                     .foregroundStyle(.ink2)
+                                if let email = user?.email, !email.isEmpty {
+                                    Text(email)
+                                        .font(.metadata)
+                                        .foregroundStyle(.ink2)
+                                }
                             }
                         }
                     }
-                }
 
-                Section {
-                    Picker("Default visibility", selection: Binding(
-                        get: { session.defaultVisibility ?? .private },
-                        set: { value in Task { await saveDefaultVisibility(value) } }
-                    )) {
-                        ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
-                            Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
-                        }
-                    }
-                    .disabled(!session.isOnline)
-                } header: {
-                    Text("New memos")
-                } footer: {
-                    Text("The same setting as on the web. Writing inside a Space narrows Protected and Public to the Space’s members.")
-                }
-
-                Section {
-                    Toggle("Keep all attachments", isOn: $files.keepAll)
-                    if let cacheSize {
-                        LabeledContent("Downloaded files", value: cacheSize.formatted(.byteCount(style: .file)))
-                    }
-                } footer: {
-                    Text("Downloads every photo and file for reading offline. Otherwise full-size files are kept as you open them, up to 500 MB.")
-                }
-
-                SyncSection()
-
-                Section("Developer") {
-                    NavigationLink("Access tokens") { AccessTokensView() }
-                    Button("Webhooks") { openURL(session.client.serverURL.appending(path: "setting")) }
-                }
-
-                Section {
-                    LabeledContent("Server", value: session.client.serverURL.host() ?? session.client.serverURL.absoluteString)
-                    if let version = session.store.profile.instance?.version, !version.isEmpty {
-                        LabeledContent("Version", value: version)
-                    }
-                    if user?.role == .admin {
-                        Button("Instance administration") { openURL(session.client.serverURL.appending(path: "setting")) }
-                    }
-                }
-
-                Section {
-                    // On the button, so the dialog points at it.
-                    Button("Sign Out", role: .destructive) { confirmSignOut = true }
-                        .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                            Button("Sign Out", role: .destructive) {
-                                dismiss()
-                                Task { await model.signOut() }
+                    Section {
+                        Picker("Default visibility", selection: Binding(
+                            get: { session.defaultVisibility ?? .private },
+                            set: { value in Task { await saveDefaultVisibility(value) } }
+                        )) {
+                            ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
+                                Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
                             }
-                        } message: {
-                            Text(signOutMessage)
                         }
-                } footer: {
-                    if let error { Text(error).foregroundStyle(.danger) }
+                        .disabled(!session.isOnline)
+                    } header: {
+                        Text("New memos")
+                    } footer: {
+                        Text("The same setting as on the web. Writing inside a Space narrows Protected and Public to the Space’s members.")
+                    }
+
+                    Section {
+                        Toggle("Keep all attachments", isOn: $files.keepAll)
+                        if let cacheSize {
+                            LabeledContent("Downloaded files", value: cacheSize.formatted(.byteCount(style: .file)))
+                        }
+                    } footer: {
+                        Text("Downloads every photo and file for reading offline. Otherwise full-size files are kept as you open them, up to 500 MB.")
+                    }
+
+                    SyncSection()
+
+                    Section("Developer") {
+                        NavigationLink("Access tokens") { AccessTokensView() }
+                        Button("Webhooks") { openURL(session.client.serverURL.appending(path: "setting")) }
+                    }
+
+                    Section {
+                        LabeledContent("Server", value: session.client.serverURL.host() ?? session.client.serverURL.absoluteString)
+                        if let version = session.store.profile.instance?.version, !version.isEmpty {
+                            LabeledContent("Version", value: version)
+                        }
+                        if user?.role == .admin {
+                            Button("Instance administration") { openURL(session.client.serverURL.appending(path: "setting")) }
+                        }
+                    }
+
+                    Section {
+                        // On the button, so the dialog points at it.
+                        Button("Sign Out", role: .destructive) { confirmSignOut = true }
+                            .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                                Button("Sign Out", role: .destructive) {
+                                    dismiss()
+                                    Task { await model.signOut() }
+                                }
+                            } message: {
+                                Text(signOutMessage)
+                            }
+                    } footer: {
+                        if let error { Text(error).foregroundStyle(.danger) }
+                    }
                 }
+                .cardRows()
             }
-            .scrollContentBackground(.hidden)
-            .background(.paper)
+            .paperBackground()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                // A sheet you only read closes with a plain X at the trailing edge.
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(role: .close) { dismiss() }
                 }
             }
@@ -148,14 +152,14 @@ private struct SyncSection: View {
             }
             LabeledContent("Waiting to upload", value: session.store.outbox.count.formatted())
             ForEach(session.store.outbox.filter { $0.failure != nil }) { change in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(session.store.memo(named: change.memo)?.displayTitle ?? change.memo)
-                        .font(.subheadline)
+                        .font(.supporting)
                     Text(change.failure ?? "")
                         .font(.metadata)
                         .foregroundStyle(.danger)
                     Button("Discard this change", role: .destructive) { session.store.discardChange(change.id) }
-                        .font(.subheadline)
+                        .font(.action)
                 }
             }
             Button("Sync Now") { Task { await session.engine.sync(fullCompare: true) } }
@@ -194,11 +198,11 @@ private struct AccessTokensView: View {
                 } footer: {
                     Text("Copy it now. It won’t be shown again.")
                 }
-                .listRowBackground(Color.card)
+                .cardRows()
             }
             Section {
                 ForEach(tokens, id: \.name) { token in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
                         Text(token.description_p.isEmpty ? String(localized: "Token") : token.description_p)
                         Text(detail(token))
                             .font(.metadata)
@@ -212,10 +216,9 @@ private struct AccessTokensView: View {
             } footer: {
                 if let error { Text(error).foregroundStyle(.danger) }
             }
-            .listRowBackground(Color.card)
+            .cardRows()
         }
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
         .overlay {
             if loaded && tokens.isEmpty && created == nil && error == nil {
                 ContentUnavailableView(

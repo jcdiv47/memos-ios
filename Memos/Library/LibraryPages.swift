@@ -13,11 +13,11 @@ struct ActivityView: View {
         let today = calendar.startOfDay(for: .now)
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Metrics.cardGap) {
                 stats(activity, today: today)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .top, spacing: 6) {
+                VStack(alignment: .leading, spacing: Metrics.blockGap) {
+                    HStack(alignment: .top, spacing: Spacing.s) {
                         weekdayLabels(calendar: calendar)
                         ScrollView(.horizontal, showsIndicators: false) {
                             ActivityHeatmap(activity: activity, today: today, weeks: weeks + 1, showsMonths: true) { day in
@@ -30,12 +30,18 @@ struct ActivityView: View {
                         .defaultScrollAnchor(.trailing)
                         .padding(-3)
                     }
-                    HStack {
-                        Text("Tap a day to see its memos")
-                        Spacer(minLength: 8)
-                        ActivityLegend()
+                    ViewThatFits(in: .horizontal) {
+                        HStack {
+                            Text("Tap a day to see its memos")
+                            Spacer(minLength: Spacing.m)
+                            ActivityLegend()
+                        }
+                        VStack(alignment: .leading, spacing: Spacing.s) {
+                            Text("Tap a day to see its memos")
+                            ActivityLegend()
+                        }
                     }
-                    .font(.caption)
+                    .font(.legend)
                     .foregroundStyle(.ink2)
                 }
                 .padding(Metrics.cardPadding)
@@ -44,31 +50,19 @@ struct ActivityView: View {
                 let years = monthCounts(calendar: calendar, through: today)
                 let busiest = years.flatMap(\.months).map(\.count).max() ?? 1
                 ForEach(years, id: \.year) { year in
-                    HStack {
-                        Text(year.year.formatted(.dateTime.year()))
-                        Spacer(minLength: 8)
+                    SectionHeader(verbatim: year.year.formatted(.dateTime.year())) {
                         Text("\(year.months.map(\.count).reduce(0, +)) memos")
-                            .fontWeight(.regular)
-                            .monospacedDigit()
                     }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.ink2)
-                    .padding(.horizontal, 6)
-                    .padding(.top, 8)
-                    VStack(spacing: 0) {
-                        ForEach(Array(year.months.enumerated()), id: \.element.month) { index, entry in
-                            if index > 0 {
-                                Divider().overlay(.hairline)
-                            }
+                    CardList {
+                        ForEach(year.months, id: \.month) { entry in
                             monthRow(entry.month, count: entry.count, busiest: busiest, calendar: calendar)
                         }
                     }
-                    .padding(.horizontal, Metrics.cardPadding)
-                    .cardBackground()
                 }
             }
-            .padding(.horizontal, Metrics.timelineInset)
-            .padding(.vertical)
+            .padding(.horizontal, Metrics.screenInset)
+            .padding(.vertical, Metrics.screenInset)
+            .readableWidth()
         }
         .background(.paper)
         .navigationTitle("Activity")
@@ -84,18 +78,18 @@ struct ActivityView: View {
             stat(activity.counts.count, label: "Active days")
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.vertical, 12)
+        .padding(.vertical, Spacing.l)
         .cardBackground()
     }
 
     private func stat(_ value: Int, label: LocalizedStringKey) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(value.formatted())
-                .font(.title2.weight(.semibold))
+                .font(.stat)
                 .foregroundStyle(.ink)
                 .monospacedDigit()
             Text(label)
-                .font(.caption)
+                .font(.legend)
                 .foregroundStyle(.ink2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,7 +106,7 @@ struct ActivityView: View {
                     .frame(height: ActivityHeatmap.cell)
             }
         }
-        .font(.caption2)
+        .font(.fine)
         .foregroundStyle(.ink2)
         .accessibilityHidden(true)
     }
@@ -123,7 +117,7 @@ struct ActivityView: View {
             let next = calendar.date(byAdding: .month, value: 1, to: month)!
             session.path.append(.filtered(title: month.formatted(.dateTime.month(.wide).year()), tokens: [.date(.between(month, next))]))
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.l) {
                 Text(month.formatted(.dateTime.month(.wide)))
                     .foregroundStyle(count == 0 ? Color.ink3 : Color.ink)
                     .frame(minWidth: 96, alignment: .leading)
@@ -135,8 +129,8 @@ struct ActivityView: View {
                 Chevron()
                     .opacity(count == 0 ? 0 : 1)
             }
-            .font(.subheadline)
-            .padding(.vertical, 12)
+            .font(.supporting)
+            .padding(.vertical, Metrics.rowPadding)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -191,19 +185,21 @@ private struct MonthBar: View {
 /// “Less ▢▢▢▢▢ More”, explaining the grid's steps.
 struct ActivityLegend: View {
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: ActivityHeatmap.spacing) {
             Text(String(localized: "activity.legend.less", defaultValue: "Less", comment: "An end of the activity grid's legend: Less ▢▢▢▢▢ More."))
-                .padding(.trailing, 2)
+                .padding(.trailing, Spacing.xxs)
             ForEach(0..<5) { level in
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: 9 * ActivityHeatmap.cornerFraction)
                     .fill(Color.activity(level: level))
                     .frame(width: 9, height: 9)
             }
             Text(String(localized: "activity.legend.more", defaultValue: "More", comment: "An end of the activity grid's legend: Less ▢▢▢▢▢ More."))
-                .padding(.leading, 2)
+                .padding(.leading, Spacing.xxs)
         }
-        .font(.caption2)
+        .font(.fine)
         .foregroundStyle(.ink2)
+        // Never breaks a word; the row around it moves the legend to its own line instead.
+        .fixedSize()
         .accessibilityHidden(true)
     }
 }
@@ -221,6 +217,8 @@ struct ActivityHeatmap: View {
     static let cell: CGFloat = 14
     static let spacing: CGFloat = 3
     static let monthRowHeight: CGFloat = 14
+    /// A square's corner as a share of its side, so squares of any size look alike.
+    static let cornerFraction: CGFloat = 0.22
 
     var body: some View {
         let columns = activity.weeks(weeks, through: today)
@@ -234,7 +232,7 @@ struct ActivityHeatmap: View {
                             .overlay(alignment: .leading) {
                                 if let month = labels[index] {
                                     Text(month.formatted(.dateTime.month(.abbreviated)))
-                                        .font(.caption2)
+                                        .font(.fine)
                                         .foregroundStyle(.ink2)
                                         .fixedSize()
                                 }
@@ -254,12 +252,12 @@ struct ActivityHeatmap: View {
             Color.clear.frame(width: cell, height: cell)
         } else {
             let count = activity.count(on: day)
-            let shape = RoundedRectangle(cornerRadius: cell * 0.22)
+            let shape = RoundedRectangle(cornerRadius: cell * Self.cornerFraction)
                 .fill(Color.activity(level: activity.level(on: day)))
                 .frame(width: cell, height: cell)
                 .overlay {
                     if day == today {
-                        RoundedRectangle(cornerRadius: cell * 0.22 + 2)
+                        RoundedRectangle(cornerRadius: cell * Self.cornerFraction + 2)
                             .strokeBorder(.ink, lineWidth: 1.25)
                             .padding(-2.5)
                     }
@@ -300,7 +298,7 @@ struct AttachmentsLibraryView: View {
             .flatMap { memo in memo.attachments.map { (memo: memo, attachment: $0) } }
             .sorted { $0.memo.createdAt > $1.memo.createdAt }
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 4)], spacing: 4) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: Spacing.xs)], spacing: Spacing.xs) {
                 ForEach(items, id: \.attachment.name) { item in
                     Button {
                         session.path.append(.memo(item.memo.name))
@@ -311,26 +309,26 @@ struct AttachmentsLibraryView: View {
                                 if item.attachment.isImage {
                                     AttachmentImage(attachment: item.attachment)
                                 } else {
-                                    VStack(spacing: 6) {
+                                    VStack(spacing: Spacing.s) {
                                         Image(systemName: item.attachment.systemImage)
                                             .font(.title2)
                                         Text(item.attachment.filename)
-                                            .font(.caption2)
+                                            .font(.fine)
                                             .lineLimit(2)
                                             .multilineTextAlignment(.center)
                                     }
                                     .foregroundStyle(.ink2)
-                                    .padding(6)
+                                    .padding(Spacing.s)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                                     .background(.well)
                                 }
                             }
-                            .clipShape(.rect(cornerRadius: 6))
+                            .clipShape(.rect(cornerRadius: Radius.tight))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(4)
+            .padding(Spacing.xs)
         }
         .overlay {
             if items.isEmpty {
@@ -365,9 +363,9 @@ struct PlacesMapView: View {
                         session.path.append(.memo(memo.name))
                     } label: {
                         Image(systemName: "note.text")
-                            .font(.footnote.weight(.semibold))
+                            .font(.metadata.weight(.semibold))
                             .foregroundStyle(.white)
-                            .padding(7)
+                            .padding(Spacing.m)
                             .background(.memosBlue, in: .circle)
                     }
                     .accessibilityLabel(memo.displayTitle)
@@ -377,13 +375,13 @@ struct PlacesMapView: View {
         }
         .mapControls { }
         .overlay(alignment: .topTrailing) {
-            GlassEffectContainer(spacing: 10) {
-                VStack(spacing: 10) {
+            GlassEffectContainer(spacing: Spacing.l) {
+                VStack(spacing: Spacing.l) {
                     MapUserLocationButton(scope: mapScope)
                         .labelStyle(.iconOnly)
                         .buttonBorderShape(.circle)
                         .tint(.ink)
-                        .frame(width: 44, height: 44)
+                        .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
                         .glassEffect(.regular.interactive(), in: .circle)
                     if session.showsScopeToggle {
                         mapButton(includeOthers ? "person.2.fill" : "person", label: includeOthers ? Text("Showing everyone") : Text("Showing yours")) {
@@ -393,15 +391,15 @@ struct PlacesMapView: View {
                     mapButton("list.bullet", label: Text("List places")) { showsList = true }
                 }
             }
-            .padding()
+            .padding(Metrics.screenInset)
         }
         .mapScope(mapScope)
         .overlay {
             if places.isEmpty {
                 ContentUnavailableView("No places yet", systemImage: "map", description: Text("Add a location to a memo from the composer’s paperclip menu."))
-                    .padding()
-                    .background(.card, in: .rect(cornerRadius: 20))
-                    .padding()
+                    .padding(Spacing.xl)
+                    .background(.card, in: .rect(cornerRadius: Radius.panel))
+                    .padding(Metrics.screenInset)
             }
         }
         .navigationTitle("Map")
@@ -413,7 +411,7 @@ struct PlacesMapView: View {
                         showsList = false
                         session.path.append(.memo(memo.name))
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Spacing.xxs) {
                             Text(memo.location.placeholder.isEmpty ? memo.location.latitude.formatted() : memo.location.placeholder)
                                 .foregroundStyle(.ink)
                             Text(memo.displayTitle)
@@ -422,7 +420,9 @@ struct PlacesMapView: View {
                                 .lineLimit(1)
                         }
                     }
+                    .cardRows()
                 }
+                .paperBackground()
                 .navigationTitle("Places")
                 .navigationBarTitleDisplayMode(.inline)
             }
@@ -435,7 +435,7 @@ struct PlacesMapView: View {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.ink)
-                .frame(width: 44, height: 44)
+                .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: .circle)
@@ -457,7 +457,7 @@ struct TagsView: View {
                 HStack {
                     Text(verbatim: "#\(entry.tag)")
                         .foregroundStyle(.memosBlue)
-                        .padding(.leading, CGFloat(entry.tag.filter { $0 == "/" }.count) * 16)
+                        .padding(.leading, CGFloat(entry.tag.filter { $0 == "/" }.count) * Spacing.xl)
                     Spacer()
                     Text(entry.count.formatted())
                         .foregroundStyle(.ink2)
@@ -466,10 +466,9 @@ struct TagsView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .listRowBackground(Color.card)
+            .cardRows()
         }
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
         .searchable(text: $filter, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Filter tags")
         .overlay {
             if tags.isEmpty {

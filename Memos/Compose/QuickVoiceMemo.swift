@@ -10,7 +10,7 @@ struct QuickVoiceMemoSheet: View {
 
     var body: some View {
         let voice = session.voice
-        VStack(spacing: 18) {
+        VStack(spacing: Spacing.xl) {
             (voice.phase == .transcribing ? Text("Transcribing…") : Text("Recording a private memo"))
                 .font(.headline)
                 .foregroundStyle(.ink)
@@ -26,15 +26,17 @@ struct QuickVoiceMemoSheet: View {
             case .transcribing:
                 ProgressView()
                 Text(voice.transcript)
-                    .font(.callout)
+                    .font(.supporting)
                     .foregroundStyle(.ink2)
                     .lineLimit(3)
             case .failed(let message):
-                Text(message).foregroundStyle(.danger)
+                Text(message)
+                    .font(.supporting)
+                    .foregroundStyle(.danger)
             default:
                 ProgressView()
             }
-            HStack(spacing: 14) {
+            HStack(spacing: Spacing.l) {
                 Button("Cancel", role: .cancel) {
                     voice.cancel()
                     voice.reset()
@@ -49,7 +51,7 @@ struct QuickVoiceMemoSheet: View {
                 .disabled(voice.phase != .recording)
             }
         }
-        .padding(24)
+        .padding(Spacing.xxl)
         .presentationDetents([.height(280)])
         .interactiveDismissDisabled()
         .sensoryFeedback(.success, trigger: saved)

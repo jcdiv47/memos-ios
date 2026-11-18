@@ -13,13 +13,13 @@ struct MemoCard: View {
     private var isMine: Bool { memo.creator == session.user }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.blockGap) {
             MemoHeader(memo: memo, showsSpace: showsSpace)
 
             notice
 
             SensitiveContent(memo: memo) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Metrics.blockGap) {
                     if let audio = memo.audioAttachment {
                         AudioAttachmentView(attachment: audio)
                     }
@@ -79,14 +79,14 @@ struct MemoHeader: View {
 
     var body: some View {
         let name = session.people.name(for: memo.creator)
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: Spacing.m) {
             if showsAuthor {
-                UserAvatar(user: memo.creator, size: 28)
+                UserAvatar(user: memo.creator, size: AvatarSize.small)
             }
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 if showsAuthor {
                     Text(name)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.emphasis)
                         .foregroundStyle(.ink)
                 }
                 metadata
@@ -95,7 +95,7 @@ struct MemoHeader: View {
             RevealToggle(memo: memo)
             if memo.pinned {
                 Image(systemName: "pin.fill")
-                    .font(.caption)
+                    .font(.statusSymbol)
                     .foregroundStyle(.ink2)
                     .accessibilityLabel("Pinned")
             }
@@ -107,8 +107,8 @@ struct MemoHeader: View {
         let spaceTitle = showsSpace ? session.space(named: memo.spaceName)?.title : nil
         // Wraps under the content at large text sizes instead of truncating.
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 4) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
-            VStack(alignment: .leading, spacing: 2) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
+            HStack(spacing: Spacing.xs) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
+            VStack(alignment: .leading, spacing: Spacing.xxs) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
         }
         .font(.metadata)
         .foregroundStyle(.ink2)
@@ -165,10 +165,10 @@ struct RevealToggle: View {
             } label: {
                 Image(systemName: revealed ? "eye.slash.fill" : "eye.fill")
                     .contentTransition(.symbolEffect(.replace))
-                    .font(.caption)
+                    .font(.statusSymbol)
                     .foregroundStyle(.ink2)
                     // A pin-sized symbol, with a finger-sized target.
-                    .frame(minWidth: 28, minHeight: 28)
+                    .frame(minWidth: AvatarSize.small, minHeight: AvatarSize.small)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -185,23 +185,17 @@ struct ReactionSummary: View {
     @Environment(AccountSession.self) private var session
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.s) {
             ForEach(memo.reactionCounts, id: \.emoji) { reaction in
                 let mine = reaction.creators.contains(session.user)
                 Button {
                     onTap?(reaction.emoji)
                 } label: {
-                    HStack(spacing: 4) {
+                    Pill(isSelected: mine) {
                         Text(reaction.emoji)
                         Text(reaction.count, format: .number)
-                            .font(.footnote.weight(.medium))
-                            .monospacedDigit()
-                            .foregroundStyle(mine ? Color.memosBlue : Color.ink2)
                             .contentTransition(.numericText(value: Double(reaction.count)))
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(mine ? Color.memosBlue.opacity(0.12) : Color.well, in: .capsule)
                 }
                 .buttonStyle(.plain)
                 .disabled(onTap == nil)
@@ -226,7 +220,7 @@ private struct CollapsedContent<Content: View>: View {
     private var isCollapsed: Bool { fullHeight > limit + 80 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             content
                 .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullHeight = $0 }
@@ -246,7 +240,7 @@ private struct CollapsedContent<Content: View>: View {
                 }
             if isCollapsed {
                 Text("Show more")
-                    .font(.subheadline.weight(.medium))
+                    .font(.action)
                     .foregroundStyle(.memosBlue)
                     .accessibilityHidden(true)
             }

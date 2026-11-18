@@ -69,8 +69,8 @@ struct ActivityWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            HStack(spacing: Spacing.m) {
                 WidgetHeader(title: "Activity", systemImage: "calendar")
                     .labelStyle(.titleOnly)
                 Spacer(minLength: 0)
@@ -127,14 +127,14 @@ struct ActivityGrid: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let spacing: CGFloat = 3
+            let spacing: CGFloat = 3  // The app's activity grid gap.
             let cell = min((proxy.size.height - spacing * 6) / 7, 16)
             let weeks = max(Int((proxy.size.width + spacing) / (cell + spacing)), 1)
             HStack(alignment: .top, spacing: spacing) {
                 ForEach(activity.weeks(weeks, through: today), id: \.self) { week in
                     VStack(spacing: spacing) {
                         ForEach(week, id: \.self) { day in
-                            RoundedRectangle(cornerRadius: cell * 0.2)
+                            RoundedRectangle(cornerRadius: cell * 0.22)
                                 .fill(fill(for: day))
                                 .frame(width: cell, height: cell)
                         }

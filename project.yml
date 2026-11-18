@@ -93,7 +93,10 @@ targets:
     sources:
       - path: MemosWidgets
       - path: Memos/Intents/ControlIntents.swift
+      # The design tokens, so widgets use the app's spacing, type and colours.
       - path: Memos/Design/ActivityPalette.swift
+      - path: Memos/Design/Tokens.swift
+      - path: Memos/Design/Typography.swift
       - path: Memos/Resources/Assets.xcassets
     dependencies:
       - package: MemosKit
@@ -124,6 +127,13 @@ targets:
     platform: iOS
     sources:
       - path: MemosShare
+      # The design system, so saving from another app looks like the composer.
+      - path: Memos/Design/Tokens.swift
+      - path: Memos/Design/Typography.swift
+      - path: Memos/Design/Surfaces.swift
+      - path: Memos/Design/Components.swift
+      - path: Memos/Design/Motion.swift
+      - path: Memos/Resources/Assets.xcassets
     dependencies:
       - package: MemosKit
         product: MemosCore
