@@ -21,6 +21,13 @@ import Testing
         #expect(math("$a\nb$") == ["$a\nb$"], "math continues across lines")
         #expect(math("$a\n\nb$") == [], "but not across a blank line")
         #expect(math("`$x$` and $`y`$") == ["$`y`$"], "whichever opens first wins")
+        #expect(math("``$x$`` and $y$") == ["$y$"], "a code span closes on a run of the same length")
+        #expect(math("[link](https://x.com/$a$) and $b$") == ["$b$"], "a link destination is never math")
+        #expect(math("[link](https://x.com/a(b)/$c$) and $d$") == ["$d$"], "parentheses in a destination balance")
+        #expect(math("interval ]0,1](with $x$ excluded)") == ["$x$"], "a `](` without a `[` isn't a link")
+        #expect(math(#"[link](https://x.com/a\)/$c$) and $d$"#) == ["$d$"], "an escaped parenthesis doesn't end a destination")
+        #expect(math("interval [0,1](with $x$ excluded)") == ["$x$"], "a space ends the URL, so this isn't a link")
+        #expect(math(#"[link](https://x.com/$a$ "title") and $b$"#) == ["$b$"], "a title may follow the URL")
     }
 
     @Test func `tags inside math aren't tags`() {
@@ -64,9 +71,13 @@ import Testing
             let range = try! #require(parsed.range(of: tex))
             #expect(parsed[range].runs.allSatisfy { $0.inlinePresentationIntent?.contains(.code) == true })
         }
+        #expect(parsed.runs[InlineMathAttribute.self].compactMap(\.0) == ["a*b*c", "\\{x\\}", "x_1"], "each run carries its TeX")
+        #expect(InlineParsing.attributed("$$x$$").runs[InlineMathAttribute.self].compactMap(\.0) == ["x"])
         let bold = try! #require(parsed.range(of: "$x_1$"))
         #expect(parsed[bold].runs.first?.inlinePresentationIntent?.contains(.stronglyEmphasized) == true, "emphasis around math still applies")
         #expect(String(InlineParsing.attributed("cost $5 and *$10*").characters) == "cost $5 and $10")
+        let link = InlineParsing.attributed("[link](https://x.com/$a$)")
+        #expect(link.runs.first?.link == URL(string: "https://x.com/$a$"), "a URL keeps its dollars")
         #expect(String(InlineParsing.attributed(##"Unit \#13 $\#x$"##).characters) == "Unit #\u{2060}13 $\\#x$")
     }
 }
