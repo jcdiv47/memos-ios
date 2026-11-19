@@ -61,7 +61,10 @@ struct ComposerView: View {
     private func content(_ model: ComposerModel) -> some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Metrics.blockGap) {
-            AudienceChips(model: model)
+            // Who can see a memo means nothing where nobody else can; on-device memos are private.
+            if !session.isOnDevice {
+                AudienceChips(model: model)
+            }
 
             if session.voice.phase != .idle && session.voice.phase != .finished {
                 VoiceStatus(recorder: session.voice) {

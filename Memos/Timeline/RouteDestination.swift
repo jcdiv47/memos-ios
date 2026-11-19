@@ -107,8 +107,8 @@ struct FilteredTimelineView: View {
         }
         .navigationTitle(view.map { "\($0.emoji.map { "\($0) " } ?? "")\($0.displayTitle)" } ?? title)
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable {
-            await session.engine.sync(fullCompare: true)
+        .refreshable(if: session.engine != nil) {
+            await session.engine?.sync(fullCompare: true)
             feed.reload()
         }
         .onAppear { feed.reset(to: .init(space: nil, filter: filter)) }
@@ -121,7 +121,7 @@ struct FilteredTimelineView: View {
                             session.capture(origin: origin)
                         }
                         Button("Delete View", systemImage: "trash", role: .destructive) { confirmDeleteView = true }
-                            .disabled(!session.isOnline)
+                            .disabled(!session.isOnDevice && !session.isOnline)
                     } label: {
                         Image(systemName: "ellipsis")
                     }
@@ -138,10 +138,12 @@ struct FilteredTimelineView: View {
     private func deleteView(_ view: MemoView) async {
         var request = Memos_Api_DeleteMemoViewRequest()
         request.name = view.name
-        if (try? await session.client.call(session.client.users.deleteMemoView(request:headers:), request)) != nil {
-            session.store.profile.views.removeAll { $0.name == view.name }
-            dismiss()
+        // The on-device library's views are only in its profile.
+        if let client = session.client {
+            guard (try? await client.call(client.users.deleteMemoView(request:headers:), request)) != nil else { return }
         }
+        session.store.profile.views.removeAll { $0.name == view.name }
+        dismiss()
     }
 }
 
@@ -178,7 +180,8 @@ struct SharedMemoView: View {
             var request = Memos_Api_GetSharedMemoRequest()
             request.shareToken = token
             do {
-                memo = try await session.client.callPublic(session.client.memos.getSharedMemo(request:headers:), request)
+                guard let client = session.client else { throw URLError(.unsupportedURL) }
+                memo = try await client.callPublic(client.memos.getSharedMemo(request:headers:), request)
             } catch {
                 failed = true
             }

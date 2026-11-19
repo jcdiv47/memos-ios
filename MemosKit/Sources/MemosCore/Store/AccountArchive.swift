@@ -1,39 +1,107 @@
 import Foundation
 import SwiftProtobuf
 
-/// Where one account's local copy lives: `<container>/Accounts/<host>-<user>/`. The container is
-/// the shared app group when available, so widgets and the share extension read the same copy.
+/// Where one library's local copy lives. A server account's is `<container>/Accounts/<host>-<user>/`;
+/// the on-device library, which belongs to no server, is `<container>/OnDevice/`. The two never
+/// share a folder, so signing out of a server can't touch the on-device memos, and erasing those
+/// can't touch the server's. The container is the shared app group when available, so widgets and
+/// the share extension read the same copy.
 public struct AccountLocation: Sendable, Equatable {
     public let directory: URL
     public let user: String
+    /// The on-device library: nothing in it is uploaded, and its attachments live only here.
+    public let isOnDevice: Bool
 
     public init(container: URL, serverURL: URL, user: String) {
         let host = (serverURL.host() ?? "server") + (serverURL.port.map { "-\($0)" } ?? "") + serverURL.path().replacingOccurrences(of: "/", with: "-")
         let folder = "\(host)-\(ResourceName.lastSegment(user))".filter { $0.isLetter || $0.isNumber || "-_.".contains($0) }
         self.directory = container.appending(path: "Accounts", directoryHint: .isDirectory).appending(path: folder, directoryHint: .isDirectory)
         self.user = user
+        self.isOnDevice = false
     }
 
-    /// The signed-in account, as the app last recorded it in the shared defaults. Extensions
+    private init(onDeviceIn container: URL) {
+        self.directory = container.appending(path: "OnDevice", directoryHint: .isDirectory)
+        self.user = Self.onDeviceUser
+        self.isOnDevice = true
+    }
+
+    /// The on-device library in `container`.
+    public static func onDevice(container: URL) -> AccountLocation {
+        AccountLocation(onDeviceIn: container)
+    }
+
+    /// The creator of every memo in the on-device library. No server ever sees it.
+    public static let onDeviceUser = "users/me"
+
+    /// Whether `container` holds an on-device library, even an empty one.
+    public static func hasOnDeviceLibrary(in container: URL) -> Bool {
+        FileManager.default.fileExists(atPath: onDevice(container: container).directory.path())
+    }
+
+    /// The library the app has open, as it last recorded it in the shared defaults. Extensions
     /// use this to find the local copy.
     public static var current: AccountLocation? {
         let defaults = SharedContainer.defaults
-        guard let server = defaults.string(forKey: "serverURL").flatMap(URL.init(string:)),
-              let user = defaults.string(forKey: "user")
+        if defaults.bool(forKey: Keys.onDevice) {
+            return .onDevice(container: SharedContainer.directory)
+        }
+        guard let server = defaults.string(forKey: Keys.serverURL).flatMap(URL.init(string:)),
+              let user = defaults.string(forKey: Keys.user)
         else { return nil }
         return AccountLocation(container: SharedContainer.directory, serverURL: server, user: user)
     }
 
-    /// The server the account belongs to.
+    /// The server the open account belongs to; nil while the on-device library is open.
     public static var currentServer: URL? {
-        SharedContainer.defaults.string(forKey: "serverURL").flatMap(URL.init(string:))
+        let defaults = SharedContainer.defaults
+        guard !defaults.bool(forKey: Keys.onDevice) else { return nil }
+        return defaults.string(forKey: Keys.serverURL).flatMap(URL.init(string:))
+    }
+
+    /// Records the server account the app opened, for the extensions.
+    public static func recordCurrent(serverURL: URL, user: String) {
+        let defaults = SharedContainer.defaults
+        defaults.set(false, forKey: Keys.onDevice)
+        defaults.set(serverURL.absoluteString, forKey: Keys.serverURL)
+        defaults.set(user, forKey: Keys.user)
+    }
+
+    /// Records that the on-device library is open. The server account, if any, is kept: switching
+    /// back to it needs no new sign-in.
+    public static func recordCurrentOnDevice() {
+        SharedContainer.defaults.set(true, forKey: Keys.onDevice)
+    }
+
+    /// Forgets the server account, after signing out. Leaves the on-device choice alone.
+    public static func forgetServer() {
+        let defaults = SharedContainer.defaults
+        defaults.removeObject(forKey: Keys.serverURL)
+        defaults.removeObject(forKey: Keys.user)
+    }
+
+    /// Forgets that the on-device library is open, after erasing it or switching to a server.
+    public static func forgetOnDevice() {
+        SharedContainer.defaults.removeObject(forKey: Keys.onDevice)
+    }
+
+    /// Whether the app last had the on-device library open.
+    public static var isOnDeviceCurrent: Bool {
+        SharedContainer.defaults.bool(forKey: Keys.onDevice)
+    }
+
+    private enum Keys {
+        static let serverURL = "serverURL"
+        static let user = "user"
+        static let onDevice = "onDevice"
     }
 
     var ownMemosFile: URL { directory.appending(path: "own.binpb") }
     var otherMemosFile: URL { directory.appending(path: "others.binpb") }
     var stateFile: URL { directory.appending(path: "state.json") }
     var profileFile: URL { directory.appending(path: "profile.json") }
-    /// Files waiting to upload, named by attachment UID.
+    /// Files waiting to upload, named by attachment UID. In the on-device library, every
+    /// attachment's file, kept for good.
     public var uploadsDirectory: URL { directory.appending(path: "Uploads", directoryHint: .isDirectory) }
     /// Downloaded thumbnails and full-size files.
     public var filesDirectory: URL { directory.appending(path: "Files", directoryHint: .isDirectory) }

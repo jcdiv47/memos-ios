@@ -47,8 +47,9 @@ final class OthersFeed {
 
     /// Loads the next page. `includeOwn` asks for your memos too, when the device can't
     /// evaluate the filter itself.
-    func loadMore(using engine: SyncEngine, me: String, includeOwn: Bool = false) async {
-        guard let key, hasMore, !isLoading, engine.isOnline else { return }
+    /// Does nothing without an engine (the on-device library), which has nobody else to fetch.
+    func loadMore(using engine: SyncEngine?, me: String, includeOwn: Bool = false) async {
+        guard let engine, let key, hasMore, !isLoading, engine.isOnline else { return }
         let generation = self.generation
         isLoading = true
         defer { if generation == self.generation { isLoading = false } }

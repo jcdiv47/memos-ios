@@ -103,12 +103,12 @@ final class SearchModel {
         let me = session.user
         remoteTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(150))
-            guard let self, !Task.isCancelled, session.isOnline else { return }
+            guard let self, !Task.isCancelled, session.isOnline, let engine = session.engine else { return }
             self.isLoadingRemote = true
             defer { self.isLoadingRemote = false }
             do {
                 let remoteFilter = "(\(filter)) && creator != \(CELString.quote(me))"
-                let page = try await session.engine.fetchPage(filter: remoteFilter, pageSize: 50)
+                let page = try await engine.fetchPage(filter: remoteFilter, pageSize: 50)
                 guard !Task.isCancelled else { return }
                 self.remote = page.memos
                 self.remoteFilter = remoteFilter
@@ -122,7 +122,7 @@ final class SearchModel {
 
     /// The next page of other people's matches, when the list reaches the last one loaded.
     func loadMoreRemote() {
-        guard let session, !remoteNextPageToken.isEmpty, !isLoadingRemote, session.isOnline else { return }
+        guard let session, let engine = session.engine, !remoteNextPageToken.isEmpty, !isLoadingRemote, session.isOnline else { return }
         let token = remoteNextPageToken
         let filter = remoteFilter
         remoteTask = Task { [weak self] in
@@ -130,7 +130,7 @@ final class SearchModel {
             self.isLoadingRemote = true
             defer { self.isLoadingRemote = false }
             do {
-                let page = try await session.engine.fetchPage(filter: filter, pageToken: token, pageSize: 50)
+                let page = try await engine.fetchPage(filter: filter, pageToken: token, pageSize: 50)
                 // A new query started meanwhile; its results replace these.
                 guard !Task.isCancelled, filter == self.remoteFilter else { return }
                 let seen = Set(self.remote.map(\.name))

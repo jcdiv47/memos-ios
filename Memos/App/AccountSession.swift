@@ -2,13 +2,18 @@ import MemosCore
 import SwiftUI
 import WidgetKit
 
-/// Everything for the signed-in account: the client, the local copy, sync, and the app-wide
-/// navigation and presentation state.
+/// Everything for the open library: the local copy, and for a server account the client and sync,
+/// plus the app-wide navigation and presentation state.
+///
+/// The on-device library has no client and no sync engine. What needs a server — comments,
+/// reactions, Spaces, saved views, the Inbox, share links, who can see a memo — is hidden there.
 @Observable
 final class AccountSession {
-    let client: MemosClient
+    /// Nil for the on-device library.
+    let client: MemosClient?
     let store: MemoStore
-    let engine: SyncEngine
+    /// Nil for the on-device library.
+    let engine: SyncEngine?
     let connectivity = Connectivity()
     let files: AttachmentFiles
     let people: PeopleDirectory
@@ -52,20 +57,34 @@ final class AccountSession {
     /// Link previews fetched this session, by URL.
     @ObservationIgnored var linkPreviews: [String: Memos_Api_LinkMetadata] = [:]
 
-    init(client: MemosClient, user: String) {
-        self.client = client
+    /// A server account.
+    convenience init(client: MemosClient, user: String) {
         let location = AccountLocation(container: SharedContainer.directory, serverURL: client.serverURL, user: user)
-        store = MemoStore(location: location)
+        self.init(client: client, location: location, preferencePrefix: "\(client.serverURL.absoluteString)|\(user)")
+    }
+
+    /// The on-device library in `container`.
+    convenience init(onDeviceIn container: URL) {
+        self.init(client: nil, location: .onDevice(container: container), preferencePrefix: "on-device")
+    }
+
+    private init(client: MemosClient?, location: AccountLocation, preferencePrefix: String) {
+        self.client = client
+        let store = MemoStore(location: location)
+        self.store = store
         drafts = DraftStore(directory: location.draftsDirectory)
-        engine = SyncEngine(client: client, store: store)
+        engine = client.map { SyncEngine(client: $0, store: store) }
         files = AttachmentFiles(client: client, store: store)
         people = PeopleDirectory(client: client, store: store)
-        preferencePrefix = "\(client.serverURL.absoluteString)|\(user)"
+        self.preferencePrefix = preferencePrefix
         scope = UserDefaults.standard.bool(forKey: "timeline.everyone.\(preferencePrefix)") ? .everyone : .mine
         selectedSpace = UserDefaults.standard.string(forKey: "timeline.space.\(preferencePrefix)")
     }
 
     var user: String { store.user }
+
+    /// The on-device library, which belongs to no server.
+    var isOnDevice: Bool { store.isOnDevice }
 
     @ObservationIgnored private var queryCache: [(query: MemoQuery, revision: Int, memos: [Memo])] = []
 
@@ -82,8 +101,12 @@ final class AccountSession {
         if queryCache.count > 8 { queryCache.removeFirst() }
         return memos
     }
-    /// Offline means no network, or a server that isn't answering.
-    var isOnline: Bool { connectivity.isOnline && engine.isOnline }
+    /// Whether the server can be reached: false with no network, a server that isn't answering, or
+    /// no server at all (the on-device library). Check ``isOnDevice`` before calling that offline.
+    var isOnline: Bool {
+        guard let engine else { return false }
+        return connectivity.isOnline && engine.isOnline
+    }
 
     /// The Mine / Everyone toggle appears only when someone else's memos are readable to you.
     var showsScopeToggle: Bool { store.profile.hasOtherCreators }
@@ -111,21 +134,27 @@ final class AccountSession {
     func start() async {
         await store.load()
         ExtensionInbox.drain(into: store)
-        connectivity.onChange = { [weak self] online, expensive in
-            guard let self else { return }
-            self.engine.isExpensiveNetwork = expensive
-            self.engine.isOnline = online
-            if online { Task { await self.engine.sync() } }
+        dropMissingSpace()
+        #if DEBUG
+        startFromEnvironment()
+        #endif
+        guard let engine else { return }
+        connectivity.onChange = { online, expensive in
+            engine.isExpensiveNetwork = expensive
+            engine.isOnline = online
+            if online { Task { await engine.sync() } }
         }
         connectivity.start()
-        dropMissingSpace()
         Task {
             await engine.sync()
             dropMissingSpace()
             files.prefetchThumbnails()
             SpotlightIndex.update(store)
         }
-        #if DEBUG
+    }
+
+    #if DEBUG
+    private func startFromEnvironment() {
         // For checking sync by hand: `MEMOS_DEV_CREATE` writes a memo at launch.
         if let text = ProcessInfo.processInfo.environment["MEMOS_DEV_CREATE"], !text.isEmpty {
             store.create(MemoDraft(content: text, visibility: .private))
@@ -134,8 +163,8 @@ final class AccountSession {
         for link in (ProcessInfo.processInfo.environment["MEMOS_DEV_OPEN"] ?? "").split(separator: " ") {
             if let url = URL(string: String(link)) { open(url) }
         }
-        #endif
     }
+    #endif
 
     func stop() async {
         connectivity.stop()
@@ -146,6 +175,7 @@ final class AccountSession {
     /// Foreground: import what extensions left, then sync.
     func didBecomeActive() async {
         ExtensionInbox.drain(into: store)
+        guard let engine else { return }
         if connectivity.isOnline { engine.isOnline = true }
         await engine.sync()
         files.prefetchThumbnails()
@@ -199,7 +229,7 @@ final class AccountSession {
                 let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "q" }?.value ?? ""
                 pendingSearch = SearchQuery(text: text)
             case "inbox":
-                isInboxPresented = true
+                isInboxPresented = !isOnDevice
             case "library":
                 path = [.library] + (parts.first.flatMap(Self.libraryRoute).map { [$0] } ?? [])
             case "settings":
@@ -214,7 +244,7 @@ final class AccountSession {
             return
         }
         // https://instance/memos/{uid} and /memos/shares/{token}
-        guard url.host() == client.serverURL.host() else { return }
+        guard let client, url.host() == client.serverURL.host() else { return }
         let parts = url.pathComponents.filter { $0 != "/" }
         if parts.count == 3, parts[0] == "memos", parts[1] == "shares" {
             path.append(.sharedMemo(token: parts[2]))
@@ -240,9 +270,10 @@ final class AccountSession {
         path.append(.memo(name))
     }
 
-    /// The web address of a memo on this instance.
-    func webURL(for memo: Memo) -> URL {
-        client.serverURL.appending(path: memo.name)
+    /// The web address of a memo on this instance. Nil in the on-device library, where a memo has
+    /// none.
+    func webURL(for memo: Memo) -> URL? {
+        client?.serverURL.appending(path: memo.name)
     }
 }
 

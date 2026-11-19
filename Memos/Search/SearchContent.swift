@@ -40,7 +40,7 @@ struct SearchContent: View {
                     Spacer()
                     Button("Save as view", systemImage: "bookmark") { isSavingView = true }
                         .font(.action)
-                        .disabled(!session.isOnline)
+                        .disabled(!session.isOnDevice && !session.isOnline)
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -320,8 +320,16 @@ struct SaveViewSheet: View {
         request.memoView.title = title.trimmingCharacters(in: .whitespaces)
         request.memoView.filter = filter
         if !emoji.isEmpty { request.memoView.icon.emoji = emoji }
+        guard let client = session.client else {
+            // The on-device library keeps its views itself, with the rest of its profile.
+            var view = request.memoView
+            view.name = "\(session.user)/memoViews/\(ResourceID.generate())"
+            session.store.profile.views.append(view)
+            dismiss()
+            return
+        }
         do {
-            let view = try await session.client.call(session.client.users.createMemoView(request:headers:), request)
+            let view = try await client.call(client.users.createMemoView(request:headers:), request)
             session.store.profile.views.append(view)
             dismiss()
         } catch {

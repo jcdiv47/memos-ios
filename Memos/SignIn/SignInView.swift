@@ -4,15 +4,21 @@ import MemosCore
 import SwiftUI
 
 /// First run: the server address, then the sign-in methods that instance offers (password,
-/// SSO, or both). Each person runs their own instance, so the address comes first.
+/// SSO, or both). Each person runs their own instance, so the address comes first. The first run
+/// also offers the on-device library, for keeping memos with no server at all.
 struct SignInView: View {
     /// The instance to sign back in to after the session expired.
     var resuming: URL?
+    /// Presented from the on-device library's Settings to add a server; it can be cancelled, and
+    /// doesn't offer the library you're already in.
+    var connecting = false
 
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
     @State private var serverText = ""
     @State private var instance: InstanceInfo?
     @State private var isChecking = false
+    @State private var isOpeningOnDevice = false
     @State private var error: String?
 
     struct InstanceInfo {
@@ -39,6 +45,13 @@ struct SignInView: View {
             }
             .paperBackground()
             .animation(.memosSpring, value: instance != nil)
+            .toolbar {
+                if connecting {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(role: .cancel) { dismiss() }
+                    }
+                }
+            }
         }
         .task {
             if let resuming, instance == nil {
@@ -96,6 +109,31 @@ struct SignInView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
+
+            if resuming == nil && !connecting {
+                onDeviceChoice
+            }
+        }
+    }
+
+    /// The other way in: no server, no account, memos kept on this iPhone only.
+    private var onDeviceChoice: some View {
+        Section {
+            Button {
+                isOpeningOnDevice = true
+                Task { await model.openOnDevice() }
+            } label: {
+                WideButtonLabel(
+                    title: model.hasOnDeviceLibrary ? "Continue with Memos on This iPhone" : "Use Without a Server",
+                    isWorking: isOpeningOnDevice
+                )
+            }
+            .buttonStyle(.glass)
+            .disabled(isOpeningOnDevice || isChecking)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+        } footer: {
+            Text("No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart.")
         }
     }
 
