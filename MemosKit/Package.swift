@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "MemosAPI", targets: ["MemosAPI"]),
         .library(name: "MemosCore", targets: ["MemosCore"]),
+        .library(name: "PhotoSearch", targets: ["PhotoSearch"]),
     ],
     dependencies: [
         .package(url: "https://github.com/connectrpc/connect-swift", exact: "1.2.3"),
@@ -31,6 +32,13 @@ let package = Package(
             name: "MemosCore",
             dependencies: ["MemosAPI"],
             resources: [.process("Localizable.xcstrings")]
+        ),
+        // Finding photos by describing them, with Apple's MobileCLIP downloaded on request.
+        // Only the app links it, so the extensions don't carry Core ML.
+        .target(name: "PhotoSearch"),
+        .testTarget(
+            name: "PhotoSearchTests",
+            dependencies: ["PhotoSearch"]
         ),
         .testTarget(
             name: "MemosCoreTests",
