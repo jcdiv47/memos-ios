@@ -18,6 +18,8 @@ final class ComposerModel {
     private(set) var isComposing = false
     /// Your tags that match the `#tag` at the cursor.
     private(set) var tagSuggestions: [String] = []
+    /// A date like “tomorrow 8pm” just before the cursor, which one tap writes out in full.
+    private(set) var datePhrase: DatePhrase?
     var visibility: MemoVisibility = .private {
         didSet { if visibility != oldValue { draftChanged() } }
     }
@@ -137,7 +139,12 @@ final class ComposerModel {
         if self.text != text { self.text = text }
         if self.selection != selection { self.selection = selection }
         if self.isComposing != isComposing { self.isComposing = isComposing }
-        if !isComposing { updateTagSuggestions() }
+        if isComposing {
+            // Marked text can't be replaced, and the date before it may be what's being typed.
+            if datePhrase != nil { datePhrase = nil }
+        } else {
+            updateSuggestions()
+        }
     }
 
     /// Replaces the whole text, as a transcript does, leaving the cursor at the end.
@@ -163,6 +170,15 @@ final class ComposerModel {
         apply(MarkdownEditing.completeTag(tag, replacing: token, in: text))
     }
 
+    /// Writes the date before the cursor out in full, in this device's time zone, so the memo
+    /// still says when once “tomorrow” has passed.
+    func convertDate() {
+        let (text, selection) = current
+        // Read again rather than reusing the suggestion: “tomorrow” may have moved since.
+        guard selection.length == 0, let phrase = DatePhrases.phrase(in: text, before: selection.location) else { return }
+        apply(DatePhrases.convert(phrase, cursor: selection.location))
+    }
+
     private var current: (text: String, selection: NSRange) {
         editor.snapshot ?? (text, selection)
     }
@@ -174,16 +190,22 @@ final class ComposerModel {
         } else {
             text = edit.applied(to: text)
             selection = edit.selection
-            updateTagSuggestions()
+            updateSuggestions()
         }
     }
 
-    private func updateTagSuggestions() {
+    private func updateSuggestions() {
         var suggestions: [String] = []
-        if selection.length == 0, let token = MarkdownEditing.tagToken(in: text, at: selection.location) {
-            suggestions = MarkdownEditing.tagSuggestions(for: token.prefix, in: tags)
+        var phrase: DatePhrase?
+        if selection.length == 0 {
+            if let token = MarkdownEditing.tagToken(in: text, at: selection.location) {
+                suggestions = MarkdownEditing.tagSuggestions(for: token.prefix, in: tags)
+            } else {
+                phrase = DatePhrases.phrase(in: text, before: selection.location)
+            }
         }
         if suggestions != tagSuggestions { tagSuggestions = suggestions }
+        if phrase != datePhrase { datePhrase = phrase }
     }
 
     // MARK: Audience

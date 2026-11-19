@@ -104,14 +104,17 @@ struct ComposerView: View {
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
         .safeAreaBar(edge: .bottom) {
             FormattingBar(showsHideKeyboard: editorFocused) {
-                // Suggestions take the formatting buttons' place while a tag is typed, so the
-                // bar never changes height under the text.
-                if model.tagSuggestions.isEmpty {
-                    formattingActions(model)
-                        .disabled(model.isComposing)
+                // Suggestions take the formatting buttons' place while a tag or a date is typed,
+                // so the bar never changes height under the text.
+                if !model.tagSuggestions.isEmpty {
+                    TagSuggestions(tags: model.tagSuggestions) { model.completeTag($0) }
+                        .transition(.opacity)
+                } else if let phrase = model.datePhrase {
+                    DateSuggestion(phrase: phrase) { model.convertDate() }
                         .transition(.opacity)
                 } else {
-                    TagSuggestions(tags: model.tagSuggestions) { model.completeTag($0) }
+                    formattingActions(model)
+                        .disabled(model.isComposing)
                         .transition(.opacity)
                 }
                 captureActions(model)
@@ -119,6 +122,7 @@ struct ComposerView: View {
                 editorFocused = false
             }
             .animation(.memosFade, value: model.tagSuggestions.isEmpty)
+            .animation(.memosFade, value: model.datePhrase == nil)
             .animation(.memosFade, value: editorFocused)
         }
         .navigationTitle(Text(title))
@@ -306,6 +310,24 @@ private struct TagSuggestions: View {
             .buttonStyle(TagSuggestionStyle())
             .accessibilityLabel(Text("Add tag \(tag)"))
         }
+    }
+}
+
+/// The date before the cursor, written out in full, in the formatting bar. Tapping it puts that
+/// in place of what was typed.
+private struct DateSuggestion: View {
+    let phrase: DatePhrase
+    var onSelect: () -> Void
+
+    var body: some View {
+        let written = DatePhrases.formatted(phrase.date, includesTime: phrase.includesTime)
+        Button(action: onSelect) {
+            Label(written, systemImage: "calendar")
+                .font(.callout.weight(.medium))
+                .lineLimit(1)
+        }
+        .buttonStyle(TagSuggestionStyle())
+        .accessibilityLabel(Text("Write out as \(written)", comment: "A composer suggestion that replaces a typed date like “tomorrow 8pm” with the full date and time."))
     }
 }
 
