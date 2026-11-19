@@ -297,6 +297,8 @@ final class ComposerModel {
     private static var stamp: Int { Int(Date.now.timeIntervalSince1970) % 100_000 }
 
     private func stage(data: Data, filename: String, type: UTType, store: MemoStore) {
+        // Saved or discarded while the file was being prepared: nothing would ever use it.
+        guard keepsDraft else { return }
         do {
             let attachment = try store.stageUpload(data: data, filename: filename, mimeType: type.preferredMIMEType ?? "application/octet-stream")
             withAnimation(.memosSpring) { attachments.append(attachment) }

@@ -137,7 +137,7 @@ struct ComposerView: View {
                 Button("Save") { save(model) }
                     .buttonStyle(.glassProminent)
                     .tint(.memosBlue)
-                    .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || isCapturingVoice)
+                    .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || isCapturingVoice || model.preparing > 0)
                     .keyboardShortcut(.return, modifiers: .command)
             }
         }
