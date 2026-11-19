@@ -95,6 +95,23 @@
         }
       }
     },
+    "%@: %@" : {
+      "comment" : "A linked memo for VoiceOver: which way the link runs, then the start of the memo.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@：%2$@"
+          }
+        }
+      }
+    },
     "%@: %lld memos" : {
       "localizations" : {
         "en" : {
@@ -762,6 +779,16 @@
         }
       }
     },
+    "Connect to a Memos Server" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 Memos 服务器"
+          }
+        }
+      }
+    },
     "Connect to comment." : {
       "localizations" : {
         "zh-Hans" : {
@@ -882,6 +909,16 @@
         }
       }
     },
+    "Continue with Memos on This iPhone" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续使用这台 iPhone 上的 Memo"
+          }
+        }
+      }
+    },
     "Copy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -928,6 +965,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法添加“%@”。"
+          }
+        }
+      }
+    },
+    "Couldn’t add the pasted image." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法添加粘贴的图片。"
           }
         }
       }
@@ -1363,6 +1410,36 @@
         }
       }
     },
+    "Erase" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抹掉"
+          }
+        }
+      }
+    },
+    "Erase Memos on This iPhone" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抹掉这台 iPhone 上的 Memo"
+          }
+        }
+      }
+    },
+    "Erase memos on this iPhone?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抹掉这台 iPhone 上的 Memo？"
+          }
+        }
+      }
+    },
     "Everyone" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1575,6 +1652,16 @@
         }
       }
     },
+    "It’s removed from this iPhone, along with its attachments." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它会连同附件一起从这台 iPhone 上删除。"
+          }
+        }
+      }
+    },
     "Keep all attachments" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1625,12 +1712,32 @@
         }
       }
     },
+    "Link Memo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接备忘录"
+          }
+        }
+      }
+    },
     "Link unavailable" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "链接不可用"
+          }
+        }
+      }
+    },
+    "Linked memo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已链接的备忘录"
           }
         }
       }
@@ -1721,6 +1828,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memos"
+          }
+        }
+      }
+    },
+    "Memos and attachments are kept on this iPhone only. They don’t sync, and nobody else can see them." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memo 和附件仅保存在这台 iPhone 上，不会同步，其他人也无法看到。"
+          }
+        }
+      }
+    },
+    "Memos on this iPhone are kept apart from this server and never upload. You stay signed in, and can switch back at any time." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 iPhone 上的 Memo 与此服务器分开保存，不会上传。你会保持登录状态，可随时切换回来。"
           }
         }
       }
@@ -1895,6 +2022,16 @@
         }
       }
     },
+    "No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无需账号。Memo 只保存在这台 iPhone 上，不会上传。你可以稍后添加服务器，服务器上的 Memo 会与之分开保存。"
+          }
+        }
+      }
+    },
     "No attachments" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1956,6 +2093,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%2$@ 中没有符合“%1$@”的 Memo。"
+          }
+        }
+      }
+    },
+    "No memos to link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可链接的备忘录"
           }
         }
       }
@@ -2097,6 +2244,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "当前离线。重新联网后，你对 Memo 的更改会自动上传。"
+          }
+        }
+      }
+    },
+    "On This iPhone" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 iPhone"
           }
         }
       }
@@ -2391,12 +2548,44 @@
         }
       }
     },
+    "Referenced by" : {
+      "comment" : "A memo that links to this memo.",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "被引用"
+          }
+        }
+      }
+    },
+    "Referencing" : {
+      "comment" : "A memo this memo links to.",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引用"
+          }
+        }
+      }
+    },
     "Remove" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "移除"
+          }
+        }
+      }
+    },
+    "Remove Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除链接"
           }
         }
       }
@@ -2517,6 +2706,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "搜索 Memo"
+          }
+        }
+      }
+    },
+    "Search your memos" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索你的备忘录"
           }
         }
       }
@@ -2693,6 +2892,16 @@
         }
       }
     },
+    "Sign in to your own Memos server to sync. The memos here stay on this iPhone, apart from the server’s." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录你自己的 Memos 服务器即可同步。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
+          }
+        }
+      }
+    },
     "Sign in to your own Memos server. Your notes stay there, and on this iPhone." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2819,6 +3028,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 Memo 上向左轻扫即可归档。"
+          }
+        }
+      }
+    },
+    "Switch to %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换到 %@"
+          }
+        }
+      }
+    },
+    "Switch to Memos on This iPhone" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换到这台 iPhone 上的 Memo"
           }
         }
       }
@@ -2979,6 +3208,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有可保存的内容。"
+          }
+        }
+      }
+    },
+    "This deletes %lld memos and their attachments. They aren’t on any server, so they can’t be recovered." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This deletes %lld memo and its attachments. It isn’t on any server, so it can’t be recovered."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This deletes %lld memos and their attachments. They aren’t on any server, so they can’t be recovered."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这会删除 %lld 条 Memo 及其附件。它们不在任何服务器上，删除后无法恢复。"
+                }
+              }
+            }
           }
         }
       }
@@ -3196,6 +3459,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用访问令牌"
+          }
+        }
+      }
+    },
+    "Use Memos Without a Server" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不使用服务器记录 Memo"
+          }
+        }
+      }
+    },
+    "Use Without a Server" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不使用服务器"
           }
         }
       }
@@ -3475,6 +3758,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "多"
+          }
+        }
+      }
+    },
+    "You’re still signed in as @%@. The memos here stay on this iPhone, apart from the server’s." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你仍以 @%@ 的身份登录。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
           }
         }
       }

@@ -18,6 +18,11 @@ struct SearchContent: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
+        // Photos indexed while the search is open can match it too.
+        .onChange(of: session.photoSearch.indexedCount) { search.schedulePhotos() }
+        // The search field floats over the bottom of the list, and without the software
+        // keyboard nothing insets the list for it, so its last rows would sit underneath.
+        .contentMargins(.bottom, FloatingBar.height + Spacing.l, for: .scrollContent)
         .sheet(isPresented: $isSavingView) {
             SaveViewSheet(query: search.query)
                 .presentationDetents([.height(300)])
@@ -31,24 +36,30 @@ struct SearchContent: View {
         return List {
             Section {
                 HStack {
-                    Text(countLabel(own.count + others.count))
+                    Text(countLabel(own.count + others.count + photoOnly(beyond: own).count))
                         .font(.metadata)
                         .foregroundStyle(.ink2)
                     Spacer()
                     Button("Save as view", systemImage: "bookmark") { isSavingView = true }
                         .labelStyle(.compact)
-                        .font(.subheadline)
+                        .font(.action)
                         // One color for the symbol and its words, like any tinted text button,
-                        // and greyed with them when offline.
-                        .foregroundStyle(session.isOnline ? Color.memosBlue : Color.ink3)
-                        .disabled(!session.isOnline)
+                        // and greyed with them when it can't save.
+                        .foregroundStyle(session.isOnDevice || session.isOnline ? Color.memosBlue : Color.ink3)
+                        .disabled(!session.isOnDevice && !session.isOnline)
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
 
-            if own.isEmpty && others.isEmpty && !search.isLoadingRemote {
+            if own.isEmpty && others.isEmpty && search.photos.isEmpty && !search.isLoadingRemote {
                 nothingFound
+            }
+
+            if !search.photos.isEmpty {
+                Section("Photos") {
+                    PhotoMatchStrip(matches: search.photos)
+                }
             }
 
             if !own.isEmpty {
@@ -72,17 +83,25 @@ struct SearchContent: View {
                 Section("From others") {
                     if !session.isOnline && others.isEmpty {
                         Text("Connect to search other people’s memos.")
-                            .font(.subheadline)
+                            .font(.supporting)
                             .foregroundStyle(.ink2)
                     } else if search.isLoadingRemote && others.isEmpty {
                         ProgressView().frame(maxWidth: .infinity)
                     } else if others.isEmpty && !own.isEmpty {
                         Text("Nothing from others.")
-                            .font(.subheadline)
+                            .font(.supporting)
                             .foregroundStyle(.ink2)
                     } else {
                         ForEach(others, id: \.name) { memo in
                             SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                        }
+                        if !search.remoteNextPageToken.isEmpty {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                // Keyed on the count, so it asks again after each page lands while still on screen.
+                                .task(id: search.remote.count) { search.loadMoreRemote() }
                         }
                     }
                 }
@@ -91,8 +110,12 @@ struct SearchContent: View {
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
+    }
+
+    /// Memos found only by a photo, so the count includes them once.
+    private func photoOnly(beyond own: [Memo]) -> Set<String> {
+        Set(search.photos.map(\.memo.name)).subtracting(own.map(\.name))
     }
 
     private func countLabel(_ count: Int) -> String {
@@ -108,9 +131,10 @@ struct SearchContent: View {
             }
             return String(localized: "No memos match ‘\(what)’.", comment: "Search found nothing; what was searched for.")
         }()
-        VStack(spacing: 12) {
+        VStack(spacing: Spacing.l) {
             Text(description)
-                .font(.subheadline)
+                .font(.supporting)
+                .multilineTextAlignment(.center)
                 .foregroundStyle(.ink2)
             if search.query.spaceToken != nil {
                 Button("Search all Spaces") {
@@ -120,7 +144,42 @@ struct SearchContent: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, Spacing.xxl)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+}
+
+/// Photos that look like what you typed, best first, in a row you scroll sideways. A tap opens
+/// the memo the photo is in.
+private struct PhotoMatchStrip: View {
+    let matches: [PhotoSearchModel.Match]
+
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: Spacing.s) {
+                ForEach(matches) { match in
+                    Button {
+                        session.path.append(.memo(match.memo.name))
+                    } label: {
+                        AttachmentImage(attachment: match.attachment)
+                            .frame(width: 104, height: 104)
+                            // A photo in a memo your tags blur stays blurred here too, inside its
+                            // own frame rather than bleeding into the next one.
+                            .blur(radius: session.isHidden(match.memo) ? 16 : 0, opaque: true)
+                            .clipShape(.rect(cornerRadius: Radius.tight))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(session.redactedTitle(of: match.memo))
+                    .accessibilityHint("Opens the memo with this photo")
+                }
+            }
+            .padding(.horizontal, Metrics.screenInset)
+        }
+        .scrollIndicators(.hidden)
+        .listRowInsets(EdgeInsets(top: Spacing.xs, leading: 0, bottom: Spacing.xs, trailing: 0))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
     }
@@ -138,10 +197,10 @@ private struct SearchRow: View {
         Button {
             session.path.append(.memo(memo.name))
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                let hidden = session.store.profile.tagBlurRules.blurs(memo) && !session.revealedMemos.contains(memo.name)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                let hidden = session.isHidden(memo)
                 Text(MarkdownCache.inline(excerpt, highlights: highlights))
-                    .font(.subheadline)
+                    .font(.supporting)
                     .foregroundStyle(.ink)
                     .lineLimit(2)
                     // Blurred as on its card until you show it there; the memo opens as usual.
@@ -158,6 +217,7 @@ private struct SearchRow: View {
                     .foregroundStyle(.ink2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, Spacing.xs)
             .contentShape(.rect)
             .matchedTransitionSource(id: memo.name, in: zoom)
         }
@@ -206,12 +266,13 @@ private struct SearchSuggestions: View {
                                 .foregroundStyle(.ink)
                         }
                     }
+                    .cardRows()
                 } header: {
                     HStack {
                         Text("Recent")
                         Spacer()
                         Button("Clear") { search.clearRecents() }
-                            .font(.subheadline)
+                            .font(.action)
                     }
                 }
             }
@@ -230,41 +291,44 @@ private struct SearchSuggestions: View {
                             }
                         }
                     }
+                    .cardRows()
                 }
             }
 
             if prefix == nil {
                 Section("Filters") {
-                    ForEach(SearchToken.commonFilters, id: \.self) { token in
-                        Button {
-                            search.addToken(token)
+                    Group {
+                        ForEach(SearchToken.commonFilters, id: \.self) { token in
+                            Button {
+                                search.addToken(token)
+                            } label: {
+                                Label(token.label, systemImage: token.systemImage)
+                                    .foregroundStyle(.ink)
+                            }
+                        }
+                        Menu {
+                            ForEach(MemoVisibility.choices, id: \.self) { visibility in
+                                Button(visibility.label, systemImage: visibility.systemImage) { search.addToken(.visibility(visibility)) }
+                            }
                         } label: {
-                            Label(token.label, systemImage: token.systemImage)
+                            Label("Visibility", systemImage: "eye")
+                                .foregroundStyle(.ink)
+                        }
+                        Menu {
+                            Button("Today") { search.addToken(.date(.today)) }
+                            Button("This week") { search.addToken(.date(.thisWeek)) }
+                            Button("This month") { search.addToken(.date(.thisMonth)) }
+                        } label: {
+                            Label("Date", systemImage: "calendar")
                                 .foregroundStyle(.ink)
                         }
                     }
-                    Menu {
-                        ForEach(MemoVisibility.choices, id: \.self) { visibility in
-                            Button(visibility.label, systemImage: visibility.systemImage) { search.addToken(.visibility(visibility)) }
-                        }
-                    } label: {
-                        Label("Visibility", systemImage: "eye")
-                            .foregroundStyle(.ink)
-                    }
-                    Menu {
-                        Button("Today") { search.addToken(.date(.today)) }
-                        Button("This week") { search.addToken(.date(.thisWeek)) }
-                        Button("This month") { search.addToken(.date(.thisMonth)) }
-                    } label: {
-                        Label("Date", systemImage: "calendar")
-                            .foregroundStyle(.ink)
-                    }
+                    .cardRows()
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
     }
 }
 
@@ -293,12 +357,14 @@ struct SaveViewSheet: View {
                             }
                         TextField("Name", text: $title)
                     }
+                    .cardRows()
                 } footer: {
                     Text(query.filter() ?? "")
                         .font(.memoCode)
                     if let error { Text(error).foregroundStyle(.danger) }
                 }
             }
+            .paperBackground()
             .navigationTitle("Save as View")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -323,8 +389,16 @@ struct SaveViewSheet: View {
         request.memoView.title = title.trimmingCharacters(in: .whitespaces)
         request.memoView.filter = filter
         if !emoji.isEmpty { request.memoView.icon.emoji = emoji }
+        guard let client = session.client else {
+            // The on-device library keeps its views itself, with the rest of its profile.
+            var view = request.memoView
+            view.name = "\(session.user)/memoViews/\(ResourceID.generate())"
+            session.store.profile.views.append(view)
+            dismiss()
+            return
+        }
         do {
-            let view = try await session.client.call(session.client.users.createMemoView(request:headers:), request)
+            let view = try await client.call(client.users.createMemoView(request:headers:), request)
             session.store.profile.views.append(view)
             dismiss()
         } catch {

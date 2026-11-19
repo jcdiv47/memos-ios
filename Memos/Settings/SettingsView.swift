@@ -1,10 +1,45 @@
 import MemosCore
+import PhotoSearch
 import SwiftProtobuf
 import SwiftUI
 
-/// Account, preferences, access tokens, sync and signing out. Instance administration and
-/// webhooks link out to the web.
+/// For a server account: the account, preferences, access tokens, sync and signing out, with
+/// instance administration and webhooks linking out to the web. For the on-device library: what
+/// it holds, adding or switching to a server, and erasing it.
 struct SettingsView: View {
+    @Environment(AccountSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                // Every row on Card, like the cards on the timeline.
+                Group {
+                    if let client = session.client, let engine = session.engine {
+                        ServerSettings(client: client, engine: engine)
+                    } else {
+                        OnDeviceSettings()
+                    }
+                }
+                .cardRows()
+            }
+            .paperBackground()
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // A sheet you only read closes with a plain X at the trailing edge.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(role: .close) { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct ServerSettings: View {
+    let client: MemosClient
+    let engine: SyncEngine
+
     @Environment(AccountSession.self) private var session
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -16,100 +51,96 @@ struct SettingsView: View {
 
     var body: some View {
         @Bindable var files = session.files
-        NavigationStack {
-            Form {
-                Section {
-                    HStack(spacing: 14) {
-                        UserAvatar(user: session.user, size: 52)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: user?.displayLabel ?? ResourceName.lastSegment(session.user))
-                                .font(.headline)
-                            Text(verbatim: "@\(user?.username ?? ResourceName.lastSegment(session.user))")
-                                .font(.metadata)
-                                .foregroundStyle(.ink2)
-                            if let email = user?.email, !email.isEmpty {
-                                Text(email)
-                                    .font(.metadata)
-                                    .foregroundStyle(.ink2)
-                            }
-                        }
+        Section {
+            HStack(spacing: Spacing.l) {
+                UserAvatar(user: session.user, size: AvatarSize.large)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(verbatim: user?.displayLabel ?? ResourceName.lastSegment(session.user))
+                        .font(.headline)
+                    Text(verbatim: "@\(user?.username ?? ResourceName.lastSegment(session.user))")
+                        .font(.metadata)
+                        .foregroundStyle(.ink2)
+                    if let email = user?.email, !email.isEmpty {
+                        Text(email)
+                            .font(.metadata)
+                            .foregroundStyle(.ink2)
                     }
-                }
-
-                Section {
-                    Picker("Default visibility", selection: Binding(
-                        get: { session.defaultVisibility ?? .private },
-                        set: { value in Task { await saveDefaultVisibility(value) } }
-                    )) {
-                        ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
-                            Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
-                        }
-                    }
-                    .disabled(!session.isOnline)
-                } header: {
-                    Text("New memos")
-                } footer: {
-                    Text("The same setting as on the web. Writing inside a Space narrows Protected and Public to the Space’s members.")
-                }
-
-                Section {
-                    Toggle("Keep all attachments", isOn: $files.keepAll)
-                    if let cacheSize {
-                        LabeledContent("Downloaded files") {
-                            // “Zero kB” reads like a measurement; nothing downloaded is “None”.
-                            cacheSize == 0 ? Text("None") : Text(cacheSize.formatted(.byteCount(style: .file)))
-                        }
-                    }
-                } footer: {
-                    Text("Downloads every photo and file for reading offline. Otherwise full-size files are kept as you open them, up to 500 MB.")
-                }
-
-                SyncSection()
-
-                Section("Developer") {
-                    NavigationLink("Access tokens") { AccessTokensView() }
-                    WebLink("Webhooks", url: session.client.serverURL.appending(path: "setting"))
-                }
-
-                Section {
-                    LabeledContent("Server", value: session.client.serverURL.host() ?? session.client.serverURL.absoluteString)
-                    if let version = session.store.profile.instance?.version, !version.isEmpty {
-                        LabeledContent("Version", value: version)
-                    }
-                    if user?.role == .admin {
-                        WebLink("Instance administration", url: session.client.serverURL.appending(path: "setting"))
-                    }
-                }
-
-                Section {
-                    // On the button, so the dialog points at it.
-                    Button("Sign Out", role: .destructive) { confirmSignOut = true }
-                        .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                            Button("Sign Out", role: .destructive) {
-                                dismiss()
-                                Task { await model.signOut() }
-                            }
-                        } message: {
-                            Text(signOutMessage)
-                        }
-                } footer: {
-                    if let error { Text(error).foregroundStyle(.danger) }
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(.paper)
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // Changes apply as they're made, so there's nothing to confirm: a plain close, where
-                // Inbox has it. Save stays the app's only tinted glass.
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
+        }
+
+        Section {
+            Picker("Default visibility", selection: Binding(
+                get: { session.defaultVisibility ?? .private },
+                set: { value in Task { await saveDefaultVisibility(value) } }
+            )) {
+                ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
+                    Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
                 }
             }
-            .task {
-                cacheSize = await session.files.cacheSize()
+            .disabled(!session.isOnline)
+        } header: {
+            Text("New memos")
+        } footer: {
+            Text("The same setting as on the web. Writing inside a Space narrows Protected and Public to the Space’s members.")
+        }
+
+        Section {
+            Toggle("Keep all attachments", isOn: $files.keepAll)
+            if let cacheSize {
+                LabeledContent("Downloaded files") {
+                    // “Zero kB” reads like a measurement; nothing downloaded is “None”.
+                    cacheSize == 0 ? Text("None") : Text(cacheSize.formatted(.byteCount(style: .file)))
+                }
             }
+        } footer: {
+            Text("Downloads every photo and file for reading offline. Otherwise full-size files are kept as you open them, up to 500 MB.")
+        }
+        .task {
+            cacheSize = await session.files.cacheSize()
+        }
+
+        PhotoSearchSection()
+
+        SyncSection(engine: engine)
+
+        Section("Developer") {
+            NavigationLink("Access tokens") { AccessTokensView(client: client) }
+            WebLink("Webhooks", url: client.serverURL.appending(path: "setting"))
+        }
+
+        Section {
+            LabeledContent("Server", value: client.serverURL.host() ?? client.serverURL.absoluteString)
+            if let version = session.store.profile.instance?.version, !version.isEmpty {
+                LabeledContent("Version", value: version)
+            }
+            if user?.role == .admin {
+                WebLink("Instance administration", url: client.serverURL.appending(path: "setting"))
+            }
+        }
+
+        Section {
+            Button(model.hasOnDeviceLibrary ? "Switch to Memos on This iPhone" : "Use Memos Without a Server" as LocalizedStringKey, systemImage: "iphone") {
+                dismiss()
+                Task { await model.openOnDevice() }
+            }
+        } footer: {
+            Text("Memos on this iPhone are kept apart from this server and never upload. You stay signed in, and can switch back at any time.")
+        }
+
+        Section {
+            // On the button, so the dialog points at it.
+            Button("Sign Out", role: .destructive) { confirmSignOut = true }
+                .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                    Button("Sign Out", role: .destructive) {
+                        dismiss()
+                        Task { await model.signOut() }
+                    }
+                } message: {
+                    Text(signOutMessage)
+                }
+        } footer: {
+            if let error { Text(error).foregroundStyle(.danger) }
         }
     }
 
@@ -126,7 +157,7 @@ struct SettingsView: View {
         request.userSetting.generalSetting.memoVisibility = visibility.filterValue
         request.updateMask.paths = ["memo_visibility"]
         do {
-            _ = try await session.client.call(session.client.users.updateUserSetting(request:headers:), request)
+            _ = try await client.call(client.users.updateUserSetting(request:headers:), request)
             session.store.profile.defaultVisibility = visibility.filterValue
         } catch {
             self.error = error.description
@@ -153,7 +184,7 @@ private struct WebLink: View {
                     .foregroundStyle(.ink)
                 Spacer()
                 Image(systemName: "arrow.up.forward")
-                    .font(.footnote.weight(.semibold))
+                    .font(.statusSymbol.weight(.semibold))
                     .foregroundStyle(.ink3)
                     .accessibilityHidden(true)
             }
@@ -163,13 +194,154 @@ private struct WebLink: View {
     }
 }
 
+/// The on-device library: what it holds, a way to a server, and erasing it.
+private struct OnDeviceSettings: View {
+    @Environment(AccountSession.self) private var session
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var storageSize: Int64?
+    @State private var isConnecting = false
+    @State private var confirmErase = false
+
+    var body: some View {
+        let count = session.store.own.count
+        Section {
+            HStack(spacing: Spacing.l) {
+                Image(systemName: "iphone")
+                    .font(.title2)
+                    .foregroundStyle(.ink)
+                    .frame(width: AvatarSize.large, height: AvatarSize.large)
+                    .background(.well, in: .circle)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text("On This iPhone")
+                        .font(.headline)
+                    Text("\(count) memos")
+                        .font(.metadata)
+                        .foregroundStyle(.ink2)
+                    if let storageSize {
+                        Text(storageSize.formatted(.byteCount(style: .file)))
+                            .font(.metadata)
+                            .foregroundStyle(.ink2)
+                    }
+                }
+            }
+        } footer: {
+            Text("Memos and attachments are kept on this iPhone only. They don’t sync, and nobody else can see them.")
+        }
+        .task {
+            storageSize = await session.files.librarySize()
+        }
+
+        // The photos are all here, so photo search works just as it does for a server account.
+        PhotoSearchSection()
+
+        Section {
+            if let account = model.serverAccount {
+                let host = account.url.host() ?? account.url.absoluteString
+                Button("Switch to \(host)", systemImage: "server.rack") {
+                    dismiss()
+                    Task { await model.openServerAccount() }
+                }
+            } else {
+                Button("Connect to a Memos Server", systemImage: "server.rack") { isConnecting = true }
+            }
+        } header: {
+            Text("Server")
+        } footer: {
+            if let account = model.serverAccount {
+                Text("You’re still signed in as @\(ResourceName.lastSegment(account.user)). The memos here stay on this iPhone, apart from the server’s.")
+            } else {
+                Text("Sign in to your own Memos server to sync. The memos here stay on this iPhone, apart from the server’s.")
+            }
+        }
+
+        Section {
+            Button("Erase Memos on This iPhone", role: .destructive) { confirmErase = true }
+                .confirmationDialog("Erase memos on this iPhone?", isPresented: $confirmErase, titleVisibility: .visible) {
+                    Button("Erase", role: .destructive) {
+                        dismiss()
+                        Task { await model.eraseOnDevice() }
+                    }
+                } message: {
+                    Text("This deletes \(count) memos and their attachments. They aren’t on any server, so they can’t be recovered.")
+                }
+        }
+        .sheet(isPresented: $isConnecting) {
+            SignInView(connecting: true)
+        }
+    }
+}
+
+/// Downloading MobileCLIP turns on photo search; removing it turns it off.
+private struct PhotoSearchSection: View {
+    @Environment(AccountSession.self) private var session
+    @State private var variant: MobileCLIPVariant = .s2
+    @State private var confirmRemove = false
+
+    var body: some View {
+        let photos = session.photoSearch
+        Section {
+            if let installed = photos.installed {
+                LabeledContent("Model", value: installed.displayName)
+                LabeledContent("Photos ready") {
+                    HStack(spacing: Spacing.s) {
+                        if photos.isIndexing { ProgressView() }
+                        Text("\(photos.indexedCount) of \(photos.photoCount)", comment: "Photos ready for photo search, out of all the photos in your memos.")
+                    }
+                }
+                Button("Remove Model", role: .destructive) { confirmRemove = true }
+                    .confirmationDialog("Remove the photo search model?", isPresented: $confirmRemove, titleVisibility: .visible) {
+                        Button("Remove", role: .destructive) { photos.remove() }
+                    } message: {
+                        Text("Photo search turns off, here and in your other apps that share the model. You can download it again at any time.")
+                    }
+            } else if let progress = photos.downloadProgress {
+                ProgressView(value: progress) {
+                    Text("Downloading \(variant.displayName)…")
+                } currentValueLabel: {
+                    Text(progress, format: .percent.precision(.fractionLength(0)))
+                }
+                Button("Cancel Download", role: .cancel) { photos.cancelDownload() }
+            } else {
+                Picker("Model", selection: $variant) {
+                    ForEach(MobileCLIPVariant.allCases) { variant in
+                        Text(label(variant)).tag(variant)
+                    }
+                }
+                Button("Download Model") { photos.download(variant) }
+            }
+        } header: {
+            Text("Photo search")
+        } footer: {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPhone, so your photos stay on it. Descriptions in English work best.")
+                if let error = photos.error { Text(error).foregroundStyle(.danger) }
+            }
+        }
+        .onAppear {
+            photos.refresh()
+            if let installed = photos.installed { variant = installed }
+        }
+    }
+
+    private func label(_ variant: MobileCLIPVariant) -> String {
+        let size = variant.downloadSize.formatted(.byteCount(style: .file))
+        return switch variant {
+        case .s0: String(localized: "Smaller · \(size)", comment: "The smaller photo search model, with its download size.")
+        case .s2: String(localized: "More accurate · \(size)", comment: "The larger photo search model, with its download size.")
+        }
+    }
+}
+
 private struct SyncSection: View {
+    let engine: SyncEngine
     @Environment(AccountSession.self) private var session
 
     var body: some View {
         Section {
             LabeledContent("Last synced") {
-                if session.engine.isSyncing {
+                if engine.isSyncing {
                     ProgressView()
                 } else if let last = session.store.state.lastSyncAt {
                     TimelineView(.periodic(from: .now, by: 15)) { _ in
@@ -180,27 +352,27 @@ private struct SyncSection: View {
                 }
             }
             // A quick sync would otherwise flash a spinner for a frame.
-            .animation(.memosFade, value: session.engine.isSyncing)
+            .animation(.memosFade, value: engine.isSyncing)
             LabeledContent("Waiting to upload", value: session.store.outbox.count.formatted())
             ForEach(session.store.outbox.filter { $0.failure != nil }) { change in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(session.store.memo(named: change.memo)?.displayTitle ?? change.memo)
-                        .font(.subheadline)
+                        .font(.supporting)
                     Text(change.failure ?? "")
                         .font(.metadata)
                         .foregroundStyle(.danger)
                     Button("Discard this change", role: .destructive) { session.store.discardChange(change.id) }
-                        .font(.subheadline)
+                        .font(.action)
                 }
             }
-            Button("Sync Now") { Task { await session.engine.sync(fullCompare: true) } }
-                .disabled(!session.isOnline || session.engine.isSyncing)
+            Button("Sync Now") { Task { await engine.sync(fullCompare: true) } }
+                .disabled(!session.isOnline || engine.isSyncing)
         } header: {
             Text("Sync")
         } footer: {
             if !session.isOnline {
                 Text("Offline. Changes to your memos upload when you reconnect.")
-            } else if let error = session.engine.lastError {
+            } else if let error = engine.lastError {
                 Text(error.description).foregroundStyle(.danger)
             }
         }
@@ -209,12 +381,15 @@ private struct SyncSection: View {
 
 /// Personal access tokens for scripts and other clients.
 private struct AccessTokensView: View {
+    let client: MemosClient
     @Environment(AccountSession.self) private var session
     @State private var tokens: [Memos_Api_PersonalAccessToken] = []
     @State private var isCreating = false
     @State private var description = ""
     @State private var expiresInDays = 30
     @State private var created: String?
+    /// The row the one-time secret above belongs to, so deleting it takes the secret away too.
+    @State private var createdName: String?
     @State private var error: String?
     @State private var loaded = false
 
@@ -229,11 +404,11 @@ private struct AccessTokensView: View {
                 } footer: {
                     Text("Copy it now. It won’t be shown again.")
                 }
-                .listRowBackground(Color.card)
+                .cardRows()
             }
             Section {
                 ForEach(tokens, id: \.name) { token in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
                         Text(token.description_p.isEmpty ? String(localized: "Token") : token.description_p)
                         Text(detail(token))
                             .font(.metadata)
@@ -247,10 +422,9 @@ private struct AccessTokensView: View {
             } footer: {
                 if let error { Text(error).foregroundStyle(.danger) }
             }
-            .listRowBackground(Color.card)
+            .cardRows()
         }
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
         .overlay {
             if loaded && tokens.isEmpty && created == nil && error == nil {
                 ContentUnavailableView(
@@ -296,7 +470,7 @@ private struct AccessTokensView: View {
         var request = Memos_Api_ListPersonalAccessTokensRequest()
         request.parent = session.user
         do {
-            tokens = try await session.client.call(session.client.users.listPersonalAccessTokens(request:headers:), request).personalAccessTokens
+            tokens = try await client.call(client.users.listPersonalAccessTokens(request:headers:), request).personalAccessTokens
         } catch {
             self.error = error.isConnectivity ? String(localized: "Connect to manage tokens.") : error.description
         }
@@ -309,8 +483,9 @@ private struct AccessTokensView: View {
         request.description_p = description
         request.expiresInDays = Int32(expiresInDays)
         do {
-            let response = try await session.client.call(session.client.users.createPersonalAccessToken(request:headers:), request)
+            let response = try await client.call(client.users.createPersonalAccessToken(request:headers:), request)
             created = response.token
+            createdName = response.personalAccessToken.name
             description = ""
             await load()
         } catch {
@@ -321,8 +496,21 @@ private struct AccessTokensView: View {
     private func delete(_ token: Memos_Api_PersonalAccessToken) async {
         var request = Memos_Api_DeletePersonalAccessTokenRequest()
         request.name = token.name
-        if (try? await session.client.call(session.client.users.deletePersonalAccessToken(request:headers:), request)) != nil {
-            tokens.removeAll { $0.name == token.name }
+        // The row goes at once, as the swipe expects, and comes back if the server refuses.
+        let index = tokens.firstIndex { $0.name == token.name }
+        tokens.removeAll { $0.name == token.name }
+        do {
+            _ = try await client.call(client.users.deletePersonalAccessToken(request:headers:), request)
+            error = nil
+            if token.name == createdName {
+                created = nil
+                createdName = nil
+            }
+        } catch {
+            withAnimation(.memosSpring) { tokens.insert(token, at: min(index ?? 0, tokens.count)) }
+            self.error = error.isConnectivity
+                ? String(localized: "Connect to delete tokens.")
+                : String(localized: "Couldn’t delete the token. \(error.description)")
         }
     }
 }

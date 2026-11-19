@@ -83,7 +83,8 @@ private struct TimelineRoot: View {
         // The Space menu grows out of the title. `.inlineLarge` drops the title menu, so the
         // title is inline.
         .toolbarTitleDisplayMode(.inline)
-        .toolbarTitleMenu { TitleMenu(newSpace: $newSpace) }
+        // The on-device library has no Spaces, and nobody else's memos, to choose from.
+        .toolbarTitleMenu(if: !session.isOnDevice) { TitleMenu(newSpace: $newSpace) }
         .toolbar { toolbar }
         .searchable(text: $search.text, tokens: $search.tokens, isPresented: $isSearching, prompt: "Memos, #tags, filters") { token in
             // A tag's “#” already says what it is.
@@ -121,6 +122,10 @@ private struct TimelineRoot: View {
     }
 
     private var subtitle: String {
+        if session.isOnDevice {
+            // Says where the memos are, in place of a Space that can't exist here.
+            return ([String(localized: "On This iPhone")] + [session.quickFilter?.label].compactMap(\.self)).joined(separator: " · ")
+        }
         var parts = [session.selectedSpaceTitle]
         if session.showsScopeToggle && session.scope == .everyone { parts.append(String(localized: "Everyone")) }
         if let filter = session.quickFilter { parts.append(filter.label) }
@@ -171,8 +176,8 @@ private struct TimelineRoot: View {
                 emptyState
             }
         }
-        .refreshable {
-            await session.engine.sync(fullCompare: true)
+        .refreshable(if: session.engine != nil) {
+            await session.engine?.sync(fullCompare: true)
             if session.effectiveScope == .everyone {
                 feed.reload()
                 await feed.loadMore(using: session.engine, me: session.user)
@@ -240,7 +245,8 @@ private struct TimelineRoot: View {
         Task {
             var request = Memos_Api_CreateSpaceRequest()
             request.space.title = title
-            if let space = try? await session.client.call(session.client.spaces.createSpace(request:headers:), request) {
+            guard let client = session.client else { return }
+            if let space = try? await client.call(client.spaces.createSpace(request:headers:), request) {
                 session.store.profile.spaces.append(space)
                 session.selectedSpace = space.name
             }
@@ -248,7 +254,7 @@ private struct TimelineRoot: View {
     }
 }
 
-/// One memo on the timeline, with its swipe actions: leading pins, trailing archives.
+/// One memo on the timeline, with its swipe actions: leading pins, trailing archives or edits.
 struct TimelineRow: View {
     let memo: Memo
     let zoom: Namespace.ID
@@ -271,7 +277,8 @@ struct TimelineRow: View {
                 .matchedTransitionSource(id: memo.name, in: zoom)
         }
         .buttonStyle(.plain)
-        .listRowInsets(EdgeInsets(top: 6, leading: Metrics.timelineInset, bottom: 6, trailing: Metrics.timelineInset))
+        // Half the gap above and half below, so neighbouring cards sit one gap apart.
+        .listRowInsets(EdgeInsets(top: Metrics.cardGap / 2, leading: Metrics.screenInset, bottom: Metrics.cardGap / 2, trailing: Metrics.screenInset))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
@@ -311,6 +318,13 @@ struct TimelineRow: View {
                     Label("Archive", systemImage: "archivebox")
                 }
                 .tint(.ink2)
+                // After Archive, so a full swipe still archives.
+                Button {
+                    session.edit(memo.name)
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                .tint(.memosBlue)
             }
         }
         .sensoryFeedback(.impact(weight: .medium), trigger: swipeCommits)
@@ -342,11 +356,15 @@ struct MemoActions: View {
                 withAnimation(.memosSpring) { session.store.setArchived(memo.name, !memo.isArchived) }
             }
         }
-        Button("React", systemImage: "face.smiling") {
-            if let onReact { onReact() } else { session.path.append(.memo(memo.name)) }
+        if !session.isOnDevice {
+            Button("React", systemImage: "face.smiling") {
+                if let onReact { onReact() } else { session.path.append(.memo(memo.name)) }
+            }
         }
-        Button("Copy Link", systemImage: "link") {
-            UIPasteboard.general.url = session.webURL(for: memo)
+        if let link = session.webURL(for: memo) {
+            Button("Copy Link", systemImage: "link") {
+                UIPasteboard.general.url = link
+            }
         }
         if !forAccessibility {
             Button("Copy Text", systemImage: "doc.on.doc") {
@@ -401,22 +419,22 @@ private struct AccountMenu: View {
     var body: some View {
         let unread = session.store.profile.unreadNotifications
         Menu {
-            Button {
-                session.isInboxPresented = true
-            } label: {
-                Label("Inbox", systemImage: "bell")
-                // A menu shows a second Text in the label as the subtitle.
-                if unread > 0 { Text("\(unread) unread") }
+            // Notifications come from the server; the on-device library has none.
+            if !session.isOnDevice {
+                Button {
+                    session.isInboxPresented = true
+                } label: {
+                    Label("Inbox", systemImage: "bell")
+                    // A menu shows a second Text in the label as the subtitle.
+                    if unread > 0 { Text("\(unread) unread") }
+                }
             }
             Button("Settings", systemImage: "gearshape") { session.isSettingsPresented = true }
         } label: {
             Image(systemName: "ellipsis")
                 .overlay(alignment: .topTrailing) {
                     if unread > 0 {
-                        Circle()
-                            .fill(.memosBlue)
-                            .stroke(.paper, lineWidth: 2)
-                            .frame(width: 9, height: 9)
+                        UnreadDot(ringed: true)
                             .offset(x: 5, y: -11)
                     }
                 }

@@ -14,8 +14,8 @@ struct CaptureField: View {
 
     var body: some View {
         let voice = session.voice
-        GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 10) {
+        GlassEffectContainer(spacing: Spacing.m) {
+            HStack(spacing: Spacing.l) {
                 if voice.isRecording {
                     Button {
                         voice.cancel()
@@ -82,8 +82,8 @@ struct CaptureField: View {
                         .accessibilityAction { Task { await voice.start() } }
                 }
             }
-            .padding(.leading, 14)
-            .padding(.trailing, 8)
+            .padding(.leading, Spacing.xl)
+            .padding(.trailing, Spacing.m)
             .frame(minWidth: 170, idealWidth: 230, maxWidth: .infinity, minHeight: 40)
         }
         .contentShape(.capsule)

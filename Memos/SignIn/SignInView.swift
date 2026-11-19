@@ -4,15 +4,21 @@ import MemosCore
 import SwiftUI
 
 /// First run: the server address, then the sign-in methods that instance offers (password,
-/// SSO, or both). Each person runs their own instance, so the address comes first.
+/// SSO, or both). Each person runs their own instance, so the address comes first. The first run
+/// also offers the on-device library, for keeping memos with no server at all.
 struct SignInView: View {
     /// The instance to sign back in to after the session expired.
     var resuming: URL?
+    /// Presented from the on-device library's Settings to add a server; it can be cancelled, and
+    /// doesn't offer the library you're already in.
+    var connecting = false
 
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
     @State private var serverText = ""
     @State private var instance: InstanceInfo?
     @State private var isChecking = false
+    @State private var isOpeningOnDevice = false
     @State private var error: String?
 
     struct InstanceInfo {
@@ -44,9 +50,15 @@ struct SignInView: View {
                     serverForm
                 }
             }
-            .background(.paper)
-            .scrollContentBackground(.hidden)
+            .paperBackground()
             .animation(.memosSpring, value: instance != nil)
+            .toolbar {
+                if connecting {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(role: .cancel) { dismiss() }
+                    }
+                }
+            }
         }
         .task {
             if let resuming, instance == nil {
@@ -59,20 +71,20 @@ struct SignInView: View {
     private var serverForm: some View {
         Form {
             Section {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Spacing.m) {
                     Text("Memos")
                         .font(.largeTitleSerif)
                         .foregroundStyle(.ink)
                     Text("Sign in to your own Memos server. Your notes stay there, and on this iPhone.")
-                        .font(.callout)
+                        .font(.supporting)
                         .foregroundStyle(.ink2)
                 }
                 // Padding rather than a row inset: the row clips at its inset, and the serif
                 // overhangs it. The row also keeps its rounded corners as a mask, which shaved
                 // the bottom of the last line's first letter, so the text clears the arc. It
                 // lines up with the section headers below, as the next step's title does.
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+                .padding(.horizontal, Spacing.xl + Spacing.xs)
+                .padding(.vertical, Spacing.l)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
@@ -94,25 +106,44 @@ struct SignInView: View {
                     Text("The address you open Memos at in a browser.")
                 }
             }
-            .listRowBackground(Color.card)
+            .cardRows()
 
             Section {
                 Button {
                     Task { await check() }
                 } label: {
-                    HStack {
-                        Spacer()
-                        if isChecking { ProgressView() } else { Text("Continue").fontWeight(.semibold) }
-                        Spacer()
-                    }
+                    WideButtonLabel(title: "Continue", isWorking: isChecking)
                 }
                 .buttonStyle(.glassProminent)
-                // As tall as the field above it.
-                .controlSize(.large)
                 .disabled(serverText.trimmingCharacters(in: .whitespaces).isEmpty || isChecking)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
+
+            if resuming == nil && !connecting {
+                onDeviceChoice
+            }
+        }
+    }
+
+    /// The other way in: no server, no account, memos kept on this iPhone only.
+    private var onDeviceChoice: some View {
+        Section {
+            Button {
+                isOpeningOnDevice = true
+                Task { await model.openOnDevice() }
+            } label: {
+                WideButtonLabel(
+                    title: model.hasOnDeviceLibrary ? "Continue with Memos on This iPhone" : "Use Without a Server",
+                    isWorking: isOpeningOnDevice
+                )
+            }
+            .buttonStyle(.glass)
+            .disabled(isOpeningOnDevice || isChecking)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+        } footer: {
+            Text("No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart.")
         }
     }
 
@@ -184,7 +215,7 @@ private struct CredentialsForm: View {
             // A header rather than a row: rows clip the serif's overhang.
             Section {
             } header: {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     // The same title as the address step, so the two read as one page.
                     Text(instance.title)
                         .font(.largeTitleSerif)
@@ -199,13 +230,13 @@ private struct CredentialsForm: View {
                     }
                     if resuming {
                         Text("Sign in again to keep syncing. Nothing on this iPhone was lost.")
-                            .font(.callout)
+                            .font(.supporting)
                             .foregroundStyle(.ink2)
-                            .padding(.top, 8)
+                            .padding(.top, Spacing.m)
                     }
                 }
                 .textCase(nil)
-                .padding(.bottom, 8)
+                .padding(.bottom, Spacing.m)
             }
 
             if !instance.general.disallowPasswordAuth || instance.providers.isEmpty {
@@ -225,20 +256,15 @@ private struct CredentialsForm: View {
                 } footer: {
                     if let error { Text(error).foregroundStyle(.danger) }
                 }
-                .listRowBackground(Color.card)
+                .cardRows()
 
                 Section {
                     Button {
                         Task { await signIn() }
                     } label: {
-                        HStack {
-                            Spacer()
-                            if isSigningIn { ProgressView() } else { Text("Sign In").fontWeight(.semibold) }
-                            Spacer()
-                        }
+                        WideButtonLabel(title: "Sign In", isWorking: isSigningIn)
                     }
                     .buttonStyle(.glassProminent)
-                    .controlSize(.large)
                     .disabled(username.isEmpty || password.isEmpty || isSigningIn)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
@@ -257,7 +283,7 @@ private struct CredentialsForm: View {
                 } footer: {
                     Text("Your server’s administrator needs to allow memos://auth/callback as a redirect address for single sign-on.")
                 }
-                .listRowBackground(Color.card)
+                .cardRows()
             }
 
             tokenSection
@@ -309,7 +335,7 @@ private struct CredentialsForm: View {
                 Text("Create one on the web in Settings, under Access Tokens. The app stays signed in until the token expires or you revoke it.")
             }
         }
-        .listRowBackground(Color.card)
+        .cardRows()
     }
 
     private func signIn(token: String) async {

@@ -15,13 +15,13 @@ struct MemoCard: View {
     private var isMine: Bool { memo.creator == session.user }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.blockGap) {
             MemoHeader(memo: memo, showsSpace: showsSpace, showsAuthor: showsAuthor)
 
             notice
 
             SensitiveContent(memo: memo) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Metrics.blockGap) {
                     if let audio = memo.audioAttachment {
                         AudioAttachmentView(attachment: audio)
                     }
@@ -47,6 +47,8 @@ struct MemoCard: View {
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel("Location, \(location.placeholder)")
                     }
+
+                    MemoLinks(memo: memo)
                 }
             }
 
@@ -84,14 +86,16 @@ struct MemoHeader: View {
 
     var body: some View {
         let name = session.people.name(for: memo.creator)
-        HStack(alignment: .center, spacing: 8) {
+        // Every memo in the on-device library is yours; naming the author says nothing.
+        let showsAuthor = showsAuthor && !session.isOnDevice
+        HStack(alignment: .center, spacing: Spacing.m) {
             if showsAuthor {
-                UserAvatar(user: memo.creator, size: 28)
+                UserAvatar(user: memo.creator, size: AvatarSize.small)
             }
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 if showsAuthor {
                     Text(name)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.emphasis)
                         .foregroundStyle(.ink)
                 }
                 metadata
@@ -100,7 +104,7 @@ struct MemoHeader: View {
             RevealToggle(memo: memo)
             if memo.pinned {
                 Image(systemName: "pin.fill")
-                    .font(.caption)
+                    .font(.statusSymbol)
                     .foregroundStyle(.memosBlue)
                     .accessibilityLabel("Pinned")
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -113,8 +117,8 @@ struct MemoHeader: View {
         let spaceTitle = showsSpace ? session.space(named: memo.spaceName)?.title : nil
         // Wraps under the content at large text sizes instead of truncating.
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 4) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
-            VStack(alignment: .leading, spacing: 2) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
+            HStack(spacing: Spacing.xs) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
+            VStack(alignment: .leading, spacing: Spacing.xxs) { metadataParts(waiting: waiting, spaceTitle: spaceTitle) }
         }
         .font(.metadata)
         .foregroundStyle(.ink2)
@@ -126,7 +130,7 @@ struct MemoHeader: View {
         if waiting {
             Image(systemName: "clock")
                 .accessibilityLabel("Waiting to sync")
-        } else {
+        } else if !session.isOnDevice {
             Image(systemName: memo.visibility.systemImage)
                 .accessibilityLabel(memo.visibility.label)
         }
@@ -140,9 +144,12 @@ extension AccountSession {
     /// A memo's title, or “Sensitive content” while a tag rule hides it, for places too small
     /// to blur.
     func redactedTitle(of memo: Memo) -> String {
+        isHidden(memo) ? String(localized: "Sensitive content") : memo.displayTitle
+    }
+
+    /// Whether one of your tag rules blurs the memo and you haven't shown it.
+    func isHidden(_ memo: Memo) -> Bool {
         store.profile.tagBlurRules.blurs(memo) && !revealedMemos.contains(memo.name)
-            ? String(localized: "Sensitive content")
-            : memo.displayTitle
     }
 }
 
@@ -156,7 +163,7 @@ struct SensitiveContent<Content: View>: View {
 
     var body: some View {
         let blurs = session.store.profile.tagBlurRules.blurs(memo)
-        let hidden = blurs && !session.revealedMemos.contains(memo.name)
+        let hidden = session.isHidden(memo)
         let body = content
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .blur(radius: hidden ? 16 : 0)
@@ -183,14 +190,11 @@ struct SensitiveContent<Content: View>: View {
                 // Says why the text is blurred, and the whole blurred area shows it: a bigger
                 // target than the eye. A tap rather than a button, which a timeline card would
                 // still list for VoiceOver beside the eye it duplicates.
-                Label("Sensitive", systemImage: "eye.slash")
-                    .labelStyle(.compact)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.ink2)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.well, in: .capsule)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Pill {
+                    Label("Sensitive", systemImage: "eye.slash")
+                        .labelStyle(.compact)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(.rect)
                     .onTapGesture {
                         withAnimation(.memosSpring) { _ = session.revealedMemos.insert(memo.name) }
@@ -219,10 +223,10 @@ struct RevealToggle: View {
             } label: {
                 Image(systemName: revealed ? "eye.slash.fill" : "eye.fill")
                     .contentTransition(.symbolEffect(.replace))
-                    .font(.caption)
+                    .font(.statusSymbol)
                     .foregroundStyle(.ink2)
                     // A pin-sized symbol, with a finger-sized target.
-                    .frame(minWidth: 28, minHeight: 28)
+                    .frame(minWidth: AvatarSize.small, minHeight: AvatarSize.small)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -240,7 +244,7 @@ struct ReactionSummary: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.s) {
             ForEach(memo.reactionCounts, id: \.emoji) { reaction in
                 let chip = ReactionChip(emoji: reaction.emoji, count: reaction.count, mine: reaction.creators.contains(session.user))
                 // On the timeline the chips only report; a disabled button would dim the emoji.
@@ -269,17 +273,11 @@ private struct ReactionChip: View {
     let mine: Bool
 
     var body: some View {
-        HStack(spacing: 4) {
+        Pill(isSelected: mine) {
             Text(emoji)
             Text(count, format: .number)
-                .font(.footnote.weight(.medium))
-                .monospacedDigit()
-                .foregroundStyle(mine ? Color.memosBlue : Color.ink2)
                 .contentTransition(.numericText(value: Double(count)))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(mine ? Color.memosBlue.opacity(0.12) : Color.well, in: .capsule)
         .contentShape(.capsule)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "\(emoji) \(count)"))
@@ -299,7 +297,7 @@ private struct CollapsedContent<Content: View>: View {
     private var isCollapsed: Bool { fullHeight > limit + 80 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             content
                 .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullHeight = $0 }
@@ -319,7 +317,7 @@ private struct CollapsedContent<Content: View>: View {
                 }
             if isCollapsed {
                 Text("Show more")
-                    .font(.subheadline.weight(.medium))
+                    .font(.action)
                     .foregroundStyle(.memosBlue)
                     .accessibilityHidden(true)
             }

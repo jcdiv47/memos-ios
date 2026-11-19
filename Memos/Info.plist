@@ -35,6 +35,8 @@
 	<string>$(MEMOS_APP_GROUP)</string>
 	<key>MemosKeychainGroup</key>
 	<string>$(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared</string>
+	<key>MobileCLIPAppGroup</key>
+	<string>$(MOBILECLIP_APP_GROUP)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -60,6 +62,17 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>square.and.pencil</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>New Memo</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(MEMOS_BUNDLE_PREFIX).new-memo</string>
+		</dict>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

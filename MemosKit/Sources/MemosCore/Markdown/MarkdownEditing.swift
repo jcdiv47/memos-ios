@@ -143,7 +143,7 @@ public enum MarkdownEditing {
         let lineNS = line as NSString
         let local = cursor - lineRange.location
         guard local > 0 else { return nil }
-        let spans = TagScanner.codeSpans(in: line)
+        let spans = TagScanner.literalSpans(in: line)
 
         func token(_ range: NSRange) -> TagToken {
             TagToken(

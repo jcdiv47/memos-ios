@@ -18,6 +18,8 @@ final class ComposerModel {
     private(set) var isComposing = false
     /// Your tags that match the `#tag` at the cursor.
     private(set) var tagSuggestions: [String] = []
+    /// A date like “tomorrow 8pm” just before the cursor, which one tap writes out in full.
+    private(set) var datePhrase: DatePhrase?
     var visibility: MemoVisibility = .private {
         didSet { if visibility != oldValue { draftChanged() } }
     }
@@ -33,6 +35,10 @@ final class ComposerModel {
     }
     var location: MemoLocation? {
         didSet { if location != oldValue { draftChanged() } }
+    }
+    /// The memos this one links to, the web's “Referencing”.
+    var references: [String] = [] {
+        didSet { if references != oldValue { draftChanged() } }
     }
     var isLocating = false
     /// Photos and scans still being turned into files.
@@ -61,6 +67,7 @@ final class ComposerModel {
         guard let editing else { return !isEmpty }
         return text != editing.content || visibility != editing.visibility || space != editing.spaceName
             || attachments.map(\.name) != editing.attachments.map(\.name) || location != editing.locationIfSet
+            || Set(references) != Set(editing.references)
     }
 
     init(request: ComposerRequest, session: AccountSession) {
@@ -91,6 +98,7 @@ final class ComposerModel {
             space = memo.spaceName
             attachments = memo.attachments
             location = memo.locationIfSet
+            references = memo.references
             if space != nil && visibility == .private { suggestion = .space }
             text = memo.content
             if let draft = drafts.draft(for: draftKey) {
@@ -114,6 +122,7 @@ final class ComposerModel {
         space = draft.space
         suggestion = draft.suggestion
         location = draft.location
+        references = draft.references ?? editing?.references ?? []
         // A staged file can be missing if the app stopped between staging it and saving the draft.
         attachments = draft.attachments.filter { attachment in
             session.store.isStaged(attachment) || editing?.attachments.contains { $0.name == attachment.name } == true
@@ -137,7 +146,12 @@ final class ComposerModel {
         if self.text != text { self.text = text }
         if self.selection != selection { self.selection = selection }
         if self.isComposing != isComposing { self.isComposing = isComposing }
-        if !isComposing { updateTagSuggestions() }
+        if isComposing {
+            // Marked text can't be replaced, and the date before it may be what's being typed.
+            if datePhrase != nil { datePhrase = nil }
+        } else {
+            updateSuggestions()
+        }
     }
 
     /// Replaces the whole text, as a transcript does, leaving the cursor at the end.
@@ -163,6 +177,15 @@ final class ComposerModel {
         apply(MarkdownEditing.completeTag(tag, replacing: token, in: text))
     }
 
+    /// Writes the date before the cursor out in full, in this device's time zone, so the memo
+    /// still says when once “tomorrow” has passed.
+    func convertDate() {
+        let (text, selection) = current
+        // Read again rather than reusing the suggestion: “tomorrow” may have moved since.
+        guard selection.length == 0, let phrase = DatePhrases.phrase(in: text, before: selection.location) else { return }
+        apply(DatePhrases.convert(phrase, cursor: selection.location))
+    }
+
     private var current: (text: String, selection: NSRange) {
         editor.snapshot ?? (text, selection)
     }
@@ -174,16 +197,22 @@ final class ComposerModel {
         } else {
             text = edit.applied(to: text)
             selection = edit.selection
-            updateTagSuggestions()
+            updateSuggestions()
         }
     }
 
-    private func updateTagSuggestions() {
+    private func updateSuggestions() {
         var suggestions: [String] = []
-        if selection.length == 0, let token = MarkdownEditing.tagToken(in: text, at: selection.location) {
-            suggestions = MarkdownEditing.tagSuggestions(for: token.prefix, in: tags)
+        var phrase: DatePhrase?
+        if selection.length == 0 {
+            if let token = MarkdownEditing.tagToken(in: text, at: selection.location) {
+                suggestions = MarkdownEditing.tagSuggestions(for: token.prefix, in: tags)
+            } else {
+                phrase = DatePhrases.phrase(in: text, before: selection.location)
+            }
         }
         if suggestions != tagSuggestions { tagSuggestions = suggestions }
+        if phrase != datePhrase { datePhrase = phrase }
     }
 
     // MARK: Audience
@@ -230,6 +259,23 @@ final class ComposerModel {
         stage(data: data, filename: "IMG_\(Self.stamp).jpg", type: .jpeg, store: store)
     }
 
+    /// Images pasted into the editor, in their own format where it has one, so a pasted PNG or
+    /// GIF isn't re-encoded.
+    func addPastedImages(_ providers: [NSItemProvider]) async {
+        preparing += 1
+        defer { preparing -= 1 }
+        let stamp = Self.stamp
+        for (index, provider) in providers.enumerated() {
+            guard let (data, type) = await PastedImage.load(provider) else {
+                error = String(localized: "Couldn’t add the pasted image.")
+                continue
+            }
+            // Pasted together, so numbered rather than all sharing one name.
+            let suffix = providers.count > 1 ? "-\(index + 1)" : ""
+            stage(data: data, filename: "IMG_\(stamp)\(suffix).\(type.preferredFilenameExtension ?? "png")", type: type, store: store)
+        }
+    }
+
     /// The scanned pages, as one PDF.
     func addScan(_ pages: [UIImage], store: MemoStore) async {
         guard !pages.isEmpty else { return }
@@ -258,6 +304,8 @@ final class ComposerModel {
     private static var stamp: Int { Int(Date.now.timeIntervalSince1970) % 100_000 }
 
     private func stage(data: Data, filename: String, type: UTType, store: MemoStore) {
+        // Saved or discarded while the file was being prepared: nothing would ever use it.
+        guard keepsDraft else { return }
         do {
             let attachment = try store.stageUpload(data: data, filename: filename, mimeType: type.preferredMIMEType ?? "application/octet-stream")
             withAnimation(.memosSpring) { attachments.append(attachment) }
@@ -283,7 +331,7 @@ final class ComposerModel {
     private var draft: ComposerDraft {
         ComposerDraft(
             text: text, visibility: visibility, space: space, suggestion: suggestion,
-            attachments: attachments, location: location,
+            attachments: attachments, location: location, references: references,
             base: editing.map { BaseVersion(updateTime: $0.updatedAt, content: $0.content) }
         )
     }
@@ -308,6 +356,17 @@ final class ComposerModel {
         keepsDraft = false
         removeStaged(attachments, store: store)
         drafts.remove(draftKey)
+    }
+
+    // MARK: Links
+
+    func link(_ memo: String) {
+        guard memo != editing?.name, !references.contains(memo) else { return }
+        withAnimation(.memosSpring) { references.append(memo) }
+    }
+
+    func unlink(_ memo: String) {
+        withAnimation(.memosSpring) { references.removeAll { $0 == memo } }
     }
 
     // MARK: Location
@@ -341,6 +400,7 @@ final class ComposerModel {
             if visibility != editing.visibility || space != editing.spaceName { fields.formUnion([.visibility, .space]) }
             if attachments.map(\.name) != editing.attachments.map(\.name) { fields.insert(.attachments) }
             if location != editing.locationIfSet { fields.insert(.location) }
+            if Set(references) != Set(editing.references) { fields.insert(.relations) }
             guard !fields.isEmpty else { return true }
             // The base is the version the composer opened with: if a sync brought in someone
             // else's text meanwhile, uploading this is a conflict, not an overwrite.
@@ -350,9 +410,11 @@ final class ComposerModel {
                 memo.spaceName = space
                 memo.attachments = attachments
                 if let location { memo.location = location } else { memo.clearLocation() }
+                // Only when they changed here: a sync may have brought links since the composer opened.
+                if fields.contains(.relations) { memo.setReferences(references) }
             }
         } else {
-            store.create(MemoDraft(content: content, visibility: visibility, space: space, location: location, attachments: attachments))
+            store.create(MemoDraft(content: content, visibility: visibility, space: space, location: location, attachments: attachments, references: references))
         }
         return true
     }

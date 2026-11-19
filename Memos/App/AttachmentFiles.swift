@@ -5,10 +5,12 @@ import UniformTypeIdentifiers
 
 /// Downloads and caches attachment files. Thumbnails of your own memos download in the
 /// background; full-size files are cached as you open them, up to 500 MB, oldest first out.
-/// “Keep all attachments” downloads everything for travel.
+/// “Keep all attachments” downloads everything for travel. In the on-device library every file is
+/// already here, and nothing downloads.
 @Observable
 final class AttachmentFiles {
-    private let client: MemosClient
+    /// Nil for the on-device library.
+    private let client: MemosClient?
     private let store: MemoStore
     @ObservationIgnored private let images = NSCache<NSString, UIImage>()
     @ObservationIgnored private var prefetchTask: Task<Void, Never>?
@@ -22,7 +24,7 @@ final class AttachmentFiles {
         }
     }
 
-    init(client: MemosClient, store: MemoStore) {
+    init(client: MemosClient?, store: MemoStore) {
         self.client = client
         self.store = store
         keepAll = UserDefaults.standard.bool(forKey: "attachments.keepAll")
@@ -43,6 +45,7 @@ final class AttachmentFiles {
 
     func remoteURL(_ attachment: Attachment, thumbnail: Bool) -> URL? {
         if !attachment.externalLink.isEmpty { return URL(string: attachment.externalLink) }
+        guard let client else { return nil }
         var url = client.serverURL.appending(path: "file").appending(path: attachment.name)
         if !attachment.filename.isEmpty { url.append(path: attachment.filename) }
         if thumbnail { url.append(queryItems: [URLQueryItem(name: "thumbnail", value: "true")]) }
@@ -102,7 +105,7 @@ final class AttachmentFiles {
         }
         guard let url = remoteURL(attachment, thumbnail: wantsThumbnail) else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
-        if attachment.externalLink.isEmpty {
+        if attachment.externalLink.isEmpty, let client {
             request = try await client.authorizedRequest(for: url)
         }
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -137,7 +140,7 @@ final class AttachmentFiles {
     /// Downloads thumbnails for your memos' images, and every file when “Keep all attachments”
     /// is on. Runs in the background after a sync.
     func prefetchThumbnails() {
-        guard prefetchTask == nil else { return }
+        guard prefetchTask == nil, client != nil else { return }
         let attachments = store.own.values.flatMap(\.attachments).filter { !store.isStaged($0) }
         let keepAll = self.keepAll
         prefetchTask = Task { [weak self] in
@@ -157,6 +160,11 @@ final class AttachmentFiles {
     /// Bytes used by downloaded files, for Settings.
     func cacheSize() async -> Int64 {
         await Self.size(of: store.location.filesDirectory)
+    }
+
+    /// Bytes used by the whole library, attachments included, for the on-device library's Settings.
+    func librarySize() async -> Int64 {
+        await Self.size(of: store.location.directory)
     }
 
     @concurrent

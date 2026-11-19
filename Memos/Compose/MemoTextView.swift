@@ -20,6 +20,10 @@ struct MemoTextView: UIViewRepresentable {
         textView.text = model.text
         textView.selectedRange = model.selection
         textView.onFormat = { [weak coordinator = context.coordinator] format in coordinator?.model.format(format) }
+        textView.onPasteImages = { [weak coordinator = context.coordinator] providers in
+            guard let model = coordinator?.model else { return }
+            Task { await model.addPastedImages(providers) }
+        }
         model.editor.attach(textView) { [weak coordinator = context.coordinator, weak textView] in
             guard let coordinator, let textView else { return }
             coordinator.textViewDidChange(textView)
@@ -115,7 +119,7 @@ struct MemoTextView: UIViewRepresentable {
         func highlight(_ textView: UITextView) {
             guard textView.markedTextRange == nil else { return }
             let text: String = textView.text
-            let ranges = TagScanner.matches(in: text, excluding: TagScanner.codeSpans(in: text)).map { NSRange($0.range, in: text) }
+            let ranges = TagScanner.matches(in: text, excluding: TagScanner.literalSpans(in: text)).map { NSRange($0.range, in: text) }
             let storage = textView.textStorage
             let whole = NSRange(location: 0, length: storage.length)
             var current: [NSRange] = []
@@ -139,6 +143,29 @@ struct MemoTextView: UIViewRepresentable {
 
 final class EditorTextView: UITextView {
     var onFormat: ((MarkdownFormat) -> Void)?
+    /// Images pasted into the text, which become attachments rather than text.
+    var onPasteImages: (([NSItemProvider]) -> Void)?
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // A plain-text view offers no Paste for an image on its own. Checking for one doesn't
+        // read the pasteboard, so it doesn't ask for permission.
+        if action == #selector(paste(_:)), isEditable, onPasteImages != nil, UIPasteboard.general.hasImages {
+            return true
+        }
+        return super.canPerformAction(action, withSender: sender)
+    }
+
+    /// Paste from the edit menu and ⌘V alike. An image copied from a web page also carries its
+    /// URL; the image is what was meant.
+    override func paste(_ sender: Any?) {
+        let images = UIPasteboard.general.hasImages
+            ? UIPasteboard.general.itemProviders.filter { provider in
+                provider.registeredContentTypes.contains { $0.conforms(to: .image) }
+            }
+            : []
+        guard isEditable, let onPasteImages, !images.isEmpty else { return super.paste(sender) }
+        onPasteImages(images)
+    }
 
     /// Focus as SwiftUI asked for it, applied once the view is in a window.
     var wantsFocus = false {

@@ -10,25 +10,45 @@ struct AttachmentGallery: View {
 
     @Environment(AccountSession.self) private var session
     @State private var previewURL: URL?
+    /// Everything Quick Look can page through, so a swipe moves to the next attachment.
+    @State private var previewItems: [URL] = []
 
     private var images: [Attachment] { attachments.filter(\.isImage) }
     private var others: [Attachment] { attachments.filter { !$0.isImage && !$0.isAudio } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             if !images.isEmpty {
                 imageGrid
             }
             ForEach(others, id: \.name) { attachment in
                 Button {
-                    Task { previewURL = try? await session.files.file(attachment) }
+                    open(attachment)
                 } label: {
                     FileRow(attachment: attachment)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .quickLookPreview($previewURL)
+        .quickLookPreview($previewURL, in: previewItems)
+    }
+
+    /// Opens the tapped attachment with the memo's other photos and files beside it, in
+    /// order, so a swipe moves between them. Files already on disk open at once.
+    private func open(_ attachment: Attachment) {
+        Task {
+            guard let url = try? await session.files.file(attachment) else { return }
+            var items: [URL] = []
+            for other in images + others {
+                if other.name == attachment.name {
+                    items.append(url)
+                } else if let file = try? await session.files.file(other) {
+                    items.append(file)
+                }
+            }
+            previewItems = items
+            previewURL = url
+        }
     }
 
     @ViewBuilder
@@ -38,26 +58,27 @@ struct AttachmentGallery: View {
             AttachmentImage(attachment: only)
                 .frame(maxWidth: .infinity)
                 .frame(height: 220)
-                .clipShape(.rect(cornerRadius: 10))
-                .onTapGesture { Task { previewURL = try? await session.files.file(only) } }
+                .clipShape(.rect(cornerRadius: Radius.inner))
+                .onTapGesture { open(only) }
         } else {
-            let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: shown.count == 2 || shown.count == 4 ? 2 : 3)
-            LazyVGrid(columns: columns, spacing: 6) {
+            let columns = Array(repeating: GridItem(.flexible(), spacing: Spacing.s), count: shown.count == 2 || shown.count == 4 ? 2 : 3)
+            LazyVGrid(columns: columns, spacing: Spacing.s) {
                 ForEach(shown, id: \.name) { attachment in
                     Color.clear
                         .aspectRatio(1, contentMode: .fit)
                         .overlay { AttachmentImage(attachment: attachment) }
-                        .clipShape(.rect(cornerRadius: 8))
+                        .clipShape(.rect(cornerRadius: Radius.tight))
                         .overlay(alignment: .bottomTrailing) {
                             if attachment.name == shown.last?.name, images.count > shown.count {
                                 Text(verbatim: "+\(images.count - shown.count)")
-                                    .font(.footnote.weight(.semibold))
-                                    .padding(6)
+                                    .font(.metadata.weight(.semibold))
+                                    .padding(.horizontal, Spacing.m)
+                                    .padding(.vertical, Spacing.xs)
                                     .background(.ultraThinMaterial, in: .capsule)
-                                    .padding(6)
+                                    .padding(Spacing.s)
                             }
                         }
-                        .onTapGesture { Task { previewURL = try? await session.files.file(attachment) } }
+                        .onTapGesture { open(attachment) }
                 }
             }
         }
@@ -103,14 +124,14 @@ struct FileRow: View {
     let attachment: Attachment
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Spacing.l) {
             Image(systemName: attachment.systemImage)
-                .font(.title3)
+                .font(.barSymbol)
                 .foregroundStyle(.memosBlue)
-                .frame(width: 32)
-            VStack(alignment: .leading, spacing: 2) {
+                .frame(width: Metrics.iconTile)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(attachment.filename.isEmpty ? String(localized: "Attachment") : attachment.filename)
-                    .font(.subheadline.weight(.medium))
+                    .font(.action)
                     .foregroundStyle(.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -122,8 +143,7 @@ struct FileRow: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(10)
-        .background(.well, in: .rect(cornerRadius: 10))
+        .wellBackground()
     }
 }
 
@@ -136,21 +156,21 @@ struct AudioAttachmentView: View {
     @State private var player = AudioPlayback()
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Spacing.l) {
             Button {
                 Task { await player.toggle(url: { try await session.files.file(attachment) }) }
             } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.subheadline)
-                    .frame(width: 32, height: 32)
+                    .font(.rowSymbol)
+                    .frame(width: Metrics.iconTile, height: Metrics.iconTile)
                     .foregroundStyle(.memosBlue)
-                    .background(Color.memosBlue.opacity(0.12), in: .circle)
+                    .background(.accentWash, in: .circle)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(player.isPlaying ? Text("Pause voice memo") : Text("Play voice memo"))
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(label)
                     .font(.metadata)
                     .foregroundStyle(.ink2)
@@ -160,8 +180,7 @@ struct AudioAttachmentView: View {
                     .animation(player.isPlaying ? .linear(duration: AudioPlayback.tick) : nil, value: player.progress)
             }
         }
-        .padding(10)
-        .background(.well, in: .rect(cornerRadius: 10))
+        .wellBackground()
         .task(id: attachment.name) {
             if let url = try? await session.files.file(attachment) {
                 player.loadDuration(url)

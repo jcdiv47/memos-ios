@@ -97,7 +97,9 @@ final class VoiceRecorder {
     }
 
     /// Stops recording and returns the audio with the best transcript available.
-    func stop(client: MemosClient, online: Bool) async -> Recording? {
+    /// `client` transcribes on the server when online; without one (the on-device library), the
+    /// on-device transcript is kept.
+    func stop(client: MemosClient?, online: Bool) async -> Recording? {
         guard phase == .recording, let fileURL else { return nil }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
@@ -112,7 +114,7 @@ final class VoiceRecorder {
         recognitionTask?.finish()
         var text = transcript
 
-        if online, let data = try? Data(contentsOf: fileURL) {
+        if online, let client, let data = try? Data(contentsOf: fileURL) {
             var request = Memos_Api_TranscribeRequest()
             request.audio.content = data
             request.audio.filename = fileURL.lastPathComponent

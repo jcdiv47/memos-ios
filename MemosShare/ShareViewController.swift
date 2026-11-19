@@ -27,6 +27,8 @@ final class ShareModel {
     var isSaving = false
     var error: String?
     private(set) var signedIn = AccountLocation.current != nil
+    /// The on-device library is open: memos are private to this iPhone, with no audience to pick.
+    private(set) var isOnDevice = AccountLocation.current?.isOnDevice == true
 
     @ObservationIgnored private weak var context: NSExtensionContext?
 
@@ -68,9 +70,10 @@ final class ShareModel {
         }
     }
 
-    /// Uploads straight away when it can; otherwise leaves the memo for the app to upload.
+    /// Uploads straight away when it can; otherwise leaves the memo for the app to upload. With the
+    /// on-device library open there's nowhere to upload to, so the memo always waits for the app.
     func save() async {
-        guard let location = AccountLocation.current, let server = AccountLocation.currentServer else {
+        guard let location = AccountLocation.current else {
             error = String(localized: "Open Memos and sign in first.")
             return
         }
@@ -82,10 +85,12 @@ final class ShareModel {
         let draft = ExtensionDraft(content: text.trimmingCharacters(in: .whitespacesAndNewlines), visibility: visibility, files: files)
         let data = Dictionary(uniqueKeysWithValues: images.enumerated().map { ("file-\($0.offset)", $0.element.data) })
 
-        let client = MemosClient(serverURL: server, credentialStore: KeychainCredentialStore())
-        do {
-            _ = try await AttachmentUpload.create(draft, files: data, client: client)
-        } catch {
+        var uploaded = false
+        if !location.isOnDevice, let server = AccountLocation.currentServer {
+            let client = MemosClient(serverURL: server, credentialStore: KeychainCredentialStore())
+            uploaded = (try? await AttachmentUpload.create(draft, files: data, client: client)) != nil
+        }
+        if !uploaded {
             do {
                 try ExtensionInbox.drop(draft, files: data, in: location)
             } catch {
@@ -104,51 +109,64 @@ final class ShareModel {
 struct ShareComposer: View {
     @Bindable var model: ShareModel
 
+    /// Laid out like the app's composer: who can see it first, then the text on paper, then what
+    /// came with it. Save is the only tinted glass.
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Metrics.blockGap) {
                 if !model.signedIn {
-                    Text("Open Memos and sign in to save memos from here.")
-                        .foregroundStyle(.secondary)
+                    Label("Open Memos and sign in to save memos from here.", systemImage: "person.crop.circle.badge.exclamationmark")
+                        .font(.supporting)
+                        .foregroundStyle(.ink2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .wellBackground()
                 }
+
+                if !model.isOnDevice {
+                    Menu {
+                        Picker("Visibility", selection: $model.visibility) {
+                            ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
+                                Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
+                            }
+                        }
+                    } label: {
+                        Label(model.visibility.label, systemImage: model.visibility.systemImage)
+                    }
+                    .buttonStyle(.chip)
+                }
+
                 TextEditor(text: $model.text)
-                    .font(.body)
+                    .font(.memoBody)
+                    .foregroundStyle(.ink)
                     .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+                    // TextEditor insets its text by 5 points; this lines it up with the chip.
+                    .padding(.horizontal, -5)
+
                 if !model.images.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
+                        HStack(spacing: Spacing.m) {
                             ForEach(Array(model.images.enumerated()), id: \.offset) { _, image in
                                 if let uiImage = UIImage(data: image.data) {
                                     Image(uiImage: uiImage)
                                         .resizable()
                                         .scaledToFill()
                                         .frame(width: 64, height: 64)
-                                        .clipShape(.rect(cornerRadius: 10))
+                                        .clipShape(.rect(cornerRadius: Radius.inner))
                                 }
                             }
                         }
                     }
                 }
-                Menu {
-                    Picker("Visibility", selection: $model.visibility) {
-                        ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
-                            Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
-                        }
-                    }
-                } label: {
-                    Label(model.visibility.label, systemImage: model.visibility.systemImage)
-                        .font(.subheadline.weight(.medium))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color(.tertiarySystemFill), in: .capsule)
-                }
+
                 if let error = model.error {
-                    Text(error).font(.footnote).foregroundStyle(.red)
+                    Text(error)
+                        .font(.metadata)
+                        .foregroundStyle(.danger)
                 }
             }
-            .padding()
+            .padding(.horizontal, Metrics.screenInset)
+            .padding(.vertical, Spacing.m)
+            .background(.paper)
             .navigationTitle("Save to Memos")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -158,9 +176,11 @@ struct ShareComposer: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await model.save() } }
                         .buttonStyle(.glassProminent)
+                        .tint(.memosBlue)
                         .disabled(!model.signedIn || model.isSaving || (model.text.isEmpty && model.images.isEmpty))
                 }
             }
         }
+        .tint(.memosBlue)
     }
 }

@@ -8,6 +8,7 @@ public enum SearchToken: Hashable, Sendable {
     case links
     case code
     case places
+    case attachments
     case pinned
     case visibility(MemoVisibility)
     case space(name: String, title: String)
@@ -30,6 +31,7 @@ public enum SearchToken: Hashable, Sendable {
         case .links: "has_link"
         case .code: "has_code"
         case .places: "has_location"
+        case .attachments: "has_attachments"
         case .pinned: "pinned"
         case .visibility(let visibility): "visibility == \(CELString.quote(visibility.filterValue))"
         case .space(let name, _): "space == \(CELString.quote(name))"
@@ -50,6 +52,7 @@ public enum SearchToken: Hashable, Sendable {
         case .links: String(localized: "Links", bundle: .module, comment: "A search filter: memos with a link.")
         case .code: String(localized: "Code", bundle: .module, comment: "A search filter: memos with code.")
         case .places: String(localized: "Places", bundle: .module, comment: "A search filter: memos with a location.")
+        case .attachments: String(localized: "Attachments", bundle: .module, comment: "A search filter: memos with an attached file or image.")
         case .pinned: String(localized: "Pinned", bundle: .module, comment: "A search filter: pinned memos.")
         case .visibility(let visibility): visibility.label
         case .space(_, let title): title
@@ -69,6 +72,7 @@ public enum SearchToken: Hashable, Sendable {
         case .links: "link"
         case .code: "chevron.left.forwardslash.chevron.right"
         case .places: "mappin.and.ellipse"
+        case .attachments: "paperclip"
         case .pinned: "pin"
         case .visibility(let visibility): visibility.systemImage
         case .space: "square.stack"
@@ -77,7 +81,7 @@ public enum SearchToken: Hashable, Sendable {
     }
 
     /// The filters offered before typing.
-    public static let commonFilters: [SearchToken] = [.openTasks, .date(.thisWeek), .places, .tasks, .links, .code, .pinned]
+    public static let commonFilters: [SearchToken] = [.openTasks, .date(.thisWeek), .places, .attachments, .tasks, .links, .code, .pinned]
 }
 
 extension MemoVisibility {

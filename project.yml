@@ -15,6 +15,9 @@ settings:
     DEVELOPMENT_TEAM: ""
     MEMOS_BUNDLE_PREFIX: dev.jcdiv47.memos
     MEMOS_APP_GROUP: group.$(MEMOS_BUNDLE_PREFIX)
+    # Where the photo search model is downloaded. Not tied to Memos, so your other apps can add
+    # the same group and use the one copy.
+    MOBILECLIP_APP_GROUP: group.dev.jcdiv47.mobileclip
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "6.0"
@@ -31,6 +34,12 @@ settings:
 packages:
   MemosKit:
     path: MemosKit
+  # Typesets the TeX in `$math$` and `$$` blocks natively, with CoreText. Pinned to main after
+  # 1.7.3: the release crashes on some malformed TeX (a row break inside braces in a table), which
+  # main fixed (mgriebling/SwiftMath#76), and lacks \operatorname, \dfrac and Unicode in \text.
+  SwiftMath:
+    url: https://github.com/mgriebling/SwiftMath
+    revision: 0b0222e102ba415b352cd29f334075622bd4e6aa
 
 targets:
   Memos:
@@ -41,6 +50,9 @@ targets:
     dependencies:
       - package: MemosKit
         product: MemosCore
+      - package: MemosKit
+        product: PhotoSearch
+      - package: SwiftMath
       - target: MemosWidgets
       - target: MemosShare
     settings:
@@ -58,6 +70,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         MemosAppGroup: $(MEMOS_APP_GROUP)
+        MobileCLIPAppGroup: $(MOBILECLIP_APP_GROUP)
         MemosKeychainGroup: $(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared
         UILaunchScreen:
           UIColorName: Paper
@@ -81,10 +94,15 @@ targets:
         NSLocationWhenInUseUsageDescription: Memos adds the place you’re at to a memo when you ask it to.
         NSCameraUsageDescription: Memos attaches photos you take and documents you scan to your memos.
         NSUserActivityTypes: [CreateMemoIntent, SearchMemosIntent]
+        # The Home Screen icon's long-press menu; HomeScreenActions handles it.
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: $(MEMOS_BUNDLE_PREFIX).new-memo
+            UIApplicationShortcutItemTitle: New Memo
+            UIApplicationShortcutItemIconSymbolName: square.and.pencil
     entitlements:
       path: Memos/Memos.entitlements
       properties:
-        com.apple.security.application-groups: [$(MEMOS_APP_GROUP)]
+        com.apple.security.application-groups: [$(MEMOS_APP_GROUP), $(MOBILECLIP_APP_GROUP)]
         keychain-access-groups: [$(AppIdentifierPrefix)$(MEMOS_BUNDLE_PREFIX).shared]
 
   MemosWidgets:
@@ -93,7 +111,10 @@ targets:
     sources:
       - path: MemosWidgets
       - path: Memos/Intents/ControlIntents.swift
+      # The design tokens, so widgets use the app's spacing, type and colours.
       - path: Memos/Design/ActivityPalette.swift
+      - path: Memos/Design/Tokens.swift
+      - path: Memos/Design/Typography.swift
       - path: Memos/Resources/Assets.xcassets
     dependencies:
       - package: MemosKit
@@ -124,6 +145,13 @@ targets:
     platform: iOS
     sources:
       - path: MemosShare
+      # The design system, so saving from another app looks like the composer.
+      - path: Memos/Design/Tokens.swift
+      - path: Memos/Design/Typography.swift
+      - path: Memos/Design/Surfaces.swift
+      - path: Memos/Design/Components.swift
+      - path: Memos/Design/Motion.swift
+      - path: Memos/Resources/Assets.xcassets
     dependencies:
       - package: MemosKit
         product: MemosCore

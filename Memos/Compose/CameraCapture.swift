@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import UIKit
 import VisionKit
 
@@ -74,6 +75,39 @@ struct DocumentScanner: UIViewControllerRepresentable {
 
         func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) {
             onFinish([])
+        }
+    }
+}
+
+/// An image from the pasteboard, as file data and its type.
+enum PastedImage {
+    /// The highest-fidelity image format the item offers that has a file type, or else the
+    /// image itself as PNG, as for an image some app only put on the pasteboard as a `UIImage`.
+    static func load(_ provider: NSItemProvider) async -> (Data, UTType)? {
+        if let type = provider.registeredContentTypes.first(where: { $0.conforms(to: .image) && $0.preferredMIMEType != nil }),
+           let data = await data(from: provider, as: type) {
+            return (data, type)
+        }
+        guard provider.canLoadObject(ofClass: UIImage.self),
+              let image = await image(from: provider),
+              let png = image.pngData()
+        else { return nil }
+        return (png, .png)
+    }
+
+    nonisolated private static func data(from provider: NSItemProvider, as type: UTType) async -> Data? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadDataRepresentation(for: type) { @Sendable data, _ in
+                continuation.resume(returning: data)
+            }
+        }
+    }
+
+    nonisolated private static func image(from provider: NSItemProvider) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: UIImage.self) { @Sendable object, _ in
+                continuation.resume(returning: object as? UIImage)
+            }
         }
     }
 }

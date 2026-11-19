@@ -75,12 +75,17 @@ struct MemoEntity: IndexedEntity {
     }
 
     var attributeSet: CSSearchableItemAttributeSet {
-        let attributes = CSSearchableItemAttributeSet()
+        // Starts from the entity's own set, which carries the type and identity Spotlight needs
+        // to show and open the result; a blank set indexes items that never appear.
+        let attributes = defaultAttributeSet
         attributes.contentCreationDate = createdAt
         if sensitive {
-            attributes.title = String(localized: "Sensitive content")
+            let redacted = String(localized: "Sensitive content")
+            attributes.displayName = redacted
+            attributes.title = redacted
             return attributes
         }
+        attributes.displayName = title
         attributes.title = title
         attributes.contentDescription = content
         attributes.keywords = tags
@@ -153,7 +158,7 @@ struct CreateMemoIntent: AppIntent {
         let session = try await IntentEnvironment.session()
         let initial = VisibilityRules.initial(defaultVisibility: session.defaultVisibility, origin: .silent(explicit: visibility?.visibility))
         let memo = session.store.create(MemoDraft(content: text, visibility: initial.visibility))
-        await session.engine.push()
+        await session.engine?.push()
         await session.store.save()
         // Shortcuts run this with the app in the background, which never reaches the reload
         // on leaving the foreground.
@@ -182,7 +187,7 @@ struct AppendToMemoIntent: AppIntent {
         guard let existing = session.store.own[memo.id] else { throw IntentError.notYours }
         let separator = existing.content.hasSuffix("\n") || existing.content.isEmpty ? "" : "\n"
         session.store.setContent(existing.name, to: existing.content + separator + text)
-        await session.engine.push()
+        await session.engine?.push()
         await session.store.save()
         WidgetCenter.shared.reloadAllTimelines()
         return .result(value: MemoEntity(session.store.own[existing.name] ?? existing))
@@ -222,7 +227,7 @@ struct PinMemoIntent: AppIntent {
         let pinned = action == .pin
         if existing.pinned != pinned {
             session.store.setPinned(existing.name, pinned)
-            await session.engine.push()
+            await session.engine?.push()
             await session.store.save()
             WidgetCenter.shared.reloadAllTimelines()
         }

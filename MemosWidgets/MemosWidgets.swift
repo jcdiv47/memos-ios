@@ -1,5 +1,6 @@
 import AppIntents
 import MemosCore
+import SwiftProtobuf
 import SwiftUI
 import WidgetKit
 
@@ -105,6 +106,14 @@ struct MemosProvider: TimelineProvider {
         // By position: translations can share a length.
         memo.name = "memos/sample-\(index)"
         memo.content = text
+        // Without a date they read as 1 January 1970. The first doubles as the Memory widget's
+        // sample, so it's from a year ago; the others are from this week.
+        let calendar = Calendar.current
+        let created = index == 0
+            ? calendar.date(byAdding: .year, value: -1, to: .now)
+            : calendar.date(byAdding: .day, value: -(index * 2), to: .now)
+        memo.createTime = Google_Protobuf_Timestamp(date: created ?? .now)
+        memo.updateTime = memo.createTime
         return memo
     }
 }
@@ -139,7 +148,7 @@ struct QuickCaptureView: View {
                 .widgetAccentable()
                 .widgetURL(URL(string: "memos://new"))
         default:
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Spacing.l) {
                 Text("Memos")
                     .font(.system(.headline, design: .serif))
                     .foregroundStyle(.ink)
@@ -154,7 +163,7 @@ struct QuickCaptureView: View {
                             .foregroundStyle(.memosBlue)
                             .widgetAccentable()
                     }
-                    .padding(10)
+                    .padding(Spacing.l)
                     .background(.card, in: .capsule)
                 }
                 Link(destination: URL(string: "memos://voice")!) {
@@ -190,7 +199,7 @@ struct MemoListWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             WidgetHeader(title: title, systemImage: systemImage)
             if !entry.signedIn {
                 WidgetNote("Open Memos and sign in.")
@@ -199,7 +208,7 @@ struct MemoListWidgetView: View {
             } else {
                 ForEach(entry.memos.prefix(shownCount), id: \.name) { memo in
                     Link(destination: URL(string: "memos://memo/\(memo.uid)")!) {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Spacing.xxs) {
                             if entry.sensitive.contains(memo.name) {
                                 Label("Sensitive content", systemImage: "eye.slash")
                                     .font(.footnote)
@@ -215,8 +224,8 @@ struct MemoListWidgetView: View {
                                 .foregroundStyle(.ink2)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .background(.card, in: .rect(cornerRadius: 10))
+                        .padding(Spacing.m)
+                        .background(.card, in: .rect(cornerRadius: Radius.inner))
                     }
                 }
             }

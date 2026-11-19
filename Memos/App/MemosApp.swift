@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct MemosApp: App {
+    @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @State private var model = AppModel.shared
     @Environment(\.scenePhase) private var scenePhase
 
@@ -40,7 +41,7 @@ struct RootView: View {
                 Color.paper.ignoresSafeArea()
             case .signedOut:
                 SignInView()
-            case .signedIn(let session):
+            case .open(let session):
                 Group {
                     if sizeClass == .regular {
                         SplitRootView()
@@ -49,9 +50,13 @@ struct RootView: View {
                     }
                 }
                 .environment(session)
-                .sheet(isPresented: $model.sessionExpired) {
-                    SignInView(resuming: session.client.serverURL)
-                        .interactiveDismissDisabled()
+                // A new tree for each library, so no screen's state carries over from the last one.
+                .id(ObjectIdentifier(session))
+                .sheet(isPresented: Binding(get: { model.sessionExpired && session.client != nil }, set: { model.sessionExpired = $0 })) {
+                    if let client = session.client {
+                        SignInView(resuming: client.serverURL)
+                            .interactiveDismissDisabled()
+                    }
                 }
             }
         }

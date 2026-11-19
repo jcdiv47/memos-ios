@@ -17,6 +17,7 @@ struct ComposerView: View {
     @State private var isImportingFiles = false
     @State private var isTakingPhoto = false
     @State private var isScanning = false
+    @State private var isLinkingMemo = false
     @State private var confirmDiscard = false
     @State private var saved = 0
     @State private var editorFocused = false
@@ -60,8 +61,11 @@ struct ComposerView: View {
     @ViewBuilder
     private func content(_ model: ComposerModel) -> some View {
         @Bindable var model = model
-        VStack(alignment: .leading, spacing: 10) {
-            AudienceChips(model: model)
+        VStack(alignment: .leading, spacing: Metrics.blockGap) {
+            // Who can see a memo means nothing where nobody else can; on-device memos are private.
+            if !session.isOnDevice {
+                AudienceChips(model: model)
+            }
 
             if session.voice.phase != .idle && session.voice.phase != .finished {
                 VoiceStatus(recorder: session.voice) {
@@ -90,6 +94,10 @@ struct ComposerView: View {
                     .transition(.opacity)
             }
 
+            if !model.references.isEmpty {
+                LinkedMemos(model: model)
+            }
+
             if let error = model.error {
                 Text(error)
                     .font(.metadata)
@@ -100,8 +108,8 @@ struct ComposerView: View {
                     .foregroundStyle(.ink2)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .padding(.horizontal, Metrics.screenInset)
+        .padding(.bottom, Spacing.m)
         // Rows that come and go above and below the text ease the editor aside instead of
         // shoving it.
         .animation(.memosSpring, value: session.voice.phase)
@@ -110,14 +118,17 @@ struct ComposerView: View {
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
         .safeAreaBar(edge: .bottom) {
             FormattingBar(showsHideKeyboard: editorFocused) {
-                // Suggestions take the formatting buttons' place while a tag is typed, so the
-                // bar never changes height under the text.
-                if model.tagSuggestions.isEmpty {
-                    formattingActions(model)
-                        .disabled(model.isComposing)
+                // Suggestions take the formatting buttons' place while a tag or a date is typed,
+                // so the bar never changes height under the text.
+                if !model.tagSuggestions.isEmpty {
+                    TagSuggestions(tags: model.tagSuggestions) { model.completeTag($0) }
+                        .transition(.opacity)
+                } else if let phrase = model.datePhrase {
+                    DateSuggestion(phrase: phrase) { model.convertDate() }
                         .transition(.opacity)
                 } else {
-                    TagSuggestions(tags: model.tagSuggestions) { model.completeTag($0) }
+                    formattingActions(model)
+                        .disabled(model.isComposing)
                         .transition(.opacity)
                 }
                 captureActions(model)
@@ -125,6 +136,7 @@ struct ComposerView: View {
                 editorFocused = false
             }
             .animation(.memosFade, value: model.tagSuggestions.isEmpty)
+            .animation(.memosFade, value: model.datePhrase == nil)
             .animation(.memosFade, value: editorFocused)
         }
         .navigationTitle(Text(title))
@@ -139,7 +151,7 @@ struct ComposerView: View {
                 Button("Save") { save(model) }
                     .buttonStyle(.glassProminent)
                     .tint(.memosBlue)
-                    .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || isCapturingVoice)
+                    .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || isCapturingVoice || model.preparing > 0)
                     .keyboardShortcut(.return, modifiers: .command)
             }
         }
@@ -171,6 +183,9 @@ struct ComposerView: View {
                 Task { await model.addScan(pages, store: session.store) }
             }
             .ignoresSafeArea()
+        }
+        .sheet(isPresented: $isLinkingMemo) {
+            LinkMemoPicker(excluded: Set(model.references + [model.editing?.name].compactMap(\.self))) { model.link($0) }
         }
         .task { await begin(model) }
     }
@@ -209,6 +224,7 @@ struct ComposerView: View {
             }
             Button("Files", systemImage: "folder") { isImportingFiles = true }
             Button("Current Location", systemImage: "location") { Task { await model.addCurrentLocation() } }
+            Button("Link Memo", systemImage: "link") { isLinkingMemo = true }
         } label: {
             Image(systemName: "paperclip")
         }
@@ -307,7 +323,7 @@ private struct TagSuggestions: View {
         ForEach(tags, id: \.self) { tag in
             Button { onSelect(tag) } label: {
                 Text(verbatim: "#\(tag)")
-                    .font(.callout.weight(.medium))
+                    .font(.action)
                     .lineLimit(1)
             }
             .buttonStyle(TagSuggestionStyle())
@@ -316,14 +332,32 @@ private struct TagSuggestions: View {
     }
 }
 
+/// The date before the cursor, written out in full, in the formatting bar. Tapping it puts that
+/// in place of what was typed.
+private struct DateSuggestion: View {
+    let phrase: DatePhrase
+    var onSelect: () -> Void
+
+    var body: some View {
+        let written = DatePhrases.formatted(phrase.date, includesTime: phrase.includesTime)
+        Button(action: onSelect) {
+            Label(written, systemImage: "calendar")
+                .font(.callout.weight(.medium))
+                .lineLimit(1)
+        }
+        .buttonStyle(TagSuggestionStyle())
+        .accessibilityLabel(Text("Write out as \(written)", comment: "A composer suggestion that replaces a typed date like “tomorrow 8pm” with the full date and time."))
+    }
+}
+
 private struct TagSuggestionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(.tint)
-            .padding(.horizontal, 10)
-            .frame(minHeight: 48)
+            .padding(.horizontal, Spacing.l)
+            .frame(minHeight: FloatingBar.height)
             .contentShape(.rect)
-            .opacity(configuration.isPressed ? 0.5 : 1)
+            .opacity(configuration.isPressed ? Press.opacity : 1)
     }
 }
 
@@ -348,30 +382,30 @@ private struct FormattingBar<Actions: View>: View {
                         .scrollIndicators(.hidden)
                     }
                 }
-                Spacer(minLength: 8)
+                Spacer(minLength: Spacing.m)
                 if showsHideKeyboard {
                     Button(action: onHideKeyboard) {
                         Image(systemName: "keyboard.chevron.compact.down")
                     }
                     .buttonStyle(BarButtonStyle())
-                    .frame(width: 48)
+                    .frame(width: FloatingBar.height)
                     .glassEffect(.regular.interactive(), in: .circle)
                     .accessibilityLabel("Hide Keyboard")
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
             }
         }
-        .font(.title3)
+        .font(.barSymbol)
         .tint(.memosBlue)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Metrics.screenInset)
+        .padding(.vertical, Spacing.m)
     }
 
     private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         HStack(spacing: 0) { content() }
             .buttonStyle(BarButtonStyle())
             .menuStyle(.button)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, Spacing.s)
             .glassEffect(.regular.interactive(), in: .capsule)
     }
 }
@@ -380,9 +414,13 @@ private struct BarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(.tint)
-            .frame(width: 44, height: 48)
+            // The buttons have a fixed width, so the symbols stop growing where system bars do;
+            // a long press shows them enlarged instead.
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .accessibilityShowsLargeContentViewer()
+            .frame(width: FloatingBar.itemWidth, height: FloatingBar.height)
             .contentShape(.rect)
-            .opacity(configuration.isPressed ? 0.5 : 1)
+            .opacity(configuration.isPressed ? Press.opacity : 1)
     }
 }
 
@@ -394,7 +432,7 @@ private struct AudienceChips: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.m) {
                 Menu {
                     Picker("Visibility", selection: $model.visibility) {
                         ForEach(MemoVisibility.choices.filter { $0 != .space || model.space != nil }, id: \.self) { visibility in
@@ -472,12 +510,12 @@ private struct AttachmentStrip: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.m) {
                 if let location = model.location {
                     chip {
                         Label(location.placeholder, systemImage: "mappin.and.ellipse")
-                            .font(.subheadline)
-                            .padding(.horizontal, 10)
+                            .font(.supporting)
+                            .padding(.horizontal, Spacing.l)
                             .frame(height: 64)
                     } remove: {
                         withAnimation(.memosSpring) { model.location = nil }
@@ -489,10 +527,10 @@ private struct AttachmentStrip: View {
                             AttachmentImage(attachment: attachment)
                                 .frame(width: 64, height: 64)
                         } else {
-                            VStack(spacing: 4) {
+                            VStack(spacing: Spacing.xs) {
                                 Image(systemName: attachment.systemImage)
                                 Text(attachment.filename)
-                                    .font(.caption2)
+                                    .font(.fine)
                                     .lineLimit(1)
                                     .truncationMode(.middle)
                             }
@@ -507,7 +545,7 @@ private struct AttachmentStrip: View {
                     ProgressView().frame(width: 64, height: 64)
                 }
             }
-            .padding(.top, 6)
+            .padding(.top, Spacing.s)
         }
         .scrollClipDisabled()
     }
@@ -516,16 +554,44 @@ private struct AttachmentStrip: View {
         content()
             .foregroundStyle(.ink)
             .background(.well)
-            .clipShape(.rect(cornerRadius: 10))
+            .clipShape(.rect(cornerRadius: Radius.inner))
             .overlay(alignment: .topTrailing) {
                 Button(action: remove) {
                     Image(systemName: "xmark.circle.fill")
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(.white, .black.opacity(0.6))
                 }
-                .offset(x: 6, y: -6)
+                .offset(x: Spacing.s, y: -Spacing.s)
                 .accessibilityLabel("Remove")
             }
+    }
+}
+
+/// The memos the draft links to, each removable.
+private struct LinkedMemos: View {
+    let model: ComposerModel
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            ForEach(model.references, id: \.self) { name in
+                LinkedMemoRow(snippet: session.linkSnippet(name, from: model.editing), direction: .referencing) {
+                    Button {
+                        model.unlink(name)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.ink2)
+                            .frame(minWidth: 28, minHeight: 28)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove Link")
+                }
+                .padding(.vertical, -Spacing.xs)
+                .transition(.opacity)
+            }
+        }
     }
 }
 
@@ -535,7 +601,7 @@ struct VoiceStatus: View {
     var onStop: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Spacing.l) {
             switch recorder.phase {
             case .recording:
                 Waveform(levels: recorder.levels)

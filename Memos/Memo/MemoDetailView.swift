@@ -40,13 +40,17 @@ struct MemoDetailView: View {
         .background(.paper)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: name) { await load() }
+        // Keyed on the link, so an edit that adds, changes or removes it updates the card.
+        .task(id: previewURL) { await loadLinkPreview(previewURL) }
     }
+
+    private var previewURL: String? { memo.flatMap { Self.firstLink(in: $0.content) } }
 
     @ViewBuilder
     private func content(_ memo: Memo) -> some View {
         let isMine = memo.creator == session.user
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 MemoHeader(memo: memo)
 
                 if session.store.conflictCounterpart(of: memo.name) != nil {
@@ -54,7 +58,7 @@ struct MemoDetailView: View {
                 }
 
                 SensitiveContent(memo: memo) {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
                         if let audio = memo.audioAttachment {
                             AudioAttachmentView(attachment: audio)
                         }
@@ -78,6 +82,8 @@ struct MemoDetailView: View {
                                 .accessibilityLabel(location.placeholder.isEmpty ? Text("Location") : Text("Location, \(location.placeholder)"))
                         }
 
+                        MemoLinks(memo: memo, showsDirection: true)
+
                         if let linkPreview {
                             LinkPreviewCard(metadata: linkPreview)
                         }
@@ -94,43 +100,26 @@ struct MemoDetailView: View {
                     .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
                 }
 
-                CommentsSection(
-                    comments: comments,
-                    loaded: commentsLoaded,
-                    online: session.isOnline,
-                    onEdit: { editingComment = EditableComment(memo: $0) },
-                    onDelete: { commentToDelete = $0 }
-                )
-                .confirmationDialog(
-                    "Delete this comment?",
-                    isPresented: Binding(get: { commentToDelete != nil }, set: { if !$0 { commentToDelete = nil } }),
-                    titleVisibility: .visible,
-                    presenting: commentToDelete
-                ) { comment in
-                    Button("Delete", role: .destructive) {
-                        Task { await deleteComment(comment) }
-                    }
-                } message: { _ in
-                    Text("It’s removed for everyone who can read this memo.")
+                // Comments live on the server; the on-device library has none.
+                if !session.isOnDevice {
+                    commentsSection
                 }
             }
-            .padding(Metrics.timelineInset)
-            .padding(.bottom, 80)
+            .padding(Metrics.screenInset)
+            .padding(.bottom, Metrics.floatingBarClearance)
+            .readableWidth()
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
             DetailBar(memo: memo, pickerOpen: $reactionPickerOpen, onReact: { emoji in await toggleReaction(emoji, on: memo) }, onComment: { text in await comment(text, on: memo) })
-                .padding(.horizontal, Metrics.timelineInset)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Metrics.screenInset)
+                .padding(.bottom, Spacing.m)
+                .readableWidth()
         }
         .overlay(alignment: .top) {
             if let notice {
-                Text(notice)
-                    .font(.subheadline)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .glassEffect(in: .capsule)
-                    .padding(.top, 8)
+                Toast(message: notice)
+                    .padding(.top, Spacing.m)
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                     // Each new message gets its full time on screen.
                     .task(id: notice) {
@@ -144,16 +133,20 @@ struct MemoDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     MemoActions(memo: memo, onReact: { withAnimation(.memosSpring) { reactionPickerOpen = true } })
-                    Button("Create Share Link", systemImage: "link.badge.plus") {
-                        Task { await createShareLink(memo) }
+                    if !session.isOnDevice {
+                        Button("Create Share Link", systemImage: "link.badge.plus") {
+                            Task { await createShareLink(memo) }
+                        }
+                        .disabled(!session.isOnline)
                     }
-                    .disabled(!session.isOnline)
                     if isMine {
-                        Menu("Move to", systemImage: "square.stack") {
-                            Button("No Space") { session.store.setAudience(memo.name, visibility: memo.visibility, space: nil) }
-                            ForEach(session.store.profile.spaces, id: \.name) { space in
-                                Button(space.title) {
-                                    session.store.setAudience(memo.name, visibility: VisibilityRules.afterAddingSpace(memo.visibility), space: space.name)
+                        if !session.isOnDevice {
+                            Menu("Move to", systemImage: "square.stack") {
+                                Button("No Space") { session.store.setAudience(memo.name, visibility: memo.visibility, space: nil) }
+                                ForEach(session.store.profile.spaces, id: \.name) { space in
+                                    Button(space.title) {
+                                        session.store.setAudience(memo.name, visibility: VisibilityRules.afterAddingSpace(memo.visibility), space: space.name)
+                                    }
                                 }
                             }
                         }
@@ -172,7 +165,11 @@ struct MemoDetailView: View {
                 dismiss()
             }
         } message: {
-            Text("It’s removed everywhere, along with its comments.")
+            if session.isOnDevice {
+                Text("It’s removed from this iPhone, along with its attachments.")
+            } else {
+                Text("It’s removed everywhere, along with its comments.")
+            }
         }
         .sheet(item: Binding(get: { shareURL.map(IdentifiedURL.init) }, set: { shareURL = $0?.url })) { item in
             ShareLinkSheet(url: item.url)
@@ -187,23 +184,47 @@ struct MemoDetailView: View {
         }
     }
 
+    private var commentsSection: some View {
+        CommentsSection(
+            comments: comments,
+            loaded: commentsLoaded,
+            online: session.isOnline,
+            onEdit: { editingComment = EditableComment(memo: $0) },
+            onDelete: { commentToDelete = $0 }
+        )
+        .confirmationDialog(
+            "Delete this comment?",
+            isPresented: Binding(get: { commentToDelete != nil }, set: { if !$0 { commentToDelete = nil } }),
+            titleVisibility: .visible,
+            presenting: commentToDelete
+        ) { comment in
+            Button("Delete", role: .destructive) {
+                Task { await deleteComment(comment) }
+            }
+        } message: { _ in
+            Text("It’s removed for everyone who can read this memo.")
+        }
+    }
+
     // MARK: Loading
 
     private func load() async {
-        if memo == nil || session.isOnline {
+        if let engine = session.engine, memo == nil || session.isOnline {
             do {
-                try await session.engine.refresh(name)
+                try await engine.refresh(name)
             } catch {
                 if error.code == .notFound || error.code == .permissionDenied { missing = true }
                 if memo == nil && !error.isConnectivity { missing = true }
             }
+        } else if memo == nil {
+            // Nowhere else to look: the on-device library holds every memo it has.
+            missing = true
         }
         await loadComments()
-        await loadLinkPreview()
     }
 
     private func loadComments() async {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             commentsLoaded = true
             return
         }
@@ -211,23 +232,27 @@ struct MemoDetailView: View {
         request.parent = name
         request.pageSize = 200
         request.orderBy = "create_time asc"
-        if let response = try? await session.client.call(session.client.memos.listMemoComments(request:headers:), request) {
+        if let response = try? await client.call(client.memos.listMemoComments(request:headers:), request) {
             // Oldest first, like a conversation. The server ignores order_by here.
             withAnimation(.memosSpring) { comments = response.comments.sorted { $0.createTime.date < $1.createTime.date } }
         }
         commentsLoaded = true
     }
 
-    private func loadLinkPreview() async {
-        guard let memo, let url = Self.firstLink(in: memo.content) else { return }
+    private func loadLinkPreview(_ url: String?) async {
+        guard let url else {
+            withAnimation(.memosSpring) { linkPreview = nil }
+            return
+        }
+        if linkPreview?.url != url { linkPreview = nil }
         if let cached = session.linkPreviews[url] {
             linkPreview = cached
             return
         }
-        guard session.isOnline else { return }
+        guard session.isOnline, let client = session.client else { return }
         var request = Memos_Api_GetLinkMetadataRequest()
         request.url = url
-        if let metadata = try? await session.client.call(session.client.memos.getLinkMetadata(request:headers:), request),
+        if let metadata = try? await client.call(client.memos.getLinkMetadata(request:headers:), request),
            !metadata.title.isEmpty {
             session.linkPreviews[url] = metadata
             withAnimation(.memosSpring) { linkPreview = metadata }
@@ -260,7 +285,7 @@ struct MemoDetailView: View {
     }
 
     private func toggleReaction(_ emoji: String, on memo: Memo) async {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to react.")
             return
         }
@@ -273,14 +298,14 @@ struct MemoDetailView: View {
             if let existing {
                 var request = Memos_Api_DeleteMemoReactionRequest()
                 request.name = existing.name
-                _ = try await session.client.call(session.client.memos.deleteMemoReaction(request:headers:), request)
+                _ = try await client.call(client.memos.deleteMemoReaction(request:headers:), request)
             } else {
                 var request = Memos_Api_UpsertMemoReactionRequest()
                 request.parent = memo.name
                 request.reaction.reactionType = emoji
-                _ = try await session.client.call(session.client.memos.upsertMemoReaction(request:headers:), request)
+                _ = try await client.call(client.memos.upsertMemoReaction(request:headers:), request)
             }
-            _ = try? await session.engine.refresh(memo.name)
+            _ = try? await session.engine?.refresh(memo.name)
         } catch {
             show(error.isConnectivity ? "Connect to react." : "Couldn’t react: \(error.description)" as LocalizedStringResource)
         }
@@ -288,7 +313,7 @@ struct MemoDetailView: View {
 
     /// Comments send only when online, so nobody receives one hours after you thought you sent it.
     private func comment(_ text: String, on memo: Memo) async -> Bool {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to comment.")
             return false
         }
@@ -302,7 +327,7 @@ struct MemoDetailView: View {
         }
         request.comment.state = .normal
         do {
-            let created = try await session.client.call(session.client.memos.createMemoComment(request:headers:), request)
+            let created = try await client.call(client.memos.createMemoComment(request:headers:), request)
             withAnimation(.memosSpring) { comments.append(created) }
             return true
         } catch {
@@ -314,7 +339,7 @@ struct MemoDetailView: View {
     /// Like adding a comment, editing and deleting one happen only online, so what others read
     /// never lags behind what you see.
     private func editComment(_ comment: Memo, to text: String) async -> Bool {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to edit comments.")
             return false
         }
@@ -324,7 +349,7 @@ struct MemoDetailView: View {
         // The server moves `update_time` only when the mask asks, as the sync engine does for memos.
         request.updateMask.paths = ["content", "update_time"]
         do {
-            let updated = try await session.client.call(session.client.memos.updateMemo(request:headers:), request)
+            let updated = try await client.call(client.memos.updateMemo(request:headers:), request)
             withAnimation(.memosSpring) {
                 if let index = comments.firstIndex(where: { $0.name == comment.name }) { comments[index] = updated }
             }
@@ -337,14 +362,14 @@ struct MemoDetailView: View {
     }
 
     private func deleteComment(_ comment: Memo) async {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to delete comments.")
             return
         }
         var request = Memos_Api_DeleteMemoRequest()
         request.name = comment.name
         do {
-            _ = try await session.client.call(session.client.memos.deleteMemo(request:headers:), request)
+            _ = try await client.call(client.memos.deleteMemo(request:headers:), request)
         } catch where error.code == .notFound {
             // Already gone.
         } catch {
@@ -359,16 +384,17 @@ struct MemoDetailView: View {
     /// removes it once deleted.
     private func refreshStoredCopy(of name: String) async {
         guard session.store.memo(named: name) != nil else { return }
-        _ = try? await session.engine.refresh(name)
+        _ = try? await session.engine?.refresh(name)
     }
 
     private func createShareLink(_ memo: Memo) async {
+        guard let client = session.client else { return }
         var request = Memos_Api_CreateMemoShareRequest()
         request.parent = memo.name
         do {
-            let share = try await session.client.call(session.client.memos.createMemoShare(request:headers:), request)
+            let share = try await client.call(client.memos.createMemoShare(request:headers:), request)
             let token = ResourceName.lastSegment(share.name)
-            shareURL = session.client.serverURL.appending(path: "memos/shares/\(token)")
+            shareURL = client.serverURL.appending(path: "memos/shares/\(token)")
         } catch {
             if error.isConnectivity {
                 show("Connect to create a share link.")
@@ -414,9 +440,9 @@ private struct ConflictBanner: View {
     @Environment(AccountSession.self) private var session
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             Label("Edited on another device. Your version was saved separately.", systemImage: "arrow.triangle.branch")
-                .font(.subheadline)
+                .font(.supporting)
                 .foregroundStyle(.ink)
             HStack {
                 if let other = session.store.conflictCounterpart(of: memo.name) {
@@ -425,10 +451,9 @@ private struct ConflictBanner: View {
                 Spacer()
                 Button("Dismiss") { session.store.dismissConflict(memo.name) }
             }
-            .font(.subheadline.weight(.medium))
+            .font(.action)
         }
-        .padding(12)
-        .background(.well, in: .rect(cornerRadius: 12))
+        .wellBackground()
     }
 }
 
@@ -440,10 +465,10 @@ private struct LinkPreviewCard: View {
         Button {
             if let url = URL(string: metadata.url) { openURL(url) }
         } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: Spacing.l) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(metadata.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.emphasis)
                         .foregroundStyle(.ink)
                         .lineLimit(2)
                     Text(URL(string: metadata.url)?.host() ?? metadata.url)
@@ -454,7 +479,7 @@ private struct LinkPreviewCard: View {
                 Image(systemName: "arrow.up.right")
                     .foregroundStyle(.ink2)
             }
-            .padding(12)
+            .padding(Spacing.l)
             .cardBackground()
         }
         .buttonStyle(.plain)
@@ -470,21 +495,23 @@ private struct CommentsSection: View {
     @Environment(AccountSession.self) private var session
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
             if !comments.isEmpty {
                 Text("\(comments.count) comments")
                     .contentTransition(.numericText(value: Double(comments.count)))
                     .font(.headline)
                     .foregroundStyle(.ink)
-                    .padding(.top, 8)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.top, Spacing.m)
             }
             ForEach(comments, id: \.name) { comment in
-                HStack(alignment: .top, spacing: 10) {
-                    UserAvatar(user: comment.creator, size: 26)
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
+                HStack(alignment: .top, spacing: Spacing.m) {
+                    UserAvatar(user: comment.creator, size: AvatarSize.small)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        HStack(spacing: Spacing.s) {
                             Text(session.people.name(for: comment.creator))
-                                .font(.subheadline.weight(.semibold))
+                                .font(.emphasis)
+                                .foregroundStyle(.ink)
                             Text(MemoDate.short(comment.createdAt))
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
@@ -497,7 +524,7 @@ private struct CommentsSection: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
-                .contentShape(.contextMenuPreview, .rect(cornerRadius: 8))
+                .contentShape(.contextMenuPreview, .rect(cornerRadius: Radius.inner))
                 .contextMenu { actions(for: comment) }
                 .accessibilityActions { actions(for: comment) }
             }
@@ -547,7 +574,8 @@ private struct CommentEditor: View {
                 .foregroundStyle(.ink)
                 .focused($focused)
                 .scrollContentBackground(.hidden)
-                .padding(.horizontal, Metrics.timelineInset - 5)
+                // TextEditor insets its text by 5 points; this lines it up with the screen margin.
+                .padding(.horizontal, Metrics.screenInset - 5)
                 .background(.paper)
                 .navigationTitle("Edit Comment")
                 .navigationBarTitleDisplayMode(.inline)
@@ -593,49 +621,39 @@ private struct DetailBar: View {
     @FocusState private var commentFocused: Bool
 
     var body: some View {
-        GlassEffectContainer(spacing: 10) {
-            HStack(spacing: 10) {
+        GlassEffectContainer(spacing: Spacing.l) {
+            HStack(spacing: Spacing.l) {
                 if pickerOpen {
-                    HStack(spacing: 4) {
-                        ForEach(session.store.profile.reactionChoices, id: \.self) { emoji in
-                            let isMine = memo.reactions.contains { $0.reactionType == emoji && $0.creator == session.user }
-                            Button {
-                                reacted += 1
-                                withAnimation(pickerAnimation) { pickerOpen = false }
-                                Task { await onReact(emoji) }
-                            } label: {
-                                Text(emoji)
-                                    .font(.title2)
-                                    .frame(width: 40, height: 44)
-                                    // Opaque inside the glass: the ones you've already used.
-                                    .background {
-                                        if isMine {
-                                            Circle().fill(Color.memosBlue.opacity(0.14)).frame(width: 38, height: 38)
-                                        }
-                                    }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("React with \(emoji)")
-                            .accessibilityAddTraits(isMine ? .isSelected : [])
+                    HStack(spacing: Spacing.xs) {
+                        // A server can offer more reactions than fit; they scroll instead of
+                        // widening the bar, and with it the whole page, past the screen edge.
+                        ViewThatFits(in: .horizontal) {
+                            reactionChoices
+                            ScrollView(.horizontal) { reactionChoices }
+                                .scrollIndicators(.hidden)
                         }
                         Button {
                             withAnimation(pickerAnimation) { pickerOpen = false }
                         } label: {
-                            Image(systemName: "xmark").frame(width: 32, height: 44)
+                            Image(systemName: "xmark").frame(width: 32, height: Metrics.minTapTarget)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Close reactions")
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, Spacing.m)
                     .glassEffect(.regular.interactive(), in: .capsule)
                     .glassEffectID("react", in: glass)
+                } else if session.isOnDevice {
+                    // Nobody to react or comment: sharing the text is all that's left here.
+                    Spacer(minLength: 0)
+                    shareButton
                 } else {
                     Button {
                         withAnimation(pickerAnimation) { pickerOpen = true }
                     } label: {
                         Image(systemName: "face.smiling")
-                            .font(.title3)
-                            .frame(width: 48, height: 48)
+                            .font(.barSymbol)
+                            .frame(width: FloatingBar.height, height: FloatingBar.height)
                     }
                     .buttonStyle(.plain)
                     .glassEffect(.regular.interactive(), in: .circle)
@@ -671,24 +689,63 @@ private struct DetailBar: View {
                     }
                     .animation(.memosFade, value: draft.isEmpty)
                     .animation(.memosFade, value: sending)
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 48)
+                    .padding(.horizontal, Spacing.xl)
+                    .frame(minHeight: FloatingBar.height)
                     .glassEffect(.regular.interactive(), in: .capsule)
                     .glassEffectID("comment", in: glass)
 
-                    ShareLink(item: session.webURL(for: memo), subject: Text(memo.displayTitle), message: Text(memo.previewText)) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.title3)
-                            .frame(width: 48, height: 48)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: .circle)
-                    .glassEffectID("share", in: glass)
-                    .accessibilityLabel("Share")
+                    shareButton
                 }
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: reacted)
+    }
+
+    /// Shares the memo's web address, or in the on-device library, where it has none, its text.
+    private var shareButton: some View {
+        Group {
+            if let link = session.webURL(for: memo) {
+                ShareLink(item: link, subject: Text(memo.displayTitle), message: Text(memo.previewText)) { shareSymbol }
+            } else {
+                ShareLink(item: memo.content, subject: Text(memo.displayTitle)) { shareSymbol }
+            }
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .glassEffectID("share", in: glass)
+        .accessibilityLabel("Share")
+    }
+
+    private var shareSymbol: some View {
+        Image(systemName: "square.and.arrow.up")
+            .font(.barSymbol)
+            .frame(width: FloatingBar.height, height: FloatingBar.height)
+    }
+
+    private var reactionChoices: some View {
+        HStack(spacing: Spacing.xs) {
+            ForEach(session.store.profile.reactionChoices, id: \.self) { emoji in
+                let isMine = memo.reactions.contains { $0.reactionType == emoji && $0.creator == session.user }
+                Button {
+                    reacted += 1
+                    withAnimation(pickerAnimation) { pickerOpen = false }
+                    Task { await onReact(emoji) }
+                } label: {
+                    Text(emoji)
+                        .font(.title2)
+                        .frame(width: 40, height: Metrics.minTapTarget)
+                        // Opaque inside the glass: the ones you've already used.
+                        .background {
+                            if isMine {
+                                Circle().fill(Color.accentWash).frame(width: 38, height: 38)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("React with \(emoji)")
+                .accessibilityAddTraits(isMine ? .isSelected : [])
+            }
+        }
     }
 
     /// Settles with a small bounce on the emoji you pick; Reduce Motion keeps the morph without it.
@@ -715,9 +772,9 @@ private struct ShareLinkSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: Spacing.xl) {
             Text("Anyone with this link can read the memo.")
-                .font(.subheadline)
+                .font(.supporting)
                 .foregroundStyle(.ink2)
             Text(url.absoluteString)
                 .font(.memoCode)
@@ -737,6 +794,6 @@ private struct ShareLinkSheet: View {
                 .buttonStyle(.glassProminent)
             }
         }
-        .padding()
+        .padding(Spacing.xxl)
     }
 }
