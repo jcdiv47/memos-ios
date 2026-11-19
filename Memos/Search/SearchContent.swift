@@ -8,6 +8,8 @@ struct SearchContent: View {
 
     @Environment(AccountSession.self) private var session
     @State private var isSavingView = false
+    /// The save sheet grows out of Save as view.
+    @Namespace private var saveButton
 
     var body: some View {
         Group {
@@ -26,6 +28,7 @@ struct SearchContent: View {
         .sheet(isPresented: $isSavingView) {
             SaveViewSheet(query: search.query)
                 .presentationDetents([.height(300)])
+                .zoomTransition(from: "search.saveView", in: saveButton)
         }
     }
 
@@ -47,6 +50,7 @@ struct SearchContent: View {
                         // and greyed with them when it can't save.
                         .foregroundStyle(session.isOnDevice || session.isOnline ? Color.memosBlue : Color.ink3)
                         .disabled(!session.isOnDevice && !session.isOnline)
+                        .matchedTransitionSource(id: "search.saveView", in: saveButton)
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)

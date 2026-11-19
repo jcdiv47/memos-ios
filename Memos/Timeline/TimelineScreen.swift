@@ -7,10 +7,16 @@ import SwiftUI
 struct TimelineScreen: View {
     /// False when an enclosing split view presents the composer, Inbox and Settings itself.
     var presentsSheets = true
+    /// The split view's namespace, so cards and buttons here are sources for the sheets it
+    /// presents.
+    var sharedZoom: Namespace.ID?
 
     @Environment(AccountSession.self) private var session
-    @Namespace private var zoom
+    @Namespace private var ownZoom
     @State private var search = SearchModel()
+
+    /// Cards zoom into their detail, and the composer, Inbox and Settings out of what opened them.
+    private var zoom: Namespace.ID { sharedZoom ?? ownZoom }
 
     var body: some View {
         @Bindable var session = session
@@ -22,12 +28,15 @@ struct TimelineScreen: View {
         }
         .sheet(item: presentsSheets ? $session.composer : .constant(nil)) { request in
             ComposerView(request: request)
+                .zoomTransition(from: request.source, in: zoom)
         }
         .sheet(isPresented: presentsSheets ? $session.isInboxPresented : .constant(false)) {
             InboxView()
+                .zoomTransition(from: session.accountSheetSource, in: zoom)
         }
         .sheet(isPresented: presentsSheets ? $session.isSettingsPresented : .constant(false)) {
             SettingsView()
+                .zoomTransition(from: session.accountSheetSource, in: zoom)
         }
         .sheet(isPresented: presentsSheets ? $session.isQuickVoiceMemoPresented : .constant(false)) {
             QuickVoiceMemoSheet()
@@ -209,8 +218,9 @@ private struct TimelineRoot: View {
             } description: {
                 session.selectedSpace == nil ? Text("Capture a thought and it lands here.") : Text("Nothing in \(session.selectedSpaceTitle) yet.")
             } actions: {
-                Button("Capture a Thought") { session.capture() }
+                Button("Capture a Thought") { session.capture(from: SheetSource.emptyTimeline) }
                     .buttonStyle(.glass)
+                    .matchedTransitionSource(id: SheetSource.emptyTimeline, in: zoom)
             }
         }
     }
@@ -222,6 +232,8 @@ private struct TimelineRoot: View {
         ToolbarItem(placement: .topBarLeading) {
             AccountMenu()
         }
+        // Inbox and Settings grow out of the button, and shrink back into it.
+        .matchedTransitionSource(id: SheetSource.accountMenu, in: zoom)
         ToolbarItemGroup(placement: .topBarTrailing) {
             FilterMenu()
             Button {
@@ -235,6 +247,8 @@ private struct TimelineRoot: View {
         ToolbarItem(placement: .bottomBar) {
             CaptureField()
         }
+        // The field opens into the composer.
+        .matchedTransitionSource(id: SheetSource.captureField, in: zoom)
         ToolbarSpacer(.fixed, placement: .bottomBar)
         DefaultToolbarItem(kind: .search, placement: .bottomBar)
     }
@@ -320,7 +334,8 @@ struct TimelineRow: View {
                 .tint(.ink2)
                 // After Archive, so a full swipe still archives.
                 Button {
-                    session.edit(memo.name)
+                    // The card opens into the editor.
+                    session.edit(memo.name, from: memo.name)
                 } label: {
                     Label("Edit", systemImage: "pencil")
                 }
@@ -328,7 +343,7 @@ struct TimelineRow: View {
             }
         }
         .sensoryFeedback(.impact(weight: .medium), trigger: swipeCommits)
-        .contextMenu { MemoActions(memo: memo) }
+        .contextMenu { MemoActions(memo: memo, editSource: memo.name) }
         .accessibilityElement(children: .combine)
         .accessibilityActions { MemoActions(memo: memo, forAccessibility: true) }
     }
@@ -338,6 +353,8 @@ struct TimelineRow: View {
 struct MemoActions: View {
     let memo: Memo
     var forAccessibility = false
+    /// What the composer grows out of on Edit: the memo's card, or the menu Edit is in.
+    var editSource: String?
     /// Opens the reaction picker in place; without it, React opens the memo.
     var onReact: (() -> Void)?
 
@@ -350,7 +367,7 @@ struct MemoActions: View {
                 withAnimation(.memosSpring) { session.store.setPinned(memo.name, !memo.pinned) }
             }
             if !forAccessibility {
-                Button("Edit", systemImage: "pencil") { session.edit(memo.name) }
+                Button("Edit", systemImage: "pencil") { session.edit(memo.name, from: editSource) }
             }
             Button(memo.isArchived ? "Restore" : "Archive" as LocalizedStringKey, systemImage: memo.isArchived ? "tray.and.arrow.up" : "archivebox") {
                 withAnimation(.memosSpring) { session.store.setArchived(memo.name, !memo.isArchived) }
@@ -422,6 +439,7 @@ private struct AccountMenu: View {
             // Notifications come from the server; the on-device library has none.
             if !session.isOnDevice {
                 Button {
+                    session.accountSheetSource = SheetSource.accountMenu
                     session.isInboxPresented = true
                 } label: {
                     Label("Inbox", systemImage: "bell")
@@ -429,7 +447,10 @@ private struct AccountMenu: View {
                     if unread > 0 { Text("\(unread) unread") }
                 }
             }
-            Button("Settings", systemImage: "gearshape") { session.isSettingsPresented = true }
+            Button("Settings", systemImage: "gearshape") {
+                session.accountSheetSource = SheetSource.accountMenu
+                session.isSettingsPresented = true
+            }
         } label: {
             Image(systemName: "ellipsis")
                 .overlay(alignment: .topTrailing) {

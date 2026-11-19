@@ -202,6 +202,8 @@ private struct OnDeviceSettings: View {
     @State private var storageSize: Int64?
     @State private var isConnecting = false
     @State private var confirmErase = false
+    /// Sign-in grows out of the row that asked for it.
+    @Namespace private var connectRow
 
     var body: some View {
         let count = session.store.own.count
@@ -245,6 +247,7 @@ private struct OnDeviceSettings: View {
                 }
             } else {
                 Button("Connect to a Memos Server", systemImage: "server.rack") { isConnecting = true }
+                    .matchedTransitionSource(id: "settings.connect", in: connectRow)
             }
         } header: {
             Text("Server")
@@ -269,6 +272,7 @@ private struct OnDeviceSettings: View {
         }
         .sheet(isPresented: $isConnecting) {
             SignInView(connecting: true)
+                .zoomTransition(from: "settings.connect", in: connectRow)
         }
     }
 }

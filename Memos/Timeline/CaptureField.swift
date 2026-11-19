@@ -39,7 +39,7 @@ struct CaptureField: View {
                 } else {
                     // A button, so the prompt answers the finger before the sheet rises.
                     Button {
-                        session.capture()
+                        session.capture(from: SheetSource.captureField)
                     } label: {
                         // Grows taller at large text sizes instead of truncating.
                         Group {
@@ -88,7 +88,7 @@ struct CaptureField: View {
         }
         .contentShape(.capsule)
         .onTapGesture {
-            if !voice.isRecording { session.capture() }
+            if !voice.isRecording { session.capture(from: SheetSource.captureField) }
         }
         .animation(.memosSpring, value: voice.isRecording)
         .animation(.memosFade, value: session.drafts.hasNewMemoDraft)
@@ -103,7 +103,7 @@ struct CaptureField: View {
 
     private func stopRecording() {
         // The composer opens right away; the transcript streams into it.
-        session.composer = ComposerRequest(mode: .new(origin: .timeline(space: session.selectedSpace), text: "", record: false, voiceMemo: true))
+        session.composer = ComposerRequest(mode: .new(origin: .timeline(space: session.selectedSpace), text: "", record: false, voiceMemo: true), source: SheetSource.captureField)
         Task { _ = await session.voice.stop(client: session.client, online: session.isOnline) }
     }
 }

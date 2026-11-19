@@ -5,6 +5,9 @@ import SwiftUI
 /// floating glass bar; anything that reaches another person needs a connection.
 struct MemoDetailView: View {
     let name: String
+    /// The presenter's namespace: the composer, the share link and the comment editor grow out of
+    /// what opened them.
+    let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -132,7 +135,7 @@ struct MemoDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    MemoActions(memo: memo, onReact: { withAnimation(.memosSpring) { reactionPickerOpen = true } })
+                    MemoActions(memo: memo, editSource: SheetSource.detailMenu, onReact: { withAnimation(.memosSpring) { reactionPickerOpen = true } })
                     if !session.isOnDevice {
                         Button("Create Share Link", systemImage: "link.badge.plus") {
                             Task { await createShareLink(memo) }
@@ -157,23 +160,26 @@ struct MemoDetailView: View {
                     Image(systemName: "ellipsis")
                 }
                 .accessibilityLabel("More")
+                // Anchored to the menu Delete is in, so the question points at what asked it.
+                .confirmationDialog("Delete this memo?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Delete", role: .destructive) {
+                        session.store.delete(memo.name)
+                        dismiss()
+                    }
+                } message: {
+                    if session.isOnDevice {
+                        Text("It’s removed from this iPhone, along with its attachments.")
+                    } else {
+                        Text("It’s removed everywhere, along with its comments.")
+                    }
+                }
             }
-        }
-        .confirmationDialog("Delete this memo?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
-                session.store.delete(memo.name)
-                dismiss()
-            }
-        } message: {
-            if session.isOnDevice {
-                Text("It’s removed from this iPhone, along with its attachments.")
-            } else {
-                Text("It’s removed everywhere, along with its comments.")
-            }
+            .matchedTransitionSource(id: SheetSource.detailMenu, in: zoom)
         }
         .sheet(item: Binding(get: { shareURL.map(IdentifiedURL.init) }, set: { shareURL = $0?.url })) { item in
             ShareLinkSheet(url: item.url)
                 .presentationDetents([.height(220)])
+                .zoomTransition(from: SheetSource.detailMenu, in: zoom)
         }
         .sheet(item: $editingComment) { item in
             CommentEditor(original: item.memo.content) { text in
@@ -181,6 +187,8 @@ struct MemoDetailView: View {
             }
             // Medium leaves the top of the memo, where errors appear, in view.
             .presentationDetents([.medium, .large])
+            // Grows out of the comment being edited.
+            .zoomTransition(from: CommentsSection.sourceID(item.memo), in: zoom)
         }
     }
 
@@ -189,21 +197,11 @@ struct MemoDetailView: View {
             comments: comments,
             loaded: commentsLoaded,
             online: session.isOnline,
+            zoom: zoom,
+            toDelete: $commentToDelete,
             onEdit: { editingComment = EditableComment(memo: $0) },
-            onDelete: { commentToDelete = $0 }
+            onConfirmDelete: { comment in Task { await deleteComment(comment) } }
         )
-        .confirmationDialog(
-            "Delete this comment?",
-            isPresented: Binding(get: { commentToDelete != nil }, set: { if !$0 { commentToDelete = nil } }),
-            titleVisibility: .visible,
-            presenting: commentToDelete
-        ) { comment in
-            Button("Delete", role: .destructive) {
-                Task { await deleteComment(comment) }
-            }
-        } message: { _ in
-            Text("It’s removed for everyone who can read this memo.")
-        }
     }
 
     // MARK: Loading
@@ -490,9 +488,15 @@ private struct CommentsSection: View {
     let comments: [Memo]
     let loaded: Bool
     let online: Bool
+    let zoom: Namespace.ID
+    /// The comment whose Delete was chosen, awaiting the answer.
+    @Binding var toDelete: Memo?
     var onEdit: (Memo) -> Void
-    var onDelete: (Memo) -> Void
+    var onConfirmDelete: (Memo) -> Void
     @Environment(AccountSession.self) private var session
+
+    /// A comment is a memo, so its name gets a prefix to keep it apart from a memo card's.
+    static func sourceID(_ comment: Memo) -> String { "comment.\(comment.name)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
@@ -525,8 +529,19 @@ private struct CommentsSection: View {
                 }
                 .accessibilityElement(children: .combine)
                 .contentShape(.contextMenuPreview, .rect(cornerRadius: Radius.inner))
+                .matchedTransitionSource(id: Self.sourceID(comment), in: zoom)
                 .contextMenu { actions(for: comment) }
                 .accessibilityActions { actions(for: comment) }
+                // Anchored to the comment it's about, not the whole list.
+                .confirmationDialog(
+                    "Delete this comment?",
+                    isPresented: Binding(get: { toDelete?.name == comment.name }, set: { if !$0 { toDelete = nil } }),
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete", role: .destructive) { onConfirmDelete(comment) }
+                } message: {
+                    Text("It’s removed for everyone who can read this memo.")
+                }
             }
             if loaded && !online && comments.isEmpty {
                 Text("Comments load when you’re online.")
@@ -542,7 +557,7 @@ private struct CommentsSection: View {
         if comment.creator == session.user {
             Button("Edit", systemImage: "pencil") { onEdit(comment) }
                 .disabled(!online)
-            Button("Delete", systemImage: "trash", role: .destructive) { onDelete(comment) }
+            Button("Delete", systemImage: "trash", role: .destructive) { toDelete = comment }
                 .disabled(!online)
         }
     }

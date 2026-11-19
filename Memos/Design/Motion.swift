@@ -20,23 +20,43 @@ enum Press {
     static let scale = 0.97
 }
 
-/// Zooms out of `sourceID`, or cross-fades when Reduce Motion is on.
+/// Zooms out of `sourceID` and back into it, or uses the system transition when Reduce Motion is
+/// on or nothing on screen opened it (a link, an intent).
 struct ZoomTransition: ViewModifier {
-    let sourceID: String
+    let sourceID: String?
     let namespace: Namespace.ID
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
-        if reduceMotion {
-            content.navigationTransition(.automatic)
-        } else {
+        if let sourceID, !reduceMotion {
             content.navigationTransition(.zoom(sourceID: sourceID, in: namespace))
+        } else {
+            content.navigationTransition(.automatic)
         }
     }
 }
 
 extension View {
-    func zoomTransition(from sourceID: String, in namespace: Namespace.ID) -> some View {
+    /// Pushes and sheets grow out of the control that opened them, never from the middle of the
+    /// screen: pair with `matchedTransitionSource(id:in:)` on the trigger.
+    func zoomTransition(from sourceID: String?, in namespace: Namespace.ID) -> some View {
         modifier(ZoomTransition(sourceID: sourceID, namespace: namespace))
     }
+}
+
+/// The controls the app-wide sheets grow out of, for sheets that more than one control can open.
+/// A memo's card is a source too, under the memo's name, for editing it.
+enum SheetSource {
+    /// The capture field in the bottom bar: the composer.
+    static let captureField = "sheet.captureField"
+    /// “Capture a Thought” on an empty timeline.
+    static let emptyTimeline = "sheet.emptyTimeline"
+    /// The “…” menu in the timeline's title row: Inbox and Settings.
+    static let accountMenu = "sheet.accountMenu"
+    /// Settings in the iPad sidebar.
+    static let sidebarSettings = "sheet.sidebarSettings"
+    /// The “…” menu of a saved view: a new memo in the view.
+    static let viewMenu = "sheet.viewMenu"
+    /// The “…” menu of a memo's detail: editing it.
+    static let detailMenu = "sheet.detailMenu"
 }

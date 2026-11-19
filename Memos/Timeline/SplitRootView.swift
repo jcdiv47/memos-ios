@@ -51,8 +51,12 @@ struct SplitRootView: View {
             .navigationTitle("Memos")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Settings", systemImage: "gearshape") { session.isSettingsPresented = true }
+                    Button("Settings", systemImage: "gearshape") {
+                        session.accountSheetSource = SheetSource.sidebarSettings
+                        session.isSettingsPresented = true
+                    }
                 }
+                .matchedTransitionSource(id: SheetSource.sidebarSettings, in: zoom)
             }
         } detail: {
             switch selection {
@@ -62,7 +66,7 @@ struct SplitRootView: View {
                         .navigationDestination(for: Route.self) { RouteDestination(route: $0, zoom: zoom) }
                 }
             default:
-                TimelineScreen(presentsSheets: false)
+                TimelineScreen(presentsSheets: false, sharedZoom: zoom)
             }
         }
         .onChange(of: selection) { _, item in
@@ -75,9 +79,16 @@ struct SplitRootView: View {
         }
         .sheet(item: $session.composer) { request in
             ComposerView(request: request)
+                .zoomTransition(from: request.source, in: zoom)
         }
-        .sheet(isPresented: $session.isInboxPresented) { InboxView() }
-        .sheet(isPresented: $session.isSettingsPresented) { SettingsView() }
+        .sheet(isPresented: $session.isInboxPresented) {
+            InboxView()
+                .zoomTransition(from: session.accountSheetSource, in: zoom)
+        }
+        .sheet(isPresented: $session.isSettingsPresented) {
+            SettingsView()
+                .zoomTransition(from: session.accountSheetSource, in: zoom)
+        }
         .sheet(isPresented: $session.isQuickVoiceMemoPresented) { QuickVoiceMemoSheet() }
     }
 }

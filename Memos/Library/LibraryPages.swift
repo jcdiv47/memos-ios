@@ -351,6 +351,8 @@ struct PlacesMapView: View {
     @State private var showsList = false
     @State private var includeOthers = false
     @Namespace private var mapScope
+    /// The places list grows out of its button.
+    @Namespace private var listButton
 
     private var places: [Memo] {
         let scope: MemoQuery.Scope = includeOthers && session.showsScopeToggle ? .everyone : .mine
@@ -392,6 +394,7 @@ struct PlacesMapView: View {
                         }
                     }
                     mapButton("list.bullet", label: Text("List places")) { showsList = true }
+                        .matchedTransitionSource(id: "map.list", in: listButton)
                 }
             }
             .padding(Metrics.screenInset)
@@ -430,6 +433,7 @@ struct PlacesMapView: View {
                 .navigationBarTitleDisplayMode(.inline)
             }
             .presentationDetents([.medium, .large])
+            .zoomTransition(from: "map.list", in: listButton)
         }
     }
 

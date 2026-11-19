@@ -10,7 +10,7 @@ struct RouteDestination: View {
     var body: some View {
         switch route {
         case .memo(let name):
-            MemoDetailView(name: name)
+            MemoDetailView(name: name, zoom: zoom)
                 .zoomTransition(from: name, in: zoom)
         case .sharedMemo(let token):
             SharedMemoView(token: token)

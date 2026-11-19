@@ -22,6 +22,9 @@ struct ComposerView: View {
     @State private var saved = 0
     @State private var editorFocused = false
     @State private var hasBegun = false
+    /// The camera, the scanner and the memo picker grow out of the paperclip that opens them.
+    @Namespace private var attachMenu
+    private static let attachSource = "composer.attach"
 
     init(request: ComposerRequest) {
         self.request = request
@@ -146,6 +149,11 @@ struct ComposerView: View {
                 Button(role: .cancel) {
                     if model.hasChanges { confirmDiscard = true } else { close(model) }
                 }
+                // Points at Cancel, which asked, rather than rising from the bottom of the sheet.
+                .confirmationDialog("Discard this memo?", isPresented: $confirmDiscard) {
+                    Button("Discard", role: .destructive) { discard(model) }
+                    Button("Keep Draft") { close(model) }
+                }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save(model) }
@@ -154,10 +162,6 @@ struct ComposerView: View {
                     .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || isCapturingVoice || model.preparing > 0)
                     .keyboardShortcut(.return, modifiers: .command)
             }
-        }
-        .confirmationDialog("Discard this memo?", isPresented: $confirmDiscard) {
-            Button("Discard", role: .destructive) { discard(model) }
-            Button("Keep Draft") { close(model) }
         }
         .photosPicker(isPresented: $isPickingPhotos, selection: $photoItems, maxSelectionCount: 10, matching: .any(of: [.images, .livePhotos]))
         .onChange(of: photoItems) { _, items in
@@ -176,6 +180,7 @@ struct ComposerView: View {
                 if let image { Task { await model.addCameraPhoto(image, store: session.store) } }
             }
             .ignoresSafeArea()
+            .zoomTransition(from: Self.attachSource, in: attachMenu)
         }
         .fullScreenCover(isPresented: $isScanning) {
             DocumentScanner { pages in
@@ -183,9 +188,11 @@ struct ComposerView: View {
                 Task { await model.addScan(pages, store: session.store) }
             }
             .ignoresSafeArea()
+            .zoomTransition(from: Self.attachSource, in: attachMenu)
         }
         .sheet(isPresented: $isLinkingMemo) {
             LinkMemoPicker(excluded: Set(model.references + [model.editing?.name].compactMap(\.self))) { model.link($0) }
+                .zoomTransition(from: Self.attachSource, in: attachMenu)
         }
         .task { await begin(model) }
     }
@@ -229,6 +236,7 @@ struct ComposerView: View {
             Image(systemName: "paperclip")
         }
         .accessibilityLabel("Attach")
+        .matchedTransitionSource(id: Self.attachSource, in: attachMenu)
         Button {
             Task { await toggleRecording(model) }
         } label: {
