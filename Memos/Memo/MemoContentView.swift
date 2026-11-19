@@ -2,7 +2,7 @@ import MemosCore
 import SwiftUI
 
 /// Renders a memo's Markdown natively: headings, paragraphs, task and bullet lists, quotes,
-/// code and tables. Tags are Memos Blue text without a capsule, so they don't compete with the
+/// code, math and tables. Math is shown as its TeX source, set like code, until it's typeset. Tags are Memos Blue text without a capsule, so they don't compete with the
 /// glass controls; with Increase Contrast they're underlined too.
 struct MemoContentView: View {
     let content: String
@@ -62,6 +62,16 @@ struct MemoContentView: View {
         case .code(let language, let code):
             ScrollView(.horizontal, showsIndicators: false) {
                 Text(MarkdownCache.code(code, language: language))
+                    .font(.memoCode)
+                    .foregroundStyle(.ink)
+                    .textSelection(.enabled)
+                    .padding(Spacing.l)
+            }
+            .background(.paper2, in: .rect(cornerRadius: Radius.inner))
+
+        case .math(let tex):
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(verbatim: tex)
                     .font(.memoCode)
                     .foregroundStyle(.ink)
                     .textSelection(.enabled)
@@ -151,10 +161,7 @@ enum InlineMarkdown {
     /// Inline Markdown with tags as `memos://tag/…` links in Memos Blue, and search matches
     /// highlighted.
     static func render(_ text: String, highlights: [String] = [], underlineTags: Bool = false) -> AttributedString {
-        var attributed = (try? AttributedString(
-            markdown: markingEscapedHashes(text),
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace, failurePolicy: .returnPartiallyParsedIfPossible)
-        )) ?? AttributedString(text)
+        var attributed = InlineParsing.attributed(text)
 
         let plain = String(attributed.characters)
         for match in TagScanner.matches(in: plain) {
@@ -178,24 +185,6 @@ enum InlineMarkdown {
             }
         }
         return attributed
-    }
-
-    /// `\#13-04` renders as `#13-04` but isn't a tag. Parsing drops the backslash, so the `#` is
-    /// followed by an invisible word joiner instead, which no tag can start with.
-    nonisolated static func markingEscapedHashes(_ text: String) -> String {
-        guard text.contains("\\#") else { return text }
-        var result = ""
-        var backslashes = 0
-        for character in text {
-            if character == "#", backslashes % 2 == 1 {
-                result.removeLast()
-                result += "#\u{2060}"
-            } else {
-                result.append(character)
-            }
-            backslashes = character == "\\" ? backslashes + 1 : 0
-        }
-        return result
     }
 
     private static func attributedRange(_ range: Range<String.Index>, in plain: String, of attributed: AttributedString) -> Range<AttributedString.Index>? {

@@ -51,22 +51,20 @@ nonisolated extension Memo {
     /// The memo as plain text on one line: no list markers, checkboxes or emphasis marks.
     var plainText: String {
         var parts: [String] = []
+        // Keeps an escaped # from turning into a tag when the text is rendered again, and math
+        // as written.
+        func inline(_ text: String) -> String { String(InlineParsing.attributed(text).characters) }
         for block in MarkdownDocument(parsing: content).blocks {
             switch block {
-            case .heading(_, let text), .paragraph(let text), .quote(let text): parts.append(text)
-            case .list(let items): parts.append(contentsOf: items.map(\.text))
+            case .heading(_, let text), .paragraph(let text), .quote(let text): parts.append(inline(text))
+            case .list(let items): parts.append(contentsOf: items.map { inline($0.text) })
             case .code(_, let code): parts.append(code)
-            case .table(let header, let rows): parts.append((header + rows.flatMap(\.self)).joined(separator: " "))
+            case .math(let tex): parts.append(tex)
+            case .table(let header, let rows): parts.append((header + rows.flatMap(\.self)).map(inline).joined(separator: " "))
             case .rule: break
             }
         }
-        return parts.map { part in
-            // Keeps an escaped # from turning into a tag when the text is rendered again.
-            let inline = try? AttributedString(markdown: InlineMarkdown.markingEscapedHashes(part), options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))
-            return inline.map { String($0.characters) } ?? part
-        }
-        .joined(separator: " ")
-        .replacingOccurrences(of: "\n", with: " ")
+        return parts.joined(separator: " ").replacingOccurrences(of: "\n", with: " ")
     }
 
     /// The title shown in navigation and Spotlight.
