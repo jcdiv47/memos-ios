@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct MemosApp: App {
+    @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @State private var model = AppModel.shared
     @Environment(\.scenePhase) private var scenePhase
 

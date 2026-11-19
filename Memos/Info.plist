@@ -55,6 +55,17 @@
 		<string>CreateMemoIntent</string>
 		<string>SearchMemosIntent</string>
 	</array>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>square.and.pencil</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>New Memo</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(MEMOS_BUNDLE_PREFIX).new-memo</string>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
