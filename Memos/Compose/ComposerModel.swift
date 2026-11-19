@@ -252,6 +252,23 @@ final class ComposerModel {
         stage(data: data, filename: "IMG_\(Self.stamp).jpg", type: .jpeg, store: store)
     }
 
+    /// Images pasted into the editor, in their own format where it has one, so a pasted PNG or
+    /// GIF isn't re-encoded.
+    func addPastedImages(_ providers: [NSItemProvider]) async {
+        preparing += 1
+        defer { preparing -= 1 }
+        let stamp = Self.stamp
+        for (index, provider) in providers.enumerated() {
+            guard let (data, type) = await PastedImage.load(provider) else {
+                error = String(localized: "Couldn’t add the pasted image.")
+                continue
+            }
+            // Pasted together, so numbered rather than all sharing one name.
+            let suffix = providers.count > 1 ? "-\(index + 1)" : ""
+            stage(data: data, filename: "IMG_\(stamp)\(suffix).\(type.preferredFilenameExtension ?? "png")", type: type, store: store)
+        }
+    }
+
     /// The scanned pages, as one PDF.
     func addScan(_ pages: [UIImage], store: MemoStore) async {
         guard !pages.isEmpty else { return }
@@ -280,6 +297,8 @@ final class ComposerModel {
     private static var stamp: Int { Int(Date.now.timeIntervalSince1970) % 100_000 }
 
     private func stage(data: Data, filename: String, type: UTType, store: MemoStore) {
+        // Saved or discarded while the file was being prepared: nothing would ever use it.
+        guard keepsDraft else { return }
         do {
             let attachment = try store.stageUpload(data: data, filename: filename, mimeType: type.preferredMIMEType ?? "application/octet-stream")
             withAnimation(.memosSpring) { attachments.append(attachment) }

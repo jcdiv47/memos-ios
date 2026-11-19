@@ -922,6 +922,16 @@
         }
       }
     },
+    "Couldn’t add the pasted image." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法添加粘贴的图片。"
+          }
+        }
+      }
+    },
     "Couldn’t add the photo." : {
       "localizations" : {
         "zh-Hans" : {
