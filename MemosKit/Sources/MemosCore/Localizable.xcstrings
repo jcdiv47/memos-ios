@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Attachments" : {
+      "comment" : "A search filter: memos with an attached file or image.",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "附件"
+          }
+        }
+      }
+    },
     "Code" : {
       "comment" : "A search filter: memos with code.",
       "localizations" : {

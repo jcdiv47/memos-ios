@@ -3,10 +3,12 @@ import MemosCore
 import SwiftUI
 
 /// Display names and pictures for the people whose memos and comments you see, fetched in
-/// batches as they appear and kept for the session.
+/// batches as they appear and kept for the session. The on-device library has nobody else, and
+/// no server to ask.
 @Observable
 final class PeopleDirectory {
-    private let client: MemosClient
+    /// Nil for the on-device library.
+    private let client: MemosClient?
     private let store: MemoStore
     private(set) var users: [String: User] = [:]
     @ObservationIgnored private var requested: Set<String> = []
@@ -14,7 +16,7 @@ final class PeopleDirectory {
     @ObservationIgnored private var fetchTask: Task<Void, Never>?
     @ObservationIgnored private let avatars = NSCache<NSString, UIImage>()
 
-    init(client: MemosClient, store: MemoStore) {
+    init(client: MemosClient?, store: MemoStore) {
         self.client = client
         self.store = store
         avatars.countLimit = 200
@@ -36,7 +38,7 @@ final class PeopleDirectory {
     }
 
     func request(_ user: String) {
-        guard !user.isEmpty, user != me, !requested.contains(user) else { return }
+        guard client != nil, !user.isEmpty, user != me, !requested.contains(user) else { return }
         requested.insert(user)
         pending.insert(user)
         guard fetchTask == nil else { return }
@@ -54,7 +56,7 @@ final class PeopleDirectory {
         let names = Array(pending)
         pending.removeAll()
         fetchTask = nil
-        guard !names.isEmpty else { return }
+        guard let client, !names.isEmpty else { return }
         var request = Memos_Api_BatchGetUsersRequest()
         request.names = names
         if let response = try? await client.call(client.users.batchGetUsers(request:headers:), request) {
@@ -70,7 +72,7 @@ final class PeopleDirectory {
     /// Where `user`'s picture is, or nil if they haven't set one. The server gives an uploaded
     /// picture as a path on its file server, and one from a sign-in provider as a full URL.
     private func avatarURL(for user: String) -> URL? {
-        guard let path = self.user(user)?.avatarURL, !path.isEmpty else { return nil }
+        guard let client, let path = self.user(user)?.avatarURL, !path.isEmpty else { return nil }
         if path.hasPrefix("/") { return client.serverURL.appending(path: String(path.dropFirst())) }
         return URL(string: path)
     }
@@ -90,7 +92,7 @@ final class PeopleDirectory {
         guard let url = avatarURL(for: user), let key = avatarKey(for: user) as NSString? else { return nil }
         if let cached = avatars.object(forKey: key) { return cached }
         var request = URLRequest(url: url)
-        if url.host() == client.serverURL.host() {
+        if let client, url.host() == client.serverURL.host() {
             guard let authorized = try? await client.authorizedRequest(for: url) else { return nil }
             request = authorized
         }

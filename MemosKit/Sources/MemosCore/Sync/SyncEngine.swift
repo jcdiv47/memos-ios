@@ -43,6 +43,9 @@ public final class SyncEngine {
     @ObservationIgnored private var retryTask: Task<Void, Never>?
     @ObservationIgnored private var retryDelay: Duration = .seconds(15)
     @ObservationIgnored private var uploadTask: Task<Void, Never>?
+    /// Set once the account is closed. Nothing starts after, so a closed engine never writes over
+    /// the local copy that a newer session for the same account has loaded.
+    @ObservationIgnored private var isStopped = false
     @ObservationIgnored private let logger = Logger(subsystem: "app.memos", category: "sync")
 
     static let pageSize: Int32 = 1000
@@ -60,6 +63,7 @@ public final class SyncEngine {
     /// Uploads soon after a local change, coalescing quick successive edits. A push already
     /// running is never cancelled; it picks the new change up instead.
     public func scheduleUpload(after delay: Duration = .milliseconds(500)) {
+        guard !isStopped else { return }
         if running != nil {
             wantsPush = true
             return
@@ -88,8 +92,16 @@ public final class SyncEngine {
         await run()
     }
 
+    /// Cancels anything scheduled and waits for a sync in progress, for when the account closes.
+    public func stop() async {
+        isStopped = true
+        uploadTask?.cancel()
+        retryTask?.cancel()
+        await running?.value
+    }
+
     private func run() async {
-        guard isOnline else { return }
+        guard isOnline, !isStopped else { return }
         if let running {
             await running.value
             return
@@ -102,14 +114,14 @@ public final class SyncEngine {
                 self.running = nil
             }
             await self.client.updateDialectAfterServerUpgrade()
-            while self.isOnline && (self.wantsPush || self.wantsPull) {
+            while self.isOnline && !self.isStopped && (self.wantsPush || self.wantsPull) {
                 let pull = self.wantsPull
                 let fullCompare = self.wantsFullCompare || self.dailyCompareDue
                 self.wantsPush = false
                 self.wantsPull = false
                 self.wantsFullCompare = false
                 await self.pushQueue()
-                guard pull, self.isOnline else { continue }
+                guard pull, self.isOnline, !self.isStopped else { continue }
                 do throws(APIError) {
                     try await self.pull(fullCompare: fullCompare)
                     self.lastError = nil
@@ -129,7 +141,7 @@ public final class SyncEngine {
     /// may pass.
     private func scheduleRetry(offline: Bool) {
         if offline { isOnline = false }
-        guard retryTask == nil else { return }
+        guard retryTask == nil, !isStopped else { return }
         let delay = retryDelay
         retryDelay = min(retryDelay * 2, .seconds(300))
         retryTask = Task { [weak self] in
@@ -174,7 +186,8 @@ public final class SyncEngine {
     }
 
     private func pushQueue() async {
-        while isOnline, let change = nextChange() {
+        // A stopped engine lets the upload in flight finish, but starts no more.
+        while isOnline, !isStopped, let change = nextChange() {
             store.inFlight = change.id
             do {
                 try await upload(change)
@@ -233,6 +246,8 @@ public final class SyncEngine {
         memo.spaceName = local.spaceName
         if let location = local.locationIfSet { memo.location = location }
         memo.attachments = local.attachments.filter { !store.isStaged($0) }.map(Self.reference)
+        let waiting = waitingReferences(of: local)
+        memo.relations = local.referenceRelations.filter { !waiting.contains($0.relatedMemo.name) }
         memo.createTime = local.createTime
         var request = Memos_Api_CreateMemoRequest()
         request.memo = memo
@@ -241,6 +256,11 @@ public final class SyncEngine {
         var created: Memo
         do {
             created = try await client.call(client.memos.createMemo(request:headers:), request)
+        } catch where error.code == .notFound && !memo.relations.isEmpty {
+            // A linked memo is gone.
+            guard try await dropMissingReferences(of: change.memo) else { throw error }
+            try await uploadCreate(change)
+            return
         } catch where !error.isConnectivity && !error.isSessionExpired {
             // The earlier attempt went through. The server says so with ALREADY_EXISTS, or, when
             // the memo has attachments, by refusing to bind them twice; either way it's there.
@@ -259,6 +279,10 @@ public final class SyncEngine {
             update.memo.state = local.state
             update.updateMask.paths = followUp
             created = try await client.call(client.memos.updateMemo(request:headers:), update)
+        }
+        if hasRetryableWait(waiting) {
+            // Sent once the memos they point to are on the server.
+            store.update(change.memo, fields: [.relations]) { _ in }
         }
         store.complete(change, serverMemo: created)
     }
@@ -290,10 +314,48 @@ public final class SyncEngine {
         let request = updateRequest(local, fields: fields)
         do {
             let updated = try await client.call(client.memos.updateMemo(request:headers:), request)
+            if fields.contains(.relations), hasRetryableWait(waitingReferences(of: local)) {
+                store.update(change.memo, fields: [.relations]) { _ in }
+            }
             store.complete(change, serverMemo: updated)
         } catch where error.code == .notFound {
+            // The server says not found for a linked memo that's gone, too.
+            if fields.contains(.relations), try await dropMissingReferences(of: change.memo) {
+                try await uploadUpdate(change, fields: fields, base: base)
+                return
+            }
             store.removeMissing(change.memo)
         }
+    }
+
+    /// Links to memos whose own create is still queued. The server would refuse them, so they're
+    /// sent in a later change, once those memos are there.
+    private func waitingReferences(of memo: Memo) -> Set<String> {
+        Set(memo.references.filter { target in store.outbox.contains { $0.memo == target && $0.operation == .create } })
+    }
+
+    /// Whether a later change can send any of `waiting`. A link to a memo whose create the server
+    /// rejected stays on this device; trying again would only queue the same change forever.
+    private func hasRetryableWait(_ waiting: Set<String>) -> Bool {
+        store.outbox.contains { $0.operation == .create && $0.failure == nil && waiting.contains($0.memo) }
+    }
+
+    /// The server refuses a whole change over one link to a memo it no longer has, or that you
+    /// can no longer read. Drops those links, and says whether there were any.
+    private func dropMissingReferences(of name: String) async throws(APIError) -> Bool {
+        guard let memo = store.own[name] else { return false }
+        var missing: Set<String> = []
+        // Links still waiting for their memo weren't sent, and that memo isn't there yet either.
+        for target in memo.references where !waitingReferences(of: memo).contains(target) {
+            do {
+                _ = try await fetch(target)
+            } catch where error.code == .notFound || error.code == .permissionDenied {
+                missing.insert(target)
+            }
+        }
+        guard !missing.isEmpty else { return false }
+        store.removeReferences(name, to: missing)
+        return true
     }
 
     /// Saves the phone's text as a new memo that references the original, and returns the
@@ -360,7 +422,7 @@ public final class SyncEngine {
         store.completeUpload(change, attachment: uploaded)
     }
 
-    /// An update for `fields` of `memo`. Like the web, a change to the text, attachments or
+    /// An update for `fields` of `memo`. Like the web, a change to the text, attachments, links or
     /// location also asks the server to stamp `update_time`, which is what lets other devices'
     /// change fetches see it. Pinning, archiving and audience changes leave it alone.
     private func updateRequest(_ memo: Memo, fields: Set<MemoField>) -> Memos_Api_UpdateMemoRequest {
@@ -368,8 +430,11 @@ public final class SyncEngine {
         request.memo = memo
         request.memo.clearUpdateTime()
         request.memo.attachments = memo.attachments.filter { !store.isStaged($0) }.map(Self.reference)
+        let waiting = waitingReferences(of: memo)
+        // Only the links going out; the ones coming in belong to other memos.
+        request.memo.relations = memo.referenceRelations.filter { !waiting.contains($0.relatedMemo.name) }
         var paths = fields.map(\.rawValue).sorted()
-        if !fields.isDisjoint(with: [.content, .attachments, .location]) {
+        if !fields.isDisjoint(with: [.content, .attachments, .location, .relations]) {
             paths.append("update_time")
         }
         request.updateMask.paths = paths
@@ -471,6 +536,7 @@ public final class SyncEngine {
     /// visibility, Spaces, saved views, whether anyone else's memos are readable, the
     /// instance's reactions and the unread count.
     public func refreshProfile() async {
+        guard !isStopped else { return }
         let me = self.me
         let client = self.client
         var profile = store.profile
@@ -537,6 +603,8 @@ public final class SyncEngine {
             profile.unreadNotifications = response.notifications.count { $0.status == .unread }
         }
 
+        // Stopped while the requests ran: this account is closed, and a newer session may own its files.
+        guard !isStopped else { return }
         store.profile = profile
     }
 }

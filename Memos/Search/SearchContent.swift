@@ -18,6 +18,8 @@ struct SearchContent: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
+        // Photos indexed while the search is open can match it too.
+        .onChange(of: session.photoSearch.indexedCount) { search.schedulePhotos() }
         // The search field floats over the bottom of the list, and without the software
         // keyboard nothing insets the list for it, so its last rows would sit underneath.
         .contentMargins(.bottom, FloatingBar.height + Spacing.l, for: .scrollContent)
@@ -34,20 +36,26 @@ struct SearchContent: View {
         return List {
             Section {
                 HStack {
-                    Text(countLabel(own.count + others.count))
+                    Text(countLabel(own.count + others.count + photoOnly(beyond: own).count))
                         .font(.metadata)
                         .foregroundStyle(.ink2)
                     Spacer()
                     Button("Save as view", systemImage: "bookmark") { isSavingView = true }
                         .font(.action)
-                        .disabled(!session.isOnline)
+                        .disabled(!session.isOnDevice && !session.isOnline)
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
 
-            if own.isEmpty && others.isEmpty && !search.isLoadingRemote {
+            if own.isEmpty && others.isEmpty && search.photos.isEmpty && !search.isLoadingRemote {
                 nothingFound
+            }
+
+            if !search.photos.isEmpty {
+                Section("Photos") {
+                    PhotoMatchStrip(matches: search.photos)
+                }
             }
 
             if !own.isEmpty {
@@ -99,6 +107,11 @@ struct SearchContent: View {
         .paperBackground()
     }
 
+    /// Memos found only by a photo, so the count includes them once.
+    private func photoOnly(beyond own: [Memo]) -> Set<String> {
+        Set(search.photos.map(\.memo.name)).subtracting(own.map(\.name))
+    }
+
     private func countLabel(_ count: Int) -> String {
         String(localized: "\(count) memos")
     }
@@ -126,6 +139,38 @@ struct SearchContent: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xxl)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+}
+
+/// Photos that look like what you typed, best first, in a row you scroll sideways. A tap opens
+/// the memo the photo is in.
+private struct PhotoMatchStrip: View {
+    let matches: [PhotoSearchModel.Match]
+
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: Spacing.s) {
+                ForEach(matches) { match in
+                    Button {
+                        session.path.append(.memo(match.memo.name))
+                    } label: {
+                        AttachmentImage(attachment: match.attachment)
+                            .frame(width: 104, height: 104)
+                            .clipShape(.rect(cornerRadius: Radius.tight))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(match.memo.displayTitle)
+                    .accessibilityHint("Opens the memo with this photo")
+                }
+            }
+            .padding(.horizontal, Metrics.screenInset)
+        }
+        .scrollIndicators(.hidden)
+        .listRowInsets(EdgeInsets(top: Spacing.xs, leading: 0, bottom: Spacing.xs, trailing: 0))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
     }
@@ -320,8 +365,16 @@ struct SaveViewSheet: View {
         request.memoView.title = title.trimmingCharacters(in: .whitespaces)
         request.memoView.filter = filter
         if !emoji.isEmpty { request.memoView.icon.emoji = emoji }
+        guard let client = session.client else {
+            // The on-device library keeps its views itself, with the rest of its profile.
+            var view = request.memoView
+            view.name = "\(session.user)/memoViews/\(ResourceID.generate())"
+            session.store.profile.views.append(view)
+            dismiss()
+            return
+        }
         do {
-            let view = try await session.client.call(session.client.users.createMemoView(request:headers:), request)
+            let view = try await client.call(client.users.createMemoView(request:headers:), request)
             session.store.profile.views.append(view)
             dismiss()
         } catch {

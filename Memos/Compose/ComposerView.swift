@@ -17,6 +17,7 @@ struct ComposerView: View {
     @State private var isImportingFiles = false
     @State private var isTakingPhoto = false
     @State private var isScanning = false
+    @State private var isLinkingMemo = false
     @State private var confirmDiscard = false
     @State private var saved = 0
     @State private var editorFocused = false
@@ -61,7 +62,10 @@ struct ComposerView: View {
     private func content(_ model: ComposerModel) -> some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Metrics.blockGap) {
-            AudienceChips(model: model)
+            // Who can see a memo means nothing where nobody else can; on-device memos are private.
+            if !session.isOnDevice {
+                AudienceChips(model: model)
+            }
 
             if session.voice.phase != .idle && session.voice.phase != .finished {
                 VoiceStatus(recorder: session.voice) {
@@ -86,6 +90,10 @@ struct ComposerView: View {
 
             if !model.attachments.isEmpty || model.location != nil || model.preparing > 0 {
                 AttachmentStrip(model: model)
+            }
+
+            if !model.references.isEmpty {
+                LinkedMemos(model: model)
             }
 
             if let error = model.error {
@@ -170,6 +178,9 @@ struct ComposerView: View {
             }
             .ignoresSafeArea()
         }
+        .sheet(isPresented: $isLinkingMemo) {
+            LinkMemoPicker(excluded: Set(model.references + [model.editing?.name].compactMap(\.self))) { model.link($0) }
+        }
         .task { await begin(model) }
     }
 
@@ -207,6 +218,7 @@ struct ComposerView: View {
             }
             Button("Files", systemImage: "folder") { isImportingFiles = true }
             Button("Current Location", systemImage: "location") { Task { await model.addCurrentLocation() } }
+            Button("Link Memo", systemImage: "link") { isLinkingMemo = true }
         } label: {
             Image(systemName: "paperclip")
         }
@@ -545,6 +557,34 @@ private struct AttachmentStrip: View {
                 .offset(x: Spacing.s, y: -Spacing.s)
                 .accessibilityLabel("Remove")
             }
+    }
+}
+
+/// The memos the draft links to, each removable.
+private struct LinkedMemos: View {
+    let model: ComposerModel
+    @Environment(AccountSession.self) private var session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            ForEach(model.references, id: \.self) { name in
+                LinkedMemoRow(snippet: session.linkSnippet(name, from: model.editing), direction: .referencing) {
+                    Button {
+                        model.unlink(name)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.ink2)
+                            .frame(minWidth: 28, minHeight: 28)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove Link")
+                }
+                .padding(.vertical, -Spacing.xs)
+                .transition(.opacity)
+            }
+        }
     }
 }
 

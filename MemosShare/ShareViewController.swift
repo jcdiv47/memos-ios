@@ -27,6 +27,8 @@ final class ShareModel {
     var isSaving = false
     var error: String?
     private(set) var signedIn = AccountLocation.current != nil
+    /// The on-device library is open: memos are private to this iPhone, with no audience to pick.
+    private(set) var isOnDevice = AccountLocation.current?.isOnDevice == true
 
     @ObservationIgnored private weak var context: NSExtensionContext?
 
@@ -68,9 +70,10 @@ final class ShareModel {
         }
     }
 
-    /// Uploads straight away when it can; otherwise leaves the memo for the app to upload.
+    /// Uploads straight away when it can; otherwise leaves the memo for the app to upload. With the
+    /// on-device library open there's nowhere to upload to, so the memo always waits for the app.
     func save() async {
-        guard let location = AccountLocation.current, let server = AccountLocation.currentServer else {
+        guard let location = AccountLocation.current else {
             error = String(localized: "Open Memos and sign in first.")
             return
         }
@@ -82,10 +85,12 @@ final class ShareModel {
         let draft = ExtensionDraft(content: text.trimmingCharacters(in: .whitespacesAndNewlines), visibility: visibility, files: files)
         let data = Dictionary(uniqueKeysWithValues: images.enumerated().map { ("file-\($0.offset)", $0.element.data) })
 
-        let client = MemosClient(serverURL: server, credentialStore: KeychainCredentialStore())
-        do {
-            _ = try await AttachmentUpload.create(draft, files: data, client: client)
-        } catch {
+        var uploaded = false
+        if !location.isOnDevice, let server = AccountLocation.currentServer {
+            let client = MemosClient(serverURL: server, credentialStore: KeychainCredentialStore())
+            uploaded = (try? await AttachmentUpload.create(draft, files: data, client: client)) != nil
+        }
+        if !uploaded {
             do {
                 try ExtensionInbox.drop(draft, files: data, in: location)
             } catch {
@@ -117,16 +122,18 @@ struct ShareComposer: View {
                         .wellBackground()
                 }
 
-                Menu {
-                    Picker("Visibility", selection: $model.visibility) {
-                        ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
-                            Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
+                if !model.isOnDevice {
+                    Menu {
+                        Picker("Visibility", selection: $model.visibility) {
+                            ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
+                                Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
+                            }
                         }
+                    } label: {
+                        Label(model.visibility.label, systemImage: model.visibility.systemImage)
                     }
-                } label: {
-                    Label(model.visibility.label, systemImage: model.visibility.systemImage)
+                    .buttonStyle(.chip)
                 }
-                .buttonStyle(.chip)
 
                 TextEditor(text: $model.text)
                     .font(.memoBody)

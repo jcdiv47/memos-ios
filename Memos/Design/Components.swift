@@ -147,6 +147,31 @@ struct WideButtonLabel: View {
     }
 }
 
+// MARK: Conditional modifiers
+
+extension View {
+    /// Pull to refresh where there's something to refresh from. Off in the on-device library, so
+    /// the gesture doesn't promise a sync that never happens.
+    @ViewBuilder
+    func refreshable(if enabled: Bool, action: @escaping @MainActor @Sendable () async -> Void) -> some View {
+        if enabled {
+            refreshable { await action() }
+        } else {
+            self
+        }
+    }
+
+    /// A title menu where there's something to put in it.
+    @ViewBuilder
+    func toolbarTitleMenu<Content: View>(if enabled: Bool, @ViewBuilder content: () -> Content) -> some View {
+        if enabled {
+            toolbarTitleMenu(content: content)
+        } else {
+            self
+        }
+    }
+}
+
 // MARK: People
 
 /// A letter avatar. `size` is the diameter at the default text size; pass the result of

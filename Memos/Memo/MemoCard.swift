@@ -44,6 +44,8 @@ struct MemoCard: View {
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel("Location, \(location.placeholder)")
                     }
+
+                    MemoLinks(memo: memo)
                 }
             }
 
@@ -79,6 +81,8 @@ struct MemoHeader: View {
 
     var body: some View {
         let name = session.people.name(for: memo.creator)
+        // Every memo in the on-device library is yours; naming the author says nothing.
+        let showsAuthor = showsAuthor && !session.isOnDevice
         HStack(alignment: .center, spacing: Spacing.m) {
             if showsAuthor {
                 UserAvatar(user: memo.creator, size: AvatarSize.small)
@@ -120,7 +124,7 @@ struct MemoHeader: View {
         if waiting {
             Image(systemName: "clock")
                 .accessibilityLabel("Waiting to sync")
-        } else {
+        } else if !session.isOnDevice {
             Image(systemName: memo.visibility.systemImage)
                 .accessibilityLabel(memo.visibility.label)
         }

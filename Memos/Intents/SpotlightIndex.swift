@@ -7,14 +7,51 @@ import OSLog
 enum SpotlightIndex {
     private nonisolated static let logger = Logger(subsystem: "app.memos", category: "spotlight")
 
+    /// The last queued change. Each waits for the one before, so clearing the index when one
+    /// library closes can't land after the next library is indexed.
+    private static var queue: Task<Void, Never>?
+
+    private static func enqueue(_ work: @escaping @Sendable () async -> Void) {
+        let previous = queue
+        queue = Task(priority: .background) {
+            await previous?.value
+            await work()
+        }
+    }
+
     static func update(_ store: MemoStore) {
-        Task(priority: .background) { await reindex(store) }
+        let entities = store.own.values.filter { !$0.isArchived }.map(MemoEntity.init)
+        enqueue { await index(entities) }
+    }
+
+    /// Swaps in `store`'s memos for whatever library was indexed before.
+    static func replace(with store: MemoStore) {
+        let entities = store.own.values.filter { !$0.isArchived }.map(MemoEntity.init)
+        enqueue {
+            await removeAll()
+            await index(entities)
+        }
+    }
+
+    /// Removes every memo, once the library they belong to is gone.
+    static func clear() {
+        enqueue { await removeAll() }
+    }
+
+    @concurrent
+    private static func removeAll() async {
+        do {
+            try await CSSearchableIndex.default().deleteAppEntities(ofType: MemoEntity.self)
+        } catch {
+            logger.error("Clearing the index failed: \(error)")
+        }
     }
 
     /// Waits for Spotlight to take the memos, for callers that must finish before suspension.
     static func reindex(_ store: MemoStore) async {
         let entities = store.own.values.filter { !$0.isArchived }.map(MemoEntity.init)
-        await index(entities)
+        enqueue { await index(entities) }
+        await queue?.value
     }
 
     @concurrent

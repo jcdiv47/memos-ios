@@ -21,11 +21,12 @@ public struct MemoFacts: Sendable {
     public var hasCode: Bool
     public var hasIncompleteTasks: Bool
     public var hasLocation: Bool
+    public var hasAttachments: Bool
 
     public init(
         content: String, creator: String, createdAt: Date, updatedAt: Date, pinned: Bool, tags: [String],
         visibility: String, space: String?, hasTaskList: Bool, hasLink: Bool, hasCode: Bool,
-        hasIncompleteTasks: Bool, hasLocation: Bool
+        hasIncompleteTasks: Bool, hasLocation: Bool, hasAttachments: Bool = false
     ) {
         self.content = content
         self.creator = creator
@@ -40,6 +41,7 @@ public struct MemoFacts: Sendable {
         self.hasCode = hasCode
         self.hasIncompleteTasks = hasIncompleteTasks
         self.hasLocation = hasLocation
+        self.hasAttachments = hasAttachments
     }
 }
 
@@ -130,6 +132,7 @@ struct Evaluator {
         case "has_code": return .bool(facts.hasCode)
         case "has_incomplete_tasks": return .bool(facts.hasIncompleteTasks)
         case "has_location": return .bool(facts.hasLocation)
+        case "has_attachments": return .bool(facts.hasAttachments)
         case "now": return .timestamp(now)
         default: throw CELError("Unknown field ‘\(name)’")
         }
