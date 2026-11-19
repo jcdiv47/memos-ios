@@ -295,7 +295,7 @@ public final class MemoStore {
             others[memo.name] = nil
             received.append(stored)
         }
-        reflectReferences(of: received)
+        reflectReferences(of: received + pendingLinkSources)
         didChange(own: true, others: true, notify: false)
     }
 
@@ -320,7 +320,7 @@ public final class MemoStore {
                 others[memo.name] = keepingSnippets(memo, from: others[memo.name])
             }
         }
-        reflectReferences(of: memos.filter { $0.creator != user })
+        reflectReferences(of: memos.filter { $0.creator != user } + pendingLinkSources)
         if others.count > Self.othersCacheLimit {
             let keep = others.values.sorted { $0.createdAt > $1.createdAt }.prefix(Self.othersCacheLimit)
             others = Dictionary(keep.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
@@ -411,6 +411,19 @@ public final class MemoStore {
     }
 
     // MARK: Links
+
+    /// Your memos whose links haven't uploaded yet. A fetched memo doesn't know about them, so
+    /// they win over what it says links to it.
+    private var pendingLinkSources: [Memo] {
+        let names = Set(state.outbox.compactMap { change -> String? in
+            switch change.operation {
+            case .create: change.memo
+            case .update(let fields, _) where fields.contains(.relations): change.memo
+            default: nil
+            }
+        })
+        return names.compactMap { own[$0] }
+    }
 
     private func reflectReferences(of memos: [Memo]) {
         reflectReferences(of: memos.map { ($0.name, $0.snippet, $0.references) })

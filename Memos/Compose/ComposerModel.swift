@@ -122,7 +122,7 @@ final class ComposerModel {
         space = draft.space
         suggestion = draft.suggestion
         location = draft.location
-        references = draft.references
+        references = draft.references ?? editing?.references ?? []
         // A staged file can be missing if the app stopped between staging it and saving the draft.
         attachments = draft.attachments.filter { attachment in
             session.store.isStaged(attachment) || editing?.attachments.contains { $0.name == attachment.name } == true
@@ -391,7 +391,8 @@ final class ComposerModel {
                 memo.spaceName = space
                 memo.attachments = attachments
                 if let location { memo.location = location } else { memo.clearLocation() }
-                memo.setReferences(references)
+                // Only when they changed here: a sync may have brought links since the composer opened.
+                if fields.contains(.relations) { memo.setReferences(references) }
             }
         } else {
             store.create(MemoDraft(content: content, visibility: visibility, space: space, location: location, attachments: attachments, references: references))

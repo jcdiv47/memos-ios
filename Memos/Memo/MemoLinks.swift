@@ -34,10 +34,12 @@ struct MemoLinks: View {
     @Environment(AccountSession.self) private var session
 
     var body: some View {
-        let rows = memo.references.map { ($0, LinkDirection.referencing) } + memo.referencedBy.map { ($0, LinkDirection.referencedBy) }
+        // Two memos can link each other, so a name can appear in both directions.
+        let rows = memo.references.map { (id: "out-\($0)", name: $0, direction: LinkDirection.referencing) }
+            + memo.referencedBy.map { (id: "in-\($0)", name: $0, direction: LinkDirection.referencedBy) }
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                ForEach(rows, id: \.0) { name, direction in
+                ForEach(rows, id: \.id) { _, name, direction in
                     Button {
                         session.show(memo: name)
                     } label: {

@@ -89,4 +89,25 @@ import Testing
         store.receiveOwn([source])
         #expect(store.own["memos/t"]?.referencedBy == [])
     }
+
+    @Test func `fetching a linked memo keeps a link that hasn't uploaded yet`() async throws {
+        let store = await makeStore()
+        var target = Memo()
+        target.name = "memos/t"
+        target.creator = "users/you"
+        target.content = "Target"
+        store.receiveOwn([target])
+        let source = store.create(MemoDraft(content: "Source", visibility: .private, references: ["memos/t"]))
+
+        // The server doesn't know about the link yet.
+        store.receiveOwn([target])
+        #expect(store.own["memos/t"]?.referencedBy == [source.name])
+    }
+
+    @Test func `a draft saved before links has none recorded`() throws {
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(ComposerDraft(text: "Hi", visibility: .private, references: ["memos/b"]))) as? [String: Any])
+        json["references"] = nil
+        let draft = try JSONDecoder().decode(ComposerDraft.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(draft.references == nil)
+    }
 }

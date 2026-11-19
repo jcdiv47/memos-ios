@@ -10,12 +10,9 @@ public struct ComposerDraft: Codable, Equatable, Sendable {
     private var suggestionValue: String?
     @ProtoValues public var attachments: [Attachment]
     @ProtoValue public var location: MemoLocation?
-    /// The memos it links to. Missing from drafts saved before links.
-    private var referencesValue: [String]?
-    public var references: [String] {
-        get { referencesValue ?? [] }
-        set { referencesValue = newValue }
-    }
+    /// The memos it links to. Nil in drafts saved before links, which mustn't clear the links an
+    /// edited memo has.
+    public var references: [String]?
     /// For an edit, the version of the memo it started from.
     public var base: BaseVersion?
     public var savedAt: Date
@@ -38,7 +35,7 @@ public struct ComposerDraft: Codable, Equatable, Sendable {
         suggestion: MemoVisibility? = nil,
         attachments: [Attachment] = [],
         location: MemoLocation? = nil,
-        references: [String] = [],
+        references: [String]? = [],
         base: BaseVersion? = nil,
         savedAt: Date = .now
     ) {
@@ -48,7 +45,7 @@ public struct ComposerDraft: Codable, Equatable, Sendable {
         suggestionValue = suggestion?.filterValue
         _attachments = ProtoValues(attachments)
         _location = ProtoValue(location)
-        referencesValue = references
+        self.references = references
         self.base = base
         self.savedAt = savedAt
     }

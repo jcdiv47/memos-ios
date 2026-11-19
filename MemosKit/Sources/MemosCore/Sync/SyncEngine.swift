@@ -267,7 +267,7 @@ public final class SyncEngine {
             update.updateMask.paths = followUp
             created = try await client.call(client.memos.updateMemo(request:headers:), update)
         }
-        if !waiting.isEmpty {
+        if hasRetryableWait(waiting) {
             // Sent once the memos they point to are on the server.
             store.update(change.memo, fields: [.relations]) { _ in }
         }
@@ -301,7 +301,7 @@ public final class SyncEngine {
         let request = updateRequest(local, fields: fields)
         do {
             let updated = try await client.call(client.memos.updateMemo(request:headers:), request)
-            if fields.contains(.relations), !waitingReferences(of: local).isEmpty {
+            if fields.contains(.relations), hasRetryableWait(waitingReferences(of: local)) {
                 store.update(change.memo, fields: [.relations]) { _ in }
             }
             store.complete(change, serverMemo: updated)
@@ -321,12 +321,19 @@ public final class SyncEngine {
         Set(memo.references.filter { target in store.outbox.contains { $0.memo == target && $0.operation == .create } })
     }
 
+    /// Whether a later change can send any of `waiting`. A link to a memo whose create the server
+    /// rejected stays on this device; trying again would only queue the same change forever.
+    private func hasRetryableWait(_ waiting: Set<String>) -> Bool {
+        store.outbox.contains { $0.operation == .create && $0.failure == nil && waiting.contains($0.memo) }
+    }
+
     /// The server refuses a whole change over one link to a memo it no longer has, or that you
     /// can no longer read. Drops those links, and says whether there were any.
     private func dropMissingReferences(of name: String) async throws(APIError) -> Bool {
         guard let memo = store.own[name] else { return false }
         var missing: Set<String> = []
-        for target in memo.references {
+        // Links still waiting for their memo weren't sent, and that memo isn't there yet either.
+        for target in memo.references where !waitingReferences(of: memo).contains(target) {
             do {
                 _ = try await fetch(target)
             } catch where error.code == .notFound || error.code == .permissionDenied {
