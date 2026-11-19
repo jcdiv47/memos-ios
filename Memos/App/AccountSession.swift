@@ -86,6 +86,8 @@ final class AccountSession {
     /// The on-device library, which belongs to no server.
     var isOnDevice: Bool { store.isOnDevice }
 
+    @ObservationIgnored private var isClosed = false
+
     @ObservationIgnored private var queryCache: [(query: MemoQuery, revision: Int, memos: [Memo])] = []
 
     /// ``MemoStore/memos(_:now:)``, cached until the store changes, since timelines ask for the
@@ -147,6 +149,8 @@ final class AccountSession {
         connectivity.start()
         Task {
             await engine.sync()
+            // Closed meanwhile: the next library owns Spotlight now.
+            guard !isClosed else { return }
             dropMissingSpace()
             files.prefetchThumbnails()
             SpotlightIndex.update(store)
@@ -166,8 +170,11 @@ final class AccountSession {
     }
     #endif
 
+    /// Closes the library: stops its sync, then writes what's left to disk.
     func stop() async {
+        isClosed = true
         connectivity.stop()
+        await engine?.stop()
         drafts.flush()
         await store.save()
     }
@@ -187,6 +194,8 @@ final class AccountSession {
         defer { UIApplication.shared.endBackgroundTask(task) }
         drafts.flush()
         await store.save()
+        // Closed while saving: the next library owns Spotlight now.
+        guard !isClosed else { return }
         await SpotlightIndex.reindex(store)
         WidgetCenter.shared.reloadAllTimelines()
     }
