@@ -108,6 +108,18 @@
           }
         }
       }
+    },
+    "New Memo" : {
+      "comment" : "Home Screen quick action",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建 Memo"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

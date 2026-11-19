@@ -81,6 +81,11 @@ targets:
         NSLocationWhenInUseUsageDescription: Memos adds the place you’re at to a memo when you ask it to.
         NSCameraUsageDescription: Memos attaches photos you take and documents you scan to your memos.
         NSUserActivityTypes: [CreateMemoIntent, SearchMemosIntent]
+        # The Home Screen icon's long-press menu; HomeScreenActions handles it.
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: $(MEMOS_BUNDLE_PREFIX).new-memo
+            UIApplicationShortcutItemTitle: New Memo
+            UIApplicationShortcutItemIconSymbolName: square.and.pencil
     entitlements:
       path: Memos/Memos.entitlements
       properties:
