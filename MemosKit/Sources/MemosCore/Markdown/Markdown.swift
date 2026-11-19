@@ -1,7 +1,7 @@
 import Foundation
 
 /// The block structure of a memo: what memos actually contain (headings, paragraphs, task and
-/// bullet lists, quotes, code, tables), not all of CommonMark. Inline formatting inside each
+/// bullet lists, quotes, code, math, tables), not all of CommonMark. Inline formatting inside each
 /// block is left to `AttributedString(markdown:)` at render time.
 public struct MarkdownDocument: Equatable, Sendable {
     public var blocks: [MarkdownBlock]
@@ -23,6 +23,9 @@ public enum MarkdownBlock: Equatable, Sendable {
     case list([ListItem])
     case quote(String)
     case code(language: String?, code: String)
+    /// Display math between `$$` fences, as written. The text after the opening fence is
+    /// dropped, like a code fence's info string.
+    case math(String)
     case table(header: [String], rows: [[String]])
     case rule
 }
@@ -77,6 +80,19 @@ struct BlockParser {
                 }
                 index += 1 // closing fence
                 blocks.append(.code(language: fence.language, code: code.joined(separator: "\n")))
+                continue
+            }
+
+            if let fence = Self.mathFence(trimmed) {
+                flushParagraph()
+                var tex: [String] = []
+                index += 1
+                while index < lines.count, !Self.closesMath(lines[index], fence: fence) {
+                    tex.append(lines[index])
+                    index += 1
+                }
+                index += 1 // closing fence; an unclosed one runs to the end, as on the server
+                blocks.append(.math(tex.joined(separator: "\n")))
                 continue
             }
 
@@ -152,6 +168,20 @@ struct BlockParser {
             return (marker, language.isEmpty ? nil : language)
         }
         return nil
+    }
+
+    /// The length of a `$$` fence opening display math. A line with another `$` after the
+    /// fence is inline math or text instead.
+    static func mathFence(_ line: String) -> Int? {
+        let length = line.prefix { $0 == "$" }.count
+        guard length >= 2, !line.dropFirst(length).contains("$") else { return nil }
+        return length
+    }
+
+    static func closesMath(_ line: String, fence: Int) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let length = trimmed.prefix { $0 == "$" }.count
+        return length >= fence && trimmed.dropFirst(length).allSatisfy(\.isWhitespace)
     }
 
     static func heading(_ line: String) -> (Int, String)? {
@@ -248,14 +278,19 @@ public struct ContentAnalysis: Equatable, Sendable {
             case .table(let header, let rows):
                 prose.append(contentsOf: header)
                 prose.append(contentsOf: rows.flatMap(\.self))
-            case .rule:
+            case .math, .rule:
                 break
             }
         }
+        // Spans are found block by block: inline math never runs from one block into the next.
+        var tags: [String] = []
+        for part in prose {
+            let spans = InlineSpans.scan(part)
+            if spans.contains(where: { $0.kind == .code }) { hasCode = true }
+            tags += TagScanner.tags(in: part, excluding: spans.map(\.range))
+        }
         let text = prose.joined(separator: "\n")
-        let spans = TagScanner.codeSpans(in: text)
-        if !spans.isEmpty { hasCode = true }
-        self.tags = TagScanner.hierarchy(TagScanner.tags(in: text, excluding: spans))
+        self.tags = TagScanner.hierarchy(tags)
         self.title = document.title ?? ""
         self.hasLink = TagScanner.containsLink(text)
         self.hasCode = hasCode
@@ -344,25 +379,9 @@ public enum TagScanner {
         !(character.isLetter || character.isNumber || character == "_" || character == "#" || character == "&" || character == "/")
     }
 
-    /// Ranges of inline `code` spans, where `#` never starts a tag.
-    public static func codeSpans(in text: String) -> [Range<String.Index>] {
-        var spans: [Range<String.Index>] = []
-        var start: String.Index?
-        var index = text.startIndex
-        while index < text.endIndex {
-            if text[index] == "`" {
-                if let open = start {
-                    spans.append(open..<text.index(after: index))
-                    start = nil
-                } else {
-                    start = index
-                }
-            } else if text[index] == "\n", start != nil {
-                start = nil
-            }
-            index = text.index(after: index)
-        }
-        return spans
+    /// Ranges of inline `code` spans and `$math$`, where `#` never starts a tag.
+    public static func literalSpans(in text: String) -> [Range<String.Index>] {
+        InlineSpans.scan(text).map(\.range)
     }
 
     static func containsLink(_ text: String) -> Bool {

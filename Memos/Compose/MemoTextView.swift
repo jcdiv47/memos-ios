@@ -119,7 +119,7 @@ struct MemoTextView: UIViewRepresentable {
         func highlight(_ textView: UITextView) {
             guard textView.markedTextRange == nil else { return }
             let text: String = textView.text
-            let ranges = TagScanner.matches(in: text, excluding: TagScanner.codeSpans(in: text)).map { NSRange($0.range, in: text) }
+            let ranges = TagScanner.matches(in: text, excluding: TagScanner.literalSpans(in: text)).map { NSRange($0.range, in: text) }
             let storage = textView.textStorage
             let whole = NSRange(location: 0, length: storage.length)
             var current: [NSRange] = []
