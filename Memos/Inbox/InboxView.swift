@@ -63,14 +63,14 @@ struct InboxView: View {
     }
 
     private func load() async {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             loaded = true
             return
         }
         var request = Memos_Api_ListUserNotificationsRequest()
         request.parent = session.user
         do {
-            let response = try await session.client.call(session.client.users.listUserNotifications(request:headers:), request)
+            let response = try await client.call(client.users.listUserNotifications(request:headers:), request)
             notifications = response.notifications.sorted { $0.createTime.date > $1.createTime.date }
             for notification in notifications { session.people.remember(notification.senderUser) }
             session.store.profile.unreadNotifications = notifications.count { $0.status == .unread }
@@ -93,19 +93,19 @@ struct InboxView: View {
             default: break
             }
         case .accept, .decline:
-            guard case .spaceInvitation(let payload) = notification.payload else { return }
+            guard case .spaceInvitation(let payload) = notification.payload, let client = session.client else { return }
             do {
                 if action == .accept {
                     var request = Memos_Api_AcceptSpaceInvitationRequest()
                     request.name = payload.spaceInvitation
-                    _ = try await session.client.call(session.client.spaces.acceptSpaceInvitation(request:headers:), request)
+                    _ = try await client.call(client.spaces.acceptSpaceInvitation(request:headers:), request)
                 } else {
                     var request = Memos_Api_DeclineSpaceInvitationRequest()
                     request.name = payload.spaceInvitation
-                    _ = try await session.client.call(session.client.spaces.declineSpaceInvitation(request:headers:), request)
+                    _ = try await client.call(client.spaces.declineSpaceInvitation(request:headers:), request)
                 }
                 await archive(notification)
-                await session.engine.refreshProfile()
+                await session.engine?.refreshProfile()
                 await load()
             } catch {
                 self.error = error.description
@@ -114,12 +114,12 @@ struct InboxView: View {
     }
 
     private func archive(_ notification: UserNotification) async {
-        guard notification.status == .unread else { return }
+        guard notification.status == .unread, let client = session.client else { return }
         var request = Memos_Api_UpdateUserNotificationRequest()
         request.notification.name = notification.name
         request.notification.status = .archived
         request.updateMask.paths = ["status"]
-        if let updated = try? await session.client.call(session.client.users.updateUserNotification(request:headers:), request),
+        if let updated = try? await client.call(client.users.updateUserNotification(request:headers:), request),
            let index = notifications.firstIndex(where: { $0.name == updated.name }) {
             notifications[index].status = updated.status
             session.store.profile.unreadNotifications = notifications.count { $0.status == .unread }
@@ -127,9 +127,10 @@ struct InboxView: View {
     }
 
     private func delete(_ notification: UserNotification) async {
+        guard let client = session.client else { return }
         var request = Memos_Api_DeleteUserNotificationRequest()
         request.name = notification.name
-        if (try? await session.client.call(session.client.users.deleteUserNotification(request:headers:), request)) != nil {
+        if (try? await client.call(client.users.deleteUserNotification(request:headers:), request)) != nil {
             withAnimation(.memosSpring) { notifications.removeAll { $0.name == notification.name } }
             session.store.profile.unreadNotifications = notifications.count { $0.status == .unread }
         }

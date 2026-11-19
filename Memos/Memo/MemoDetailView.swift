@@ -92,24 +92,9 @@ struct MemoDetailView: View {
                     }
                 }
 
-                CommentsSection(
-                    comments: comments,
-                    loaded: commentsLoaded,
-                    online: session.isOnline,
-                    onEdit: { editingComment = EditableComment(memo: $0) },
-                    onDelete: { commentToDelete = $0 }
-                )
-                .confirmationDialog(
-                    "Delete this comment?",
-                    isPresented: Binding(get: { commentToDelete != nil }, set: { if !$0 { commentToDelete = nil } }),
-                    titleVisibility: .visible,
-                    presenting: commentToDelete
-                ) { comment in
-                    Button("Delete", role: .destructive) {
-                        Task { await deleteComment(comment) }
-                    }
-                } message: { _ in
-                    Text("It’s removed for everyone who can read this memo.")
+                // Comments live on the server; the on-device library has none.
+                if !session.isOnDevice {
+                    commentsSection
                 }
             }
             .padding(Metrics.screenInset)
@@ -140,16 +125,20 @@ struct MemoDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     MemoActions(memo: memo, onReact: { withAnimation(.memosSpring) { reactionPickerOpen = true } })
-                    Button("Create Share Link", systemImage: "link.badge.plus") {
-                        Task { await createShareLink(memo) }
+                    if !session.isOnDevice {
+                        Button("Create Share Link", systemImage: "link.badge.plus") {
+                            Task { await createShareLink(memo) }
+                        }
+                        .disabled(!session.isOnline)
                     }
-                    .disabled(!session.isOnline)
                     if isMine {
-                        Menu("Move to", systemImage: "square.stack") {
-                            Button("No Space") { session.store.setAudience(memo.name, visibility: memo.visibility, space: nil) }
-                            ForEach(session.store.profile.spaces, id: \.name) { space in
-                                Button(space.title) {
-                                    session.store.setAudience(memo.name, visibility: VisibilityRules.afterAddingSpace(memo.visibility), space: space.name)
+                        if !session.isOnDevice {
+                            Menu("Move to", systemImage: "square.stack") {
+                                Button("No Space") { session.store.setAudience(memo.name, visibility: memo.visibility, space: nil) }
+                                ForEach(session.store.profile.spaces, id: \.name) { space in
+                                    Button(space.title) {
+                                        session.store.setAudience(memo.name, visibility: VisibilityRules.afterAddingSpace(memo.visibility), space: space.name)
+                                    }
                                 }
                             }
                         }
@@ -168,7 +157,11 @@ struct MemoDetailView: View {
                 dismiss()
             }
         } message: {
-            Text("It’s removed everywhere, along with its comments.")
+            if session.isOnDevice {
+                Text("It’s removed from this iPhone, along with its attachments.")
+            } else {
+                Text("It’s removed everywhere, along with its comments.")
+            }
         }
         .sheet(item: Binding(get: { shareURL.map(IdentifiedURL.init) }, set: { shareURL = $0?.url })) { item in
             ShareLinkSheet(url: item.url)
@@ -183,22 +176,47 @@ struct MemoDetailView: View {
         }
     }
 
+    private var commentsSection: some View {
+        CommentsSection(
+            comments: comments,
+            loaded: commentsLoaded,
+            online: session.isOnline,
+            onEdit: { editingComment = EditableComment(memo: $0) },
+            onDelete: { commentToDelete = $0 }
+        )
+        .confirmationDialog(
+            "Delete this comment?",
+            isPresented: Binding(get: { commentToDelete != nil }, set: { if !$0 { commentToDelete = nil } }),
+            titleVisibility: .visible,
+            presenting: commentToDelete
+        ) { comment in
+            Button("Delete", role: .destructive) {
+                Task { await deleteComment(comment) }
+            }
+        } message: { _ in
+            Text("It’s removed for everyone who can read this memo.")
+        }
+    }
+
     // MARK: Loading
 
     private func load() async {
-        if memo == nil || session.isOnline {
+        if let engine = session.engine, memo == nil || session.isOnline {
             do {
-                try await session.engine.refresh(name)
+                try await engine.refresh(name)
             } catch {
                 if error.code == .notFound || error.code == .permissionDenied { missing = true }
                 if memo == nil && !error.isConnectivity { missing = true }
             }
+        } else if memo == nil {
+            // Nowhere else to look: the on-device library holds every memo it has.
+            missing = true
         }
         await loadComments()
     }
 
     private func loadComments() async {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             commentsLoaded = true
             return
         }
@@ -206,7 +224,7 @@ struct MemoDetailView: View {
         request.parent = name
         request.pageSize = 200
         request.orderBy = "create_time asc"
-        if let response = try? await session.client.call(session.client.memos.listMemoComments(request:headers:), request) {
+        if let response = try? await client.call(client.memos.listMemoComments(request:headers:), request) {
             // Oldest first, like a conversation. The server ignores order_by here.
             withAnimation(.memosSpring) { comments = response.comments.sorted { $0.createTime.date < $1.createTime.date } }
         }
@@ -223,10 +241,10 @@ struct MemoDetailView: View {
             linkPreview = cached
             return
         }
-        guard session.isOnline else { return }
+        guard session.isOnline, let client = session.client else { return }
         var request = Memos_Api_GetLinkMetadataRequest()
         request.url = url
-        if let metadata = try? await session.client.call(session.client.memos.getLinkMetadata(request:headers:), request),
+        if let metadata = try? await client.call(client.memos.getLinkMetadata(request:headers:), request),
            !metadata.title.isEmpty {
             session.linkPreviews[url] = metadata
             withAnimation(.memosSpring) { linkPreview = metadata }
@@ -242,7 +260,7 @@ struct MemoDetailView: View {
     // MARK: Actions
 
     private func toggleReaction(_ emoji: String, on memo: Memo) async {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to react.")
             return
         }
@@ -250,14 +268,14 @@ struct MemoDetailView: View {
             if let existing = memo.reactions.first(where: { $0.reactionType == emoji && $0.creator == session.user }) {
                 var request = Memos_Api_DeleteMemoReactionRequest()
                 request.name = existing.name
-                _ = try await session.client.call(session.client.memos.deleteMemoReaction(request:headers:), request)
+                _ = try await client.call(client.memos.deleteMemoReaction(request:headers:), request)
             } else {
                 var request = Memos_Api_UpsertMemoReactionRequest()
                 request.parent = memo.name
                 request.reaction.reactionType = emoji
-                _ = try await session.client.call(session.client.memos.upsertMemoReaction(request:headers:), request)
+                _ = try await client.call(client.memos.upsertMemoReaction(request:headers:), request)
             }
-            _ = try? await session.engine.refresh(memo.name)
+            _ = try? await session.engine?.refresh(memo.name)
         } catch {
             show(error.isConnectivity ? "Connect to react." : "Couldn’t react: \(error.description)" as LocalizedStringResource)
         }
@@ -265,7 +283,7 @@ struct MemoDetailView: View {
 
     /// Comments send only when online, so nobody receives one hours after you thought you sent it.
     private func comment(_ text: String, on memo: Memo) async -> Bool {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to comment.")
             return false
         }
@@ -279,7 +297,7 @@ struct MemoDetailView: View {
         }
         request.comment.state = .normal
         do {
-            let created = try await session.client.call(session.client.memos.createMemoComment(request:headers:), request)
+            let created = try await client.call(client.memos.createMemoComment(request:headers:), request)
             withAnimation(.memosSpring) { comments.append(created) }
             return true
         } catch {
@@ -291,7 +309,7 @@ struct MemoDetailView: View {
     /// Like adding a comment, editing and deleting one happen only online, so what others read
     /// never lags behind what you see.
     private func editComment(_ comment: Memo, to text: String) async -> Bool {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to edit comments.")
             return false
         }
@@ -301,7 +319,7 @@ struct MemoDetailView: View {
         // The server moves `update_time` only when the mask asks, as the sync engine does for memos.
         request.updateMask.paths = ["content", "update_time"]
         do {
-            let updated = try await session.client.call(session.client.memos.updateMemo(request:headers:), request)
+            let updated = try await client.call(client.memos.updateMemo(request:headers:), request)
             withAnimation(.memosSpring) {
                 if let index = comments.firstIndex(where: { $0.name == comment.name }) { comments[index] = updated }
             }
@@ -314,14 +332,14 @@ struct MemoDetailView: View {
     }
 
     private func deleteComment(_ comment: Memo) async {
-        guard session.isOnline else {
+        guard session.isOnline, let client = session.client else {
             show("Connect to delete comments.")
             return
         }
         var request = Memos_Api_DeleteMemoRequest()
         request.name = comment.name
         do {
-            _ = try await session.client.call(session.client.memos.deleteMemo(request:headers:), request)
+            _ = try await client.call(client.memos.deleteMemo(request:headers:), request)
         } catch where error.code == .notFound {
             // Already gone.
         } catch {
@@ -336,16 +354,17 @@ struct MemoDetailView: View {
     /// removes it once deleted.
     private func refreshStoredCopy(of name: String) async {
         guard session.store.memo(named: name) != nil else { return }
-        _ = try? await session.engine.refresh(name)
+        _ = try? await session.engine?.refresh(name)
     }
 
     private func createShareLink(_ memo: Memo) async {
+        guard let client = session.client else { return }
         var request = Memos_Api_CreateMemoShareRequest()
         request.parent = memo.name
         do {
-            let share = try await session.client.call(session.client.memos.createMemoShare(request:headers:), request)
+            let share = try await client.call(client.memos.createMemoShare(request:headers:), request)
             let token = ResourceName.lastSegment(share.name)
-            shareURL = session.client.serverURL.appending(path: "memos/shares/\(token)")
+            shareURL = client.serverURL.appending(path: "memos/shares/\(token)")
         } catch {
             if error.isConnectivity {
                 show("Connect to create a share link.")
@@ -583,6 +602,10 @@ private struct DetailBar: View {
                     .padding(.horizontal, Spacing.m)
                     .glassEffect(.regular.interactive(), in: .capsule)
                     .glassEffectID("react", in: glass)
+                } else if session.isOnDevice {
+                    // Nobody to react or comment: sharing the text is all that's left here.
+                    Spacer(minLength: 0)
+                    shareButton
                 } else {
                     Button {
                         withAnimation(pickerAnimation) { pickerOpen = true }
@@ -619,19 +642,32 @@ private struct DetailBar: View {
                     .glassEffect(.regular.interactive(), in: .capsule)
                     .glassEffectID("comment", in: glass)
 
-                    ShareLink(item: session.webURL(for: memo), subject: Text(memo.displayTitle), message: Text(memo.previewText)) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.barSymbol)
-                            .frame(width: FloatingBar.height, height: FloatingBar.height)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: .circle)
-                    .glassEffectID("share", in: glass)
-                    .accessibilityLabel("Share")
+                    shareButton
                 }
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: reacted)
+    }
+
+    /// Shares the memo's web address, or in the on-device library, where it has none, its text.
+    private var shareButton: some View {
+        Group {
+            if let link = session.webURL(for: memo) {
+                ShareLink(item: link, subject: Text(memo.displayTitle), message: Text(memo.previewText)) { shareSymbol }
+            } else {
+                ShareLink(item: memo.content, subject: Text(memo.displayTitle)) { shareSymbol }
+            }
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .glassEffectID("share", in: glass)
+        .accessibilityLabel("Share")
+    }
+
+    private var shareSymbol: some View {
+        Image(systemName: "square.and.arrow.up")
+            .font(.barSymbol)
+            .frame(width: FloatingBar.height, height: FloatingBar.height)
     }
 
     private var reactionChoices: some View {

@@ -43,6 +43,9 @@ public final class SyncEngine {
     @ObservationIgnored private var retryTask: Task<Void, Never>?
     @ObservationIgnored private var retryDelay: Duration = .seconds(15)
     @ObservationIgnored private var uploadTask: Task<Void, Never>?
+    /// Set once the account is closed. Nothing starts after, so a closed engine never writes over
+    /// the local copy that a newer session for the same account has loaded.
+    @ObservationIgnored private var isStopped = false
     @ObservationIgnored private let logger = Logger(subsystem: "app.memos", category: "sync")
 
     static let pageSize: Int32 = 1000
@@ -60,6 +63,7 @@ public final class SyncEngine {
     /// Uploads soon after a local change, coalescing quick successive edits. A push already
     /// running is never cancelled; it picks the new change up instead.
     public func scheduleUpload(after delay: Duration = .milliseconds(500)) {
+        guard !isStopped else { return }
         if running != nil {
             wantsPush = true
             return
@@ -88,8 +92,16 @@ public final class SyncEngine {
         await run()
     }
 
+    /// Cancels anything scheduled and waits for a sync in progress, for when the account closes.
+    public func stop() async {
+        isStopped = true
+        uploadTask?.cancel()
+        retryTask?.cancel()
+        await running?.value
+    }
+
     private func run() async {
-        guard isOnline else { return }
+        guard isOnline, !isStopped else { return }
         if let running {
             await running.value
             return
@@ -102,14 +114,14 @@ public final class SyncEngine {
                 self.running = nil
             }
             await self.client.updateDialectAfterServerUpgrade()
-            while self.isOnline && (self.wantsPush || self.wantsPull) {
+            while self.isOnline && !self.isStopped && (self.wantsPush || self.wantsPull) {
                 let pull = self.wantsPull
                 let fullCompare = self.wantsFullCompare || self.dailyCompareDue
                 self.wantsPush = false
                 self.wantsPull = false
                 self.wantsFullCompare = false
                 await self.pushQueue()
-                guard pull, self.isOnline else { continue }
+                guard pull, self.isOnline, !self.isStopped else { continue }
                 do throws(APIError) {
                     try await self.pull(fullCompare: fullCompare)
                     self.lastError = nil
@@ -129,7 +141,7 @@ public final class SyncEngine {
     /// may pass.
     private func scheduleRetry(offline: Bool) {
         if offline { isOnline = false }
-        guard retryTask == nil else { return }
+        guard retryTask == nil, !isStopped else { return }
         let delay = retryDelay
         retryDelay = min(retryDelay * 2, .seconds(300))
         retryTask = Task { [weak self] in
@@ -174,7 +186,8 @@ public final class SyncEngine {
     }
 
     private func pushQueue() async {
-        while isOnline, let change = nextChange() {
+        // A stopped engine lets the upload in flight finish, but starts no more.
+        while isOnline, !isStopped, let change = nextChange() {
             store.inFlight = change.id
             do {
                 try await upload(change)
@@ -523,6 +536,7 @@ public final class SyncEngine {
     /// visibility, Spaces, saved views, whether anyone else's memos are readable, the
     /// instance's reactions and the unread count.
     public func refreshProfile() async {
+        guard !isStopped else { return }
         let me = self.me
         let client = self.client
         var profile = store.profile
@@ -589,6 +603,8 @@ public final class SyncEngine {
             profile.unreadNotifications = response.notifications.count { $0.status == .unread }
         }
 
+        // Stopped while the requests ran: this account is closed, and a newer session may own its files.
+        guard !isStopped else { return }
         store.profile = profile
     }
 }

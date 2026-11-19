@@ -8,12 +8,17 @@ import SwiftProtobuf
 /// Every edit lands here first and shows immediately; ``SyncEngine`` uploads the queue and
 /// folds server changes back in. Server data never overwrites a memo with queued changes —
 /// those are reconciled when the change uploads.
+///
+/// The on-device library (``AccountLocation/isOnDevice``) uses the same store with no queue: its
+/// edits are final as they land, and its attachments stay in the upload area for good.
 @MainActor
 @Observable
 public final class MemoStore {
     public let location: AccountLocation
     /// Resource name of the signed-in user.
     public var user: String { location.user }
+    /// Whether this is the on-device library, which never uploads.
+    public var isOnDevice: Bool { location.isOnDevice }
 
     public private(set) var own: [String: Memo] = [:]
     public private(set) var others: [String: Memo] = [:]
@@ -61,6 +66,13 @@ public final class MemoStore {
         others = Dictionary(snapshot.others.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         state = snapshot.state
         profile = snapshot.profile
+        if isOnDevice && profile.user == nil {
+            // So everything that waits for the profile to load knows it has.
+            var me = User()
+            me.name = user
+            me.username = ResourceName.lastSegment(user)
+            profile.user = me
+        }
         dirty = []
         isLoaded = true
         revision += 1
@@ -155,7 +167,7 @@ public final class MemoStore {
         return attachment
     }
 
-    /// Whether `attachment` exists only on this device so far.
+    /// Whether `attachment` exists only on this device so far. Always so in the on-device library.
     public func isStaged(_ attachment: Attachment) -> Bool {
         FileManager.default.fileExists(atPath: location.uploadFile(for: attachment.name).path())
     }
@@ -182,9 +194,9 @@ public final class MemoStore {
         if !draft.references.isEmpty { reflectReferences(of: [memo]) }
 
         for attachment in draft.attachments where isStaged(attachment) {
-            state.outbox.enqueue(PendingChange(memo: memo.name, operation: .uploadAttachment(attachment: attachment.name)), inFlight: inFlight)
+            queue(PendingChange(memo: memo.name, operation: .uploadAttachment(attachment: attachment.name)))
         }
-        state.outbox.enqueue(PendingChange(memo: memo.name, operation: .create), inFlight: inFlight)
+        queue(PendingChange(memo: memo.name, operation: .create))
         didChange(own: true)
         return memo
     }
@@ -200,19 +212,30 @@ public final class MemoStore {
         // The server refuses to move a Space-visibility memo unless the visibility is sent too.
         if fields.contains(.space) || fields.contains(.visibility) { fields.formUnion([.space, .visibility]) }
         if memo.content != before.content { memo.refreshDerivedFields() }
+        // With no server to stamp it, the edit time is set here. Like the server, pinning and
+        // archiving don't count as edits.
+        if isOnDevice && !fields.isSubset(of: [.pinned, .state]) {
+            memo.updateTime = Google_Protobuf_Timestamp(date: .now)
+        }
         own[name] = memo
         if memo.references != before.references || (memo.snippet != before.snippet && !memo.references.isEmpty) {
             reflectReferences(of: [memo])
         }
 
+        if isOnDevice {
+            // Nothing else holds a removed attachment's file.
+            for attachment in before.attachments where !memo.attachments.contains(where: { $0.name == attachment.name }) {
+                try? FileManager.default.removeItem(at: location.uploadFile(for: attachment.name))
+            }
+        }
         let newUploads = memo.attachments.filter { attachment in
             isStaged(attachment) && !before.attachments.contains { $0.name == attachment.name }
         }
         for attachment in newUploads {
-            state.outbox.enqueue(PendingChange(memo: name, operation: .uploadAttachment(attachment: attachment.name)), inFlight: inFlight)
+            queue(PendingChange(memo: name, operation: .uploadAttachment(attachment: attachment.name)))
         }
         let base = fields.contains(.content) ? explicitBase ?? BaseVersion(updateTime: before.updatedAt, content: before.content) : nil
-        state.outbox.enqueue(PendingChange(memo: name, operation: .update(fields: fields, base: base)), inFlight: inFlight)
+        queue(PendingChange(memo: name, operation: .update(fields: fields, base: base)))
         didChange(own: true)
     }
 
@@ -257,7 +280,7 @@ public final class MemoStore {
         for attachment in memo.attachments where isStaged(attachment) {
             try? FileManager.default.removeItem(at: location.uploadFile(for: attachment.name))
         }
-        state.outbox.enqueue(PendingChange(memo: name, operation: .delete), inFlight: inFlight)
+        queue(PendingChange(memo: name, operation: .delete))
         state.conflicts[name] = nil
         reflectReferences(of: [(name, "", [])])
         didChange(own: true)
@@ -280,6 +303,12 @@ public final class MemoStore {
         }
         state.cursor = nil // refetch, so the memo returns to its server version
         didChange(own: true)
+    }
+
+    /// Adds `change` to the upload queue. The on-device library has none.
+    private func queue(_ change: PendingChange) {
+        guard !isOnDevice else { return }
+        state.outbox.enqueue(change, inFlight: inFlight)
     }
 
     // MARK: Server results (used by SyncEngine)
