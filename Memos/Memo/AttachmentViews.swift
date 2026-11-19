@@ -10,6 +10,8 @@ struct AttachmentGallery: View {
 
     @Environment(AccountSession.self) private var session
     @State private var previewURL: URL?
+    /// Everything Quick Look can page through, so a swipe moves to the next attachment.
+    @State private var previewItems: [URL] = []
 
     private var images: [Attachment] { attachments.filter(\.isImage) }
     private var others: [Attachment] { attachments.filter { !$0.isImage && !$0.isAudio } }
@@ -21,14 +23,32 @@ struct AttachmentGallery: View {
             }
             ForEach(others, id: \.name) { attachment in
                 Button {
-                    Task { previewURL = try? await session.files.file(attachment) }
+                    open(attachment)
                 } label: {
                     FileRow(attachment: attachment)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .quickLookPreview($previewURL)
+        .quickLookPreview($previewURL, in: previewItems)
+    }
+
+    /// Opens the tapped attachment with the memo's other photos and files beside it, in
+    /// order, so a swipe moves between them. Files already on disk open at once.
+    private func open(_ attachment: Attachment) {
+        Task {
+            guard let url = try? await session.files.file(attachment) else { return }
+            var items: [URL] = []
+            for other in images + others {
+                if other.name == attachment.name {
+                    items.append(url)
+                } else if let file = try? await session.files.file(other) {
+                    items.append(file)
+                }
+            }
+            previewItems = items
+            previewURL = url
+        }
     }
 
     @ViewBuilder
@@ -39,7 +59,7 @@ struct AttachmentGallery: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 220)
                 .clipShape(.rect(cornerRadius: Radius.inner))
-                .onTapGesture { Task { previewURL = try? await session.files.file(only) } }
+                .onTapGesture { open(only) }
         } else {
             let columns = Array(repeating: GridItem(.flexible(), spacing: Spacing.s), count: shown.count == 2 || shown.count == 4 ? 2 : 3)
             LazyVGrid(columns: columns, spacing: Spacing.s) {
@@ -58,7 +78,7 @@ struct AttachmentGallery: View {
                                     .padding(Spacing.s)
                             }
                         }
-                        .onTapGesture { Task { previewURL = try? await session.files.file(attachment) } }
+                        .onTapGesture { open(attachment) }
                 }
             }
         }

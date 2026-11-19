@@ -184,6 +184,8 @@ private struct AccessTokensView: View {
     @State private var description = ""
     @State private var expiresInDays = 30
     @State private var created: String?
+    /// The row the one-time secret above belongs to, so deleting it takes the secret away too.
+    @State private var createdName: String?
     @State private var error: String?
     @State private var loaded = false
 
@@ -279,6 +281,7 @@ private struct AccessTokensView: View {
         do {
             let response = try await session.client.call(session.client.users.createPersonalAccessToken(request:headers:), request)
             created = response.token
+            createdName = response.personalAccessToken.name
             description = ""
             await load()
         } catch {
@@ -289,8 +292,21 @@ private struct AccessTokensView: View {
     private func delete(_ token: Memos_Api_PersonalAccessToken) async {
         var request = Memos_Api_DeletePersonalAccessTokenRequest()
         request.name = token.name
-        if (try? await session.client.call(session.client.users.deletePersonalAccessToken(request:headers:), request)) != nil {
-            tokens.removeAll { $0.name == token.name }
+        // The row goes at once, as the swipe expects, and comes back if the server refuses.
+        let index = tokens.firstIndex { $0.name == token.name }
+        tokens.removeAll { $0.name == token.name }
+        do {
+            _ = try await session.client.call(session.client.users.deletePersonalAccessToken(request:headers:), request)
+            error = nil
+            if token.name == createdName {
+                created = nil
+                createdName = nil
+            }
+        } catch {
+            withAnimation(.memosSpring) { tokens.insert(token, at: min(index ?? 0, tokens.count)) }
+            self.error = error.isConnectivity
+                ? String(localized: "Connect to delete tokens.")
+                : String(localized: "Couldn’t delete the token. \(error.description)")
         }
     }
 }

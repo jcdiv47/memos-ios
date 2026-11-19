@@ -22,6 +22,9 @@ final class SearchModel {
 
     @ObservationIgnored private weak var session: AccountSession?
     @ObservationIgnored private var remoteTask: Task<Void, Never>?
+    /// Where the server's next page of other people's matches starts; empty when there isn't one.
+    private(set) var remoteNextPageToken = ""
+    @ObservationIgnored private var remoteFilter = ""
 
     var query: SearchQuery { SearchQuery(text: text, tokens: tokens) }
 
@@ -94,6 +97,7 @@ final class SearchModel {
         remoteTask?.cancel()
         guard let session, scope == .everyone, session.showsScopeToggle, let filter = query.filter() else {
             remote = []
+            remoteNextPageToken = ""
             return
         }
         let me = session.user
@@ -103,10 +107,35 @@ final class SearchModel {
             self.isLoadingRemote = true
             defer { self.isLoadingRemote = false }
             do {
-                let page = try await session.engine.fetchPage(filter: "(\(filter)) && creator != \(CELString.quote(me))", pageSize: 50)
+                let remoteFilter = "(\(filter)) && creator != \(CELString.quote(me))"
+                let page = try await session.engine.fetchPage(filter: remoteFilter, pageSize: 50)
                 guard !Task.isCancelled else { return }
                 self.remote = page.memos
+                self.remoteFilter = remoteFilter
+                self.remoteNextPageToken = page.nextPageToken
                 self.remoteFailed = false
+            } catch {
+                self.remoteFailed = true
+            }
+        }
+    }
+
+    /// The next page of other people's matches, when the list reaches the last one loaded.
+    func loadMoreRemote() {
+        guard let session, !remoteNextPageToken.isEmpty, !isLoadingRemote, session.isOnline else { return }
+        let token = remoteNextPageToken
+        let filter = remoteFilter
+        remoteTask = Task { [weak self] in
+            guard let self else { return }
+            self.isLoadingRemote = true
+            defer { self.isLoadingRemote = false }
+            do {
+                let page = try await session.engine.fetchPage(filter: filter, pageToken: token, pageSize: 50)
+                // A new query started meanwhile; its results replace these.
+                guard !Task.isCancelled, filter == self.remoteFilter else { return }
+                let seen = Set(self.remote.map(\.name))
+                self.remote += page.memos.filter { !seen.contains($0.name) }
+                self.remoteNextPageToken = page.nextPageToken
             } catch {
                 self.remoteFailed = true
             }

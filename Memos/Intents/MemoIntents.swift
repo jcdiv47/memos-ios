@@ -70,7 +70,10 @@ struct MemoEntity: IndexedEntity {
     }
 
     var attributeSet: CSSearchableItemAttributeSet {
-        let attributes = CSSearchableItemAttributeSet()
+        // Starts from the entity's own set, which carries the type and identity Spotlight needs
+        // to show and open the result; a blank set indexes items that never appear.
+        let attributes = defaultAttributeSet
+        attributes.displayName = title
         attributes.title = title
         attributes.contentDescription = content
         attributes.keywords = tags

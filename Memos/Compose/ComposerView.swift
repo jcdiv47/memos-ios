@@ -373,6 +373,10 @@ private struct BarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(.tint)
+            // The buttons have a fixed width, so the symbols stop growing where system bars do;
+            // a long press shows them enlarged instead.
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .accessibilityShowsLargeContentViewer()
             .frame(width: FloatingBar.itemWidth, height: FloatingBar.height)
             .contentShape(.rect)
             .opacity(configuration.isPressed ? Press.opacity : 1)

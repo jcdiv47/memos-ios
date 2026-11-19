@@ -157,7 +157,7 @@ final class AccountSession {
         defer { UIApplication.shared.endBackgroundTask(task) }
         drafts.flush()
         await store.save()
-        SpotlightIndex.update(store)
+        await SpotlightIndex.reindex(store)
         WidgetCenter.shared.reloadAllTimelines()
     }
 
