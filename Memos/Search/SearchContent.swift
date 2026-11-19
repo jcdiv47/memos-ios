@@ -36,7 +36,7 @@ struct SearchContent: View {
                         .foregroundStyle(.ink2)
                     Spacer()
                     Button("Save as view", systemImage: "bookmark") { isSavingView = true }
-                        .font(.subheadline)
+                        .font(.action)
                         .disabled(!session.isOnline)
                 }
                 .listRowBackground(Color.clear)
@@ -68,13 +68,13 @@ struct SearchContent: View {
                 Section("From others") {
                     if !session.isOnline && others.isEmpty {
                         Text("Connect to search other people’s memos.")
-                            .font(.subheadline)
+                            .font(.supporting)
                             .foregroundStyle(.ink2)
                     } else if search.isLoadingRemote && others.isEmpty {
                         ProgressView().frame(maxWidth: .infinity)
                     } else if others.isEmpty && !own.isEmpty {
                         Text("Nothing from others.")
-                            .font(.subheadline)
+                            .font(.supporting)
                             .foregroundStyle(.ink2)
                     } else {
                         ForEach(others, id: \.name) { memo in
@@ -85,8 +85,7 @@ struct SearchContent: View {
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
     }
 
     private func countLabel(_ count: Int) -> String {
@@ -102,9 +101,10 @@ struct SearchContent: View {
             }
             return String(localized: "No memos match ‘\(what)’.", comment: "Search found nothing; what was searched for.")
         }()
-        VStack(spacing: 12) {
+        VStack(spacing: Spacing.l) {
             Text(description)
-                .font(.subheadline)
+                .font(.supporting)
+                .multilineTextAlignment(.center)
                 .foregroundStyle(.ink2)
             if search.query.spaceToken != nil {
                 Button("Search all Spaces") {
@@ -114,7 +114,7 @@ struct SearchContent: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, Spacing.xxl)
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
     }
@@ -132,9 +132,9 @@ private struct SearchRow: View {
         Button {
             session.path.append(.memo(memo.name))
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(MarkdownCache.inline(excerpt, highlights: highlights))
-                    .font(.subheadline)
+                    .font(.supporting)
                     .foregroundStyle(.ink)
                     .lineLimit(2)
                 Text(metadata)
@@ -142,6 +142,7 @@ private struct SearchRow: View {
                     .foregroundStyle(.ink2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, Spacing.xs)
             .contentShape(.rect)
             .matchedTransitionSource(id: memo.name, in: zoom)
         }
@@ -185,12 +186,13 @@ private struct SearchSuggestions: View {
                                 .foregroundStyle(.ink)
                         }
                     }
+                    .cardRows()
                 } header: {
                     HStack {
                         Text("Recent")
                         Spacer()
                         Button("Clear") { search.clearRecents() }
-                            .font(.subheadline)
+                            .font(.action)
                     }
                 }
             }
@@ -209,41 +211,44 @@ private struct SearchSuggestions: View {
                             }
                         }
                     }
+                    .cardRows()
                 }
             }
 
             if prefix == nil {
                 Section("Filters") {
-                    ForEach(SearchToken.commonFilters, id: \.self) { token in
-                        Button {
-                            search.addToken(token)
+                    Group {
+                        ForEach(SearchToken.commonFilters, id: \.self) { token in
+                            Button {
+                                search.addToken(token)
+                            } label: {
+                                Label(token.label, systemImage: token.systemImage)
+                                    .foregroundStyle(.ink)
+                            }
+                        }
+                        Menu {
+                            ForEach(MemoVisibility.choices, id: \.self) { visibility in
+                                Button(visibility.label, systemImage: visibility.systemImage) { search.addToken(.visibility(visibility)) }
+                            }
                         } label: {
-                            Label(token.label, systemImage: token.systemImage)
+                            Label("Visibility", systemImage: "eye")
+                                .foregroundStyle(.ink)
+                        }
+                        Menu {
+                            Button("Today") { search.addToken(.date(.today)) }
+                            Button("This week") { search.addToken(.date(.thisWeek)) }
+                            Button("This month") { search.addToken(.date(.thisMonth)) }
+                        } label: {
+                            Label("Date", systemImage: "calendar")
                                 .foregroundStyle(.ink)
                         }
                     }
-                    Menu {
-                        ForEach(MemoVisibility.choices, id: \.self) { visibility in
-                            Button(visibility.label, systemImage: visibility.systemImage) { search.addToken(.visibility(visibility)) }
-                        }
-                    } label: {
-                        Label("Visibility", systemImage: "eye")
-                            .foregroundStyle(.ink)
-                    }
-                    Menu {
-                        Button("Today") { search.addToken(.date(.today)) }
-                        Button("This week") { search.addToken(.date(.thisWeek)) }
-                        Button("This month") { search.addToken(.date(.thisMonth)) }
-                    } label: {
-                        Label("Date", systemImage: "calendar")
-                            .foregroundStyle(.ink)
-                    }
+                    .cardRows()
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
     }
 }
 
@@ -272,12 +277,14 @@ struct SaveViewSheet: View {
                             }
                         TextField("Name", text: $title)
                     }
+                    .cardRows()
                 } footer: {
                     Text(query.filter() ?? "")
                         .font(.memoCode)
                     if let error { Text(error).foregroundStyle(.danger) }
                 }
             }
+            .paperBackground()
             .navigationTitle("Save as View")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

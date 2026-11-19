@@ -86,7 +86,7 @@ struct PinnedWidgetView: View {
                 }
             }
         case .unavailable:
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.m) {
                 WidgetHeader(title: "Pinned", systemImage: "pin.fill")
                 WidgetNote("This memo was deleted or archived. Edit the widget to choose another.")
                 Spacer(minLength: 0)
@@ -105,7 +105,7 @@ struct MemoWidgetView<Header: View>: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             header
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.ink2)

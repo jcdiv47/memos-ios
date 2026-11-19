@@ -17,7 +17,7 @@ struct MemoContentView: View {
 
     var body: some View {
         let document = MarkdownCache.document(content)
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.blockGap) {
             ForEach(Array(document.blocks.enumerated()), id: \.offset) { index, block in
                 blockView(block, isFirst: index == 0)
             }
@@ -40,7 +40,7 @@ struct MemoContentView: View {
                 .foregroundStyle(.ink)
 
         case .list(let items):
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Spacing.s) {
                 ForEach(items, id: \.line) { item in
                     listItem(item)
                         .padding(.leading, CGFloat(item.depth) * 18)
@@ -48,8 +48,8 @@ struct MemoContentView: View {
             }
 
         case .quote(let text):
-            HStack(alignment: .top, spacing: 10) {
-                RoundedRectangle(cornerRadius: 1.5)
+            HStack(alignment: .top, spacing: Spacing.l) {
+                Capsule()
                     .fill(.hairline)
                     .frame(width: 3)
                 Text(inline(text))
@@ -65,23 +65,23 @@ struct MemoContentView: View {
                     .font(.memoCode)
                     .foregroundStyle(.ink)
                     .textSelection(.enabled)
-                    .padding(10)
+                    .padding(Spacing.l)
             }
-            .background(.paper2, in: .rect(cornerRadius: 8))
+            .background(.paper2, in: .rect(cornerRadius: Radius.inner))
 
         case .table(let header, let rows):
             ScrollView(.horizontal, showsIndicators: false) {
-                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
+                Grid(alignment: .leading, horizontalSpacing: Spacing.xl, verticalSpacing: Spacing.s) {
                     GridRow {
                         ForEach(Array(header.enumerated()), id: \.offset) { _, cell in
-                            Text(inline(cell)).font(.subheadline.weight(.semibold))
+                            Text(inline(cell)).font(.emphasis)
                         }
                     }
                     Divider()
                     ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                         GridRow {
                             ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                                Text(inline(cell)).font(.subheadline)
+                                Text(inline(cell)).font(.supporting)
                             }
                         }
                     }
@@ -90,7 +90,7 @@ struct MemoContentView: View {
             }
 
         case .rule:
-            Rectangle().fill(.hairline).frame(height: 1)
+            CardDivider()
         }
     }
 
@@ -98,7 +98,7 @@ struct MemoContentView: View {
     private func listItem(_ item: ListItem) -> some View {
         switch item.marker {
         case .task(let checked):
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
                 Button {
                     // The symbol replace and the strikethrough only play inside an animation.
                     withAnimation(.memosSpring) { onToggleTask?(item.line) }
@@ -122,12 +122,12 @@ struct MemoContentView: View {
             .accessibilityAction { withAnimation(.memosSpring) { onToggleTask?(item.line) } }
 
         case .bullet:
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
                 Text(verbatim: "•").foregroundStyle(.ink2)
                 Text(inline(item.text)).font(.memoBody).foregroundStyle(.ink)
             }
         case .number(let number):
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
                 Text(verbatim: "\(number).").foregroundStyle(.ink2).monospacedDigit()
                 Text(inline(item.text)).font(.memoBody).foregroundStyle(.ink)
             }
@@ -171,7 +171,7 @@ enum InlineMarkdown {
             var searchStart = plain.startIndex
             while let found = plain.range(of: word, options: [.caseInsensitive, .diacriticInsensitive], range: searchStart..<plain.endIndex) {
                 if let range = attributedRange(found, in: plain, of: attributed) {
-                    attributed[range].backgroundColor = Color.memosBlue.opacity(0.18)
+                    attributed[range].backgroundColor = Color.searchHighlight
                     attributed[range].inlinePresentationIntent = .stronglyEmphasized
                 }
                 searchStart = found.upperBound

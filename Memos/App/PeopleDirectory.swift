@@ -122,9 +122,12 @@ struct UserAvatar: View {
 
     @Environment(AccountSession.self) private var session
     @State private var image: UIImage?
+    /// Grows with the name beside it, so a large name doesn't dwarf its avatar.
+    @ScaledMetric(relativeTo: .subheadline) private var scale = SymbolScale.base
 
     var body: some View {
         let people = session.people
+        let size = Metrics.scaled(self.size, by: scale)
         Group {
             if let image = image ?? people.cachedAvatar(for: user) {
                 Image(uiImage: image)

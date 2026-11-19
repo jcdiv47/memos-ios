@@ -139,7 +139,7 @@ struct QuickCaptureView: View {
                 .widgetAccentable()
                 .widgetURL(URL(string: "memos://new"))
         default:
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Spacing.l) {
                 Text("Memos")
                     .font(.system(.headline, design: .serif))
                     .foregroundStyle(.ink)
@@ -154,7 +154,7 @@ struct QuickCaptureView: View {
                             .foregroundStyle(.memosBlue)
                             .widgetAccentable()
                     }
-                    .padding(10)
+                    .padding(Spacing.l)
                     .background(.card, in: .capsule)
                 }
                 Link(destination: URL(string: "memos://voice")!) {
@@ -190,7 +190,7 @@ struct MemoListWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             WidgetHeader(title: title, systemImage: systemImage)
             if !entry.signedIn {
                 WidgetNote("Open Memos and sign in.")
@@ -199,7 +199,7 @@ struct MemoListWidgetView: View {
             } else {
                 ForEach(entry.memos.prefix(shownCount), id: \.name) { memo in
                     Link(destination: URL(string: "memos://memo/\(memo.uid)")!) {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Spacing.xxs) {
                             if entry.sensitive.contains(memo.name) {
                                 Label("Sensitive content", systemImage: "eye.slash")
                                     .font(.footnote)
@@ -215,8 +215,8 @@ struct MemoListWidgetView: View {
                                 .foregroundStyle(.ink2)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .background(.card, in: .rect(cornerRadius: 10))
+                        .padding(Spacing.m)
+                        .background(.card, in: .rect(cornerRadius: Radius.inner))
                     }
                 }
             }

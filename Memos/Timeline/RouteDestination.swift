@@ -99,8 +99,7 @@ struct FilteredTimelineView: View {
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(.paper)
+        .paperBackground()
         .overlay {
             if memos.isEmpty && !feed.isLoading {
                 ContentUnavailableView(state == .archived ? "Nothing archived" : "No memos match" as LocalizedStringKey, systemImage: state == .archived ? "archivebox" : "line.3.horizontal.decrease")
@@ -156,20 +155,21 @@ struct SharedMemoView: View {
     var body: some View {
         ScrollView {
             if let memo {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: Spacing.xl) {
                     MemoHeader(memo: memo)
                     SensitiveContent(memo: memo) {
-                        VStack(alignment: .leading, spacing: 14) {
+                        VStack(alignment: .leading, spacing: Spacing.xl) {
                             MemoContentView(content: memo.content)
                             AttachmentGallery(attachments: memo.attachments)
                         }
                     }
                 }
-                .padding(Metrics.timelineInset)
+                .padding(Metrics.screenInset)
+                .readableWidth()
             } else if failed {
                 ContentUnavailableView("Link unavailable", systemImage: "link", description: Text("The share link expired or was revoked."))
             } else {
-                ProgressView().padding(.top, 80)
+                ProgressView().padding(.top, Metrics.floatingBarClearance)
             }
         }
         .background(.paper)

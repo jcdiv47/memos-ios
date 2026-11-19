@@ -60,7 +60,7 @@ struct ComposerView: View {
     @ViewBuilder
     private func content(_ model: ComposerModel) -> some View {
         @Bindable var model = model
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.blockGap) {
             AudienceChips(model: model)
 
             if session.voice.phase != .idle && session.voice.phase != .finished {
@@ -98,8 +98,8 @@ struct ComposerView: View {
                     .foregroundStyle(.ink2)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .padding(.horizontal, Metrics.screenInset)
+        .padding(.bottom, Spacing.m)
         // In the sheet's own layout rather than a keyboard toolbar: the input accessory attaches
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
         .safeAreaBar(edge: .bottom) {
@@ -300,7 +300,7 @@ private struct TagSuggestions: View {
         ForEach(tags, id: \.self) { tag in
             Button { onSelect(tag) } label: {
                 Text(verbatim: "#\(tag)")
-                    .font(.callout.weight(.medium))
+                    .font(.action)
                     .lineLimit(1)
             }
             .buttonStyle(TagSuggestionStyle())
@@ -313,10 +313,10 @@ private struct TagSuggestionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(.tint)
-            .padding(.horizontal, 10)
-            .frame(minHeight: 48)
+            .padding(.horizontal, Spacing.l)
+            .frame(minHeight: FloatingBar.height)
             .contentShape(.rect)
-            .opacity(configuration.isPressed ? 0.5 : 1)
+            .opacity(configuration.isPressed ? Press.opacity : 1)
     }
 }
 
@@ -341,30 +341,30 @@ private struct FormattingBar<Actions: View>: View {
                         .scrollIndicators(.hidden)
                     }
                 }
-                Spacer(minLength: 8)
+                Spacer(minLength: Spacing.m)
                 if showsHideKeyboard {
                     Button(action: onHideKeyboard) {
                         Image(systemName: "keyboard.chevron.compact.down")
                     }
                     .buttonStyle(BarButtonStyle())
-                    .frame(width: 48)
+                    .frame(width: FloatingBar.height)
                     .glassEffect(.regular.interactive(), in: .circle)
                     .accessibilityLabel("Hide Keyboard")
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
             }
         }
-        .font(.title3)
+        .font(.barSymbol)
         .tint(.memosBlue)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Metrics.screenInset)
+        .padding(.vertical, Spacing.m)
     }
 
     private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         HStack(spacing: 0) { content() }
             .buttonStyle(BarButtonStyle())
             .menuStyle(.button)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, Spacing.s)
             .glassEffect(.regular.interactive(), in: .capsule)
     }
 }
@@ -373,9 +373,9 @@ private struct BarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(.tint)
-            .frame(width: 44, height: 48)
+            .frame(width: FloatingBar.itemWidth, height: FloatingBar.height)
             .contentShape(.rect)
-            .opacity(configuration.isPressed ? 0.5 : 1)
+            .opacity(configuration.isPressed ? Press.opacity : 1)
     }
 }
 
@@ -387,7 +387,7 @@ private struct AudienceChips: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.m) {
                 Menu {
                     Picker("Visibility", selection: $model.visibility) {
                         ForEach(MemoVisibility.choices.filter { $0 != .space || model.space != nil }, id: \.self) { visibility in
@@ -465,12 +465,12 @@ private struct AttachmentStrip: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.m) {
                 if let location = model.location {
                     chip {
                         Label(location.placeholder, systemImage: "mappin.and.ellipse")
-                            .font(.subheadline)
-                            .padding(.horizontal, 10)
+                            .font(.supporting)
+                            .padding(.horizontal, Spacing.l)
                             .frame(height: 64)
                     } remove: {
                         withAnimation(.memosSpring) { model.location = nil }
@@ -482,10 +482,10 @@ private struct AttachmentStrip: View {
                             AttachmentImage(attachment: attachment)
                                 .frame(width: 64, height: 64)
                         } else {
-                            VStack(spacing: 4) {
+                            VStack(spacing: Spacing.xs) {
                                 Image(systemName: attachment.systemImage)
                                 Text(attachment.filename)
-                                    .font(.caption2)
+                                    .font(.fine)
                                     .lineLimit(1)
                                     .truncationMode(.middle)
                             }
@@ -500,7 +500,7 @@ private struct AttachmentStrip: View {
                     ProgressView().frame(width: 64, height: 64)
                 }
             }
-            .padding(.top, 6)
+            .padding(.top, Spacing.s)
         }
         .scrollClipDisabled()
     }
@@ -509,14 +509,14 @@ private struct AttachmentStrip: View {
         content()
             .foregroundStyle(.ink)
             .background(.well)
-            .clipShape(.rect(cornerRadius: 10))
+            .clipShape(.rect(cornerRadius: Radius.inner))
             .overlay(alignment: .topTrailing) {
                 Button(action: remove) {
                     Image(systemName: "xmark.circle.fill")
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(.white, .black.opacity(0.6))
                 }
-                .offset(x: 6, y: -6)
+                .offset(x: Spacing.s, y: -Spacing.s)
                 .accessibilityLabel("Remove")
             }
     }
@@ -528,7 +528,7 @@ struct VoiceStatus: View {
     var onStop: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Spacing.l) {
             switch recorder.phase {
             case .recording:
                 Waveform(levels: recorder.levels)

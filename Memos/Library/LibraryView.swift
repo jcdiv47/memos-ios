@@ -7,37 +7,32 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(AccountSession.self) private var session
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .subheadline) private var symbolScale = SymbolScale.base
 
     private var stats: LibraryStats { LibraryStats(memos: Array(session.store.own.values)) }
 
     var body: some View {
         let stats = self.stats
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Metrics.cardGap) {
                 ActivityCard(stats: stats)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: 10) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.cardGap), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: Metrics.cardGap) {
                     tile(.attachments, title: "Attachments", detail: stats.attachmentCount.formatted(), systemImage: "paperclip", isEmpty: stats.attachmentCount == 0)
                     tile(.map, title: "Map", detail: stats.placeCount == 0 ? String(localized: "No places") : String(localized: "\(stats.placeCount) places"), systemImage: "map", isEmpty: stats.placeCount == 0)
                     tile(.tags, title: "Tags", detail: stats.tagCount.formatted(), systemImage: "number", isEmpty: stats.tagCount == 0)
                     tile(.archived, title: "Archived", detail: stats.archivedCount.formatted(), systemImage: "archivebox", isEmpty: stats.archivedCount == 0)
                 }
 
-                Text("Saved views")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.ink2)
-                    .padding(.leading, 6)
-                    .padding(.top, 10)
-                    .accessibilityAddTraits(.isHeader)
+                SectionHeader("Saved views")
 
-                VStack(spacing: 0) {
+                CardList(dividerInset: Metrics.iconRowTextInset) {
                     if session.store.profile.views.isEmpty {
                         Text("Save a search as a view and it appears here and on the web.")
-                            .font(.subheadline)
+                            .font(.supporting)
                             .foregroundStyle(.ink2)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 12)
-                        Divider().overlay(.hairline)
+                            .padding(.vertical, Metrics.rowPadding)
                     }
                     ForEach(session.store.profile.views, id: \.name) { view in
                         Button {
@@ -46,22 +41,28 @@ struct LibraryView: View {
                             SavedViewRow(view: view)
                         }
                         .buttonStyle(.plain)
-                        Divider().overlay(.hairline)
                     }
                     // Views are saved from search, so this opens it.
                     Button(action: openSearch) {
-                        Label("New saved view", systemImage: "plus")
-                            .foregroundStyle(.memosBlue)
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            .contentShape(.rect)
+                        // The symbol takes an emoji's column, so the text lines up with the views above.
+                        HStack(spacing: Spacing.l) {
+                            Image(systemName: "plus")
+                                .font(.rowSymbol)
+                                .frame(width: Metrics.scaled(Metrics.iconTile, by: symbolScale))
+                            Text("New saved view")
+                                .font(.rowTitle)
+                        }
+                        .foregroundStyle(.memosBlue)
+                        .frame(maxWidth: .infinity, minHeight: Metrics.minTapTarget, alignment: .leading)
+                        .padding(.vertical, Spacing.xs)
+                        .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, Metrics.cardPadding)
-                .cardBackground()
             }
-            .padding(.horizontal, Metrics.timelineInset)
-            .padding(.bottom)
+            .padding(.horizontal, Metrics.screenInset)
+            .padding(.bottom, Metrics.screenInset)
+            .readableWidth()
         }
         .background(.paper)
         .navigationTitle("Library")
@@ -92,25 +93,25 @@ struct LibraryView: View {
         Button {
             session.path.append(route)
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(isEmpty ? Color.ink3 : Color.memosBlue)
-                    .frame(width: 32, height: 32)
-                    .background(isEmpty ? Color.well : Color.memosBlue.opacity(0.12), in: .rect(cornerRadius: 9))
-                VStack(alignment: .leading, spacing: 1) {
+            // A tight gap: on the narrowest phones, such as iPhone Duo, two tiles share about 340
+            // points and “Attachments” needs every one.
+            HStack(spacing: Spacing.m) {
+                IconTile(systemImage: systemImage, isEmpty: isEmpty)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.emphasis)
                         .foregroundStyle(.ink)
                     Text(detail)
-                        .font(.footnote)
+                        .font(.metadata)
                         .foregroundStyle(isEmpty ? Color.ink3 : Color.ink2)
                         .monospacedDigit()
                 }
                 .lineLimit(1)
+                .allowsTightening(true)
+                .minimumScaleFactor(0.9)
                 Spacer(minLength: 0)
             }
-            .padding(12)
+            .padding(Spacing.l)
             .cardBackground()
             .contentShape(.rect)
         }
@@ -132,14 +133,14 @@ private struct ActivityCard: View {
         Button {
             session.path.append(.activity)
         } label: {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Metrics.blockGap) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Activity")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.emphasis)
                         .foregroundStyle(.ink)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Spacing.m)
                     Text(summary)
-                        .font(.footnote)
+                        .font(.metadata)
                         .foregroundStyle(.ink2)
                         .monospacedDigit()
                     Chevron()
@@ -152,13 +153,21 @@ private struct ActivityCard: View {
                     ActivityHeatmap(activity: activity, today: today, weeks: weeks, cell: cell)
                 }
                 .frame(height: ActivityHeatmap.cell * 7 + ActivityHeatmap.spacing * 6)
-                HStack {
-                    Text("\(activity.memoCount(inMonthOf: today)) this month")
-                        .monospacedDigit()
-                    Spacer(minLength: 8)
-                    ActivityLegend()
+                // The legend moves under the count when they don't fit side by side.
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Text("\(activity.memoCount(inMonthOf: today)) this month")
+                            .monospacedDigit()
+                        Spacer(minLength: Spacing.m)
+                        ActivityLegend()
+                    }
+                    VStack(alignment: .leading, spacing: Spacing.s) {
+                        Text("\(activity.memoCount(inMonthOf: today)) this month")
+                            .monospacedDigit()
+                        ActivityLegend()
+                    }
                 }
-                .font(.caption)
+                .font(.legend)
                 .foregroundStyle(.ink2)
             }
             .padding(Metrics.cardPadding)
@@ -173,41 +182,35 @@ private struct ActivityCard: View {
     }
 }
 
-/// The trailing chevron on rows that open a page.
-struct Chevron: View {
-    var body: some View {
-        Image(systemName: "chevron.right")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.ink3)
-            .accessibilityHidden(true)
-    }
-}
-
 private struct SavedViewRow: View {
     let view: MemoView
     @Environment(AccountSession.self) private var session
+    @ScaledMetric(relativeTo: .subheadline) private var symbolScale = SymbolScale.base
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.l) {
             Text(view.emoji ?? "🔖")
                 .font(.title3)
-            VStack(alignment: .leading, spacing: 2) {
+                .frame(width: Metrics.scaled(Metrics.iconTile, by: symbolScale))
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(view.displayTitle)
+                    .font(.rowTitle)
                     .foregroundStyle(.ink)
                 Text(view.filter)
-                    .font(.system(.caption, design: .monospaced))
+                    .font(.fineCode)
                     .foregroundStyle(.ink2)
                     .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: Spacing.m)
             if let count {
                 Text(count.formatted())
+                    .font(.rowTitle)
                     .foregroundStyle(.ink2)
                     .monospacedDigit()
             }
             Chevron()
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, Spacing.l)
         .contentShape(.rect)
     }
 

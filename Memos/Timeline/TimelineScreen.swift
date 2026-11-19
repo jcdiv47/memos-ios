@@ -270,7 +270,8 @@ struct TimelineRow: View {
                 .matchedTransitionSource(id: memo.name, in: zoom)
         }
         .buttonStyle(.plain)
-        .listRowInsets(EdgeInsets(top: 6, leading: Metrics.timelineInset, bottom: 6, trailing: Metrics.timelineInset))
+        // Half the gap above and half below, so neighbouring cards sit one gap apart.
+        .listRowInsets(EdgeInsets(top: Metrics.cardGap / 2, leading: Metrics.screenInset, bottom: Metrics.cardGap / 2, trailing: Metrics.screenInset))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
@@ -412,10 +413,7 @@ private struct AccountMenu: View {
             Image(systemName: "ellipsis")
                 .overlay(alignment: .topTrailing) {
                     if unread > 0 {
-                        Circle()
-                            .fill(.memosBlue)
-                            .stroke(.paper, lineWidth: 2)
-                            .frame(width: 9, height: 9)
+                        UnreadDot(ringed: true)
                             .offset(x: 5, y: -11)
                     }
                 }

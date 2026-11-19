@@ -15,6 +15,7 @@ struct InboxView: View {
             List {
                 if !session.isOnline {
                     Text("Connect to see what’s new.")
+                        .font(.supporting)
                         .foregroundStyle(.ink2)
                         .listRowBackground(Color.clear)
                 }
@@ -22,7 +23,7 @@ struct InboxView: View {
                     NotificationRow(notification: notification) { action in
                         Task { await handle(action, notification) }
                     }
-                    .listRowBackground(Color.card)
+                    .cardRows()
                     .swipeActions {
                         Button("Delete", systemImage: "trash", role: .destructive) {
                             Task { await delete(notification) }
@@ -36,11 +37,13 @@ struct InboxView: View {
                     }
                 }
                 if let error {
-                    Text(error).foregroundStyle(.danger)
+                    Text(error)
+                        .font(.supporting)
+                        .foregroundStyle(.danger)
+                        .listRowBackground(Color.clear)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(.paper)
+            .paperBackground()
             .overlay {
                 if loaded && notifications.isEmpty && session.isOnline {
                     ContentUnavailableView("You’re all caught up", systemImage: "bell", description: Text("Comments, mentions and Space invitations show up here."))
@@ -49,7 +52,8 @@ struct InboxView: View {
             .navigationTitle("Inbox")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                // A sheet you only read closes with a plain X at the trailing edge.
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(role: .close) { dismiss() }
                 }
             }
@@ -140,31 +144,31 @@ private struct NotificationRow: View {
 
     var body: some View {
         let sender = notification.senderUser.name.isEmpty ? session.people.name(for: notification.sender) : notification.senderUser.displayLabel
-        HStack(alignment: .top, spacing: 12) {
-            UserAvatar(user: notification.sender, size: 32)
+        HStack(alignment: .top, spacing: Spacing.l) {
+            UserAvatar(user: notification.sender, size: AvatarSize.medium)
                 .overlay(alignment: .topTrailing) {
                     if notification.status == .unread {
-                        Circle().fill(.memosBlue).frame(width: 9, height: 9).offset(x: 2, y: -2)
+                        UnreadDot(ringed: true).offset(x: 2, y: -2)
                     }
                 }
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(headline(sender))
-                    .font(.subheadline)
+                    .font(.supporting)
                     .foregroundStyle(.ink)
                 if let snippet, !snippet.isEmpty {
                     Text(snippet)
-                        .font(.subheadline)
+                        .font(.supporting)
                         .foregroundStyle(.ink2)
                         .lineLimit(2)
                 }
                 if case .spaceInvitation(let payload) = notification.payload, payload.state == .pending {
-                    HStack {
+                    HStack(spacing: Spacing.m) {
                         Button("Accept") { perform(.accept) }
                             .buttonStyle(.glassProminent)
                         Button("Decline") { perform(.decline) }
                             .buttonStyle(.glass)
                     }
-                    .padding(.top, 4)
+                    .padding(.top, Spacing.xs)
                 }
                 Text(MemoDate.short(notification.createTime.date))
                     .font(.metadata)
@@ -180,7 +184,7 @@ private struct NotificationRow: View {
 
     private func headline(_ sender: String) -> AttributedString {
         var name = AttributedString(sender)
-        name.font = .subheadline.weight(.semibold)
+        name.font = .emphasis
         switch notification.payload {
         case .memoComment: return AttributedString(localized: "\(name) commented on your memo", comment: "An Inbox notification; the sender's name.")
         case .memoMention: return AttributedString(localized: "\(name) mentioned you", comment: "An Inbox notification; the sender's name.")
