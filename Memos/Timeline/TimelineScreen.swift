@@ -250,7 +250,7 @@ private struct TimelineRoot: View {
     }
 }
 
-/// One memo on the timeline, with its swipe actions: leading pins, trailing archives.
+/// One memo on the timeline, with its swipe actions: leading pins, trailing archives or edits.
 struct TimelineRow: View {
     let memo: Memo
     let zoom: Namespace.ID
@@ -311,6 +311,13 @@ struct TimelineRow: View {
                     Label("Archive", systemImage: "archivebox")
                 }
                 .tint(.ink2)
+                // After Archive, so a full swipe still archives.
+                Button {
+                    session.edit(memo.name)
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                .tint(.memosBlue)
             }
         }
         .sensoryFeedback(.impact(weight: .medium), trigger: swipeCommits)
