@@ -24,14 +24,30 @@ public enum InlineSpans {
         var index = text.startIndex
         // Backslashes just before the current character; an odd count escapes it.
         var backslashes = 0
+        // Unescaped `[` not yet closed, so a `](` can end a link label.
+        var labels = 0
         while index < text.endIndex {
             let character = text[index]
-            if character == "`", let close = closingBacktick(in: text, after: index) {
-                let end = text.index(after: close)
-                spans.append(Span(kind: .code, range: index..<end))
-                index = end
+            if character == "`" {
+                let run = runEnd(of: "`", in: text, from: index)
+                if let end = closingRun(in: text, opening: index..<run) {
+                    spans.append(Span(kind: .code, range: index..<end))
+                    index = end
+                } else {
+                    index = run
+                }
                 backslashes = 0
                 continue
+            }
+            if character == "[", backslashes % 2 == 0 { labels += 1 }
+            // A link's destination is a URL, never math: `[a](https://x.com/$y$)`.
+            if character == "]", backslashes % 2 == 0, labels > 0 {
+                labels -= 1
+                if let end = destinationEnd(in: text, after: index) {
+                    index = end
+                    backslashes = 0
+                    continue
+                }
             }
             if character == "$" {
                 if backslashes % 2 == 1 {
@@ -57,23 +73,49 @@ public enum InlineSpans {
         return spans
     }
 
-    /// The next backtick on the same line.
-    private static func closingBacktick(in text: String, after open: String.Index) -> String.Index? {
-        var index = text.index(after: open)
-        while index < text.endIndex {
-            switch text[index] {
-            case "`": return index
-            case "\n": return nil
-            default: index = text.index(after: index)
+    /// The end of the next run of exactly as many backticks on the same line, so ``` ``a`b`` ```
+    /// is one code span.
+    private static func closingRun(in text: String, opening: Range<String.Index>) -> String.Index? {
+        let length = text.distance(from: opening.lowerBound, to: opening.upperBound)
+        var index = opening.upperBound
+        while index < text.endIndex, text[index] != "\n" {
+            guard text[index] == "`" else {
+                index = text.index(after: index)
+                continue
             }
+            let end = runEnd(of: "`", in: text, from: index)
+            if text.distance(from: index, to: end) == length { return end }
+            index = end
         }
         return nil
     }
 
-    private static func dollarRunEnd(in text: String, from start: String.Index) -> String.Index {
+    /// The end of a `(…)` link destination right after the `]` at `bracket`, with balanced
+    /// parentheses, on the same line.
+    private static func destinationEnd(in text: String, after bracket: String.Index) -> String.Index? {
+        let open = text.index(after: bracket)
+        guard open < text.endIndex, text[open] == "(" else { return nil }
+        var depth = 0
+        var index = open
+        while index < text.endIndex, text[index] != "\n" {
+            if text[index] == "(" { depth += 1 }
+            if text[index] == ")" {
+                depth -= 1
+                if depth == 0 { return text.index(after: index) }
+            }
+            index = text.index(after: index)
+        }
+        return nil
+    }
+
+    private static func runEnd(of character: Character, in text: String, from start: String.Index) -> String.Index {
         var end = start
-        while end < text.endIndex, text[end] == "$" { end = text.index(after: end) }
+        while end < text.endIndex, text[end] == character { end = text.index(after: end) }
         return end
+    }
+
+    private static func dollarRunEnd(in text: String, from start: String.Index) -> String.Index {
+        runEnd(of: "$", in: text, from: start)
     }
 
     private static func mathEnd(in text: String, opening: Range<String.Index>) -> String.Index? {
