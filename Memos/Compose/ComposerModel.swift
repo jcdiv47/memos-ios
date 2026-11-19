@@ -36,6 +36,10 @@ final class ComposerModel {
     var location: MemoLocation? {
         didSet { if location != oldValue { draftChanged() } }
     }
+    /// The memos this one links to, the web's “Referencing”.
+    var references: [String] = [] {
+        didSet { if references != oldValue { draftChanged() } }
+    }
     var isLocating = false
     /// Photos and scans still being turned into files.
     private(set) var preparing = 0
@@ -63,6 +67,7 @@ final class ComposerModel {
         guard let editing else { return !isEmpty }
         return text != editing.content || visibility != editing.visibility || space != editing.spaceName
             || attachments.map(\.name) != editing.attachments.map(\.name) || location != editing.locationIfSet
+            || Set(references) != Set(editing.references)
     }
 
     init(request: ComposerRequest, session: AccountSession) {
@@ -93,6 +98,7 @@ final class ComposerModel {
             space = memo.spaceName
             attachments = memo.attachments
             location = memo.locationIfSet
+            references = memo.references
             if space != nil && visibility == .private { suggestion = .space }
             text = memo.content
             if let draft = drafts.draft(for: draftKey) {
@@ -116,6 +122,7 @@ final class ComposerModel {
         space = draft.space
         suggestion = draft.suggestion
         location = draft.location
+        references = draft.references ?? editing?.references ?? []
         // A staged file can be missing if the app stopped between staging it and saving the draft.
         attachments = draft.attachments.filter { attachment in
             session.store.isStaged(attachment) || editing?.attachments.contains { $0.name == attachment.name } == true
@@ -324,7 +331,7 @@ final class ComposerModel {
     private var draft: ComposerDraft {
         ComposerDraft(
             text: text, visibility: visibility, space: space, suggestion: suggestion,
-            attachments: attachments, location: location,
+            attachments: attachments, location: location, references: references,
             base: editing.map { BaseVersion(updateTime: $0.updatedAt, content: $0.content) }
         )
     }
@@ -349,6 +356,17 @@ final class ComposerModel {
         keepsDraft = false
         removeStaged(attachments, store: store)
         drafts.remove(draftKey)
+    }
+
+    // MARK: Links
+
+    func link(_ memo: String) {
+        guard memo != editing?.name, !references.contains(memo) else { return }
+        withAnimation(.memosSpring) { references.append(memo) }
+    }
+
+    func unlink(_ memo: String) {
+        withAnimation(.memosSpring) { references.removeAll { $0 == memo } }
     }
 
     // MARK: Location
@@ -382,6 +400,7 @@ final class ComposerModel {
             if visibility != editing.visibility || space != editing.spaceName { fields.formUnion([.visibility, .space]) }
             if attachments.map(\.name) != editing.attachments.map(\.name) { fields.insert(.attachments) }
             if location != editing.locationIfSet { fields.insert(.location) }
+            if Set(references) != Set(editing.references) { fields.insert(.relations) }
             guard !fields.isEmpty else { return true }
             // The base is the version the composer opened with: if a sync brought in someone
             // else's text meanwhile, uploading this is a conflict, not an overwrite.
@@ -391,9 +410,11 @@ final class ComposerModel {
                 memo.spaceName = space
                 memo.attachments = attachments
                 if let location { memo.location = location } else { memo.clearLocation() }
+                // Only when they changed here: a sync may have brought links since the composer opened.
+                if fields.contains(.relations) { memo.setReferences(references) }
             }
         } else {
-            store.create(MemoDraft(content: content, visibility: visibility, space: space, location: location, attachments: attachments))
+            store.create(MemoDraft(content: content, visibility: visibility, space: space, location: location, attachments: attachments, references: references))
         }
         return true
     }

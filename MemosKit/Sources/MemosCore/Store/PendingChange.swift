@@ -49,6 +49,8 @@ public enum MemoField: String, Codable, Hashable, Sendable, CaseIterable {
     case space
     case location
     case attachments
+    /// The memos this one links to. Sent as the complete set.
+    case relations
 }
 
 /// The server version an edit started from, used to detect that someone else changed the text
