@@ -59,7 +59,8 @@ extension Memo {
             hasLink: property.hasLink_p,
             hasCode: property.hasCode_p,
             hasIncompleteTasks: property.hasIncompleteTasks_p,
-            hasLocation: hasLocation
+            hasLocation: hasLocation,
+            hasAttachments: !attachments.isEmpty
         )
     }
 
