@@ -18,6 +18,8 @@ struct SearchContent: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
+        // Photos indexed while the search is open can match it too.
+        .onChange(of: session.photoSearch.indexedCount) { search.schedulePhotos() }
         // The search field floats over the bottom of the list, and without the software
         // keyboard nothing insets the list for it, so its last rows would sit underneath.
         .contentMargins(.bottom, FloatingBar.height + Spacing.l, for: .scrollContent)

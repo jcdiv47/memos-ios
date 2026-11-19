@@ -143,6 +143,7 @@ final class AccountSession {
 
     func stop() async {
         connectivity.stop()
+        await photoSearch.stop()
         drafts.flush()
         await store.save()
     }

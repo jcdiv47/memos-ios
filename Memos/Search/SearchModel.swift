@@ -45,6 +45,8 @@ final class SearchModel {
            !tokens.contains(where: { if case .space = $0 { true } else { false } }) {
             tokens.insert(.space(name: space.name, title: space.title), at: 0)
         }
+        // Photos from a sync that didn't index them, such as pull to refresh.
+        session.photoSearch.indexIfNeeded()
         // A search from a link or Siri sets its text before search opens.
         schedulePhotos()
     }
@@ -135,7 +137,7 @@ final class SearchModel {
 
     /// Your photos that look like the typed words, among the memos the tokens allow. Waits for
     /// a pause in typing, since each new word is a new description.
-    private func schedulePhotos() {
+    func schedulePhotos() {
         photoTask?.cancel()
         let description = query.words.filter { !$0.hasPrefix("#") }.joined(separator: " ")
         guard let session, session.photoSearch.isReady, !description.isEmpty else {

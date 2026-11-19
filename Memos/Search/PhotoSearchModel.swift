@@ -34,6 +34,7 @@ final class PhotoSearchModel {
     @ObservationIgnored private var index: PhotoIndex?
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
     @ObservationIgnored private var indexTask: Task<Void, Never>?
+    @ObservationIgnored private var needsAnotherPass = false
     /// Photos that couldn't be read this session, so each pass doesn't try them again.
     @ObservationIgnored private var unreadable: Set<String> = []
     /// Text embeddings for recent searches, since typing back over a word asks again.
@@ -106,6 +107,7 @@ final class PhotoSearchModel {
     private func reset() {
         indexTask?.cancel()
         indexTask = nil
+        needsAnotherPass = false
         isIndexing = false
         model = nil
         index = nil
@@ -136,16 +138,34 @@ final class PhotoSearchModel {
     // MARK: Indexing
 
     /// Embeds the photos in your memos that don't have one yet, from their thumbnails, and
-    /// forgets photos that are gone. Runs after each sync.
+    /// forgets photos that are gone. Runs after launch and foreground syncs, and when search
+    /// opens, so photos from any other sync are searchable by then.
     func indexIfNeeded() {
-        guard installed != nil, indexTask == nil, store.isLoaded else { return }
+        guard installed != nil, store.isLoaded else { return }
+        // Photos that arrived after a running pass listed them get a pass of their own.
+        guard indexTask == nil else {
+            needsAnotherPass = true
+            return
+        }
         indexTask = Task { [weak self] in
             await self?.buildIndex()
             // A cancelled pass was replaced, and the new one owns these.
             guard let self, !Task.isCancelled else { return }
             self.isIndexing = false
             self.indexTask = nil
+            if self.needsAnotherPass {
+                self.needsAnotherPass = false
+                self.indexIfNeeded()
+            }
         }
+    }
+
+    /// Stops indexing and waits for it, so no write lands after the account's folder is gone.
+    func stop() async {
+        let task = indexTask
+        task?.cancel()
+        needsAnotherPass = false
+        await task?.value
     }
 
     private func buildIndex() async {
