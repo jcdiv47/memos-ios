@@ -25,6 +25,9 @@ import Testing
         #expect(math("[link](https://x.com/$a$) and $b$") == ["$b$"], "a link destination is never math")
         #expect(math("[link](https://x.com/a(b)/$c$) and $d$") == ["$d$"], "parentheses in a destination balance")
         #expect(math("interval ]0,1](with $x$ excluded)") == ["$x$"], "a `](` without a `[` isn't a link")
+        #expect(math(#"[link](https://x.com/a\)/$c$) and $d$"#) == ["$d$"], "an escaped parenthesis doesn't end a destination")
+        #expect(math("interval [0,1](with $x$ excluded)") == ["$x$"], "a space ends the URL, so this isn't a link")
+        #expect(math(#"[link](https://x.com/$a$ "title") and $b$"#) == ["$b$"], "a title may follow the URL")
     }
 
     @Test func `tags inside math aren't tags`() {

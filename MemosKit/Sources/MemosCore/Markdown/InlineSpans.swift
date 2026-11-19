@@ -90,16 +90,28 @@ public enum InlineSpans {
         return nil
     }
 
-    /// The end of a `(…)` link destination right after the `]` at `bracket`, with balanced
-    /// parentheses, on the same line.
+    /// The end of a `(…)` link destination right after the `]` at `bracket`, on the same line:
+    /// parentheses balance, `\)` is escaped, and a space ends the URL, so only a title or the
+    /// closing `)` may follow it. `[0,1](with $x$)` isn't a link.
     private static func destinationEnd(in text: String, after bracket: String.Index) -> String.Index? {
         let open = text.index(after: bracket)
         guard open < text.endIndex, text[open] == "(" else { return nil }
         var depth = 0
         var index = open
+        var inTitle = false
         while index < text.endIndex, text[index] != "\n" {
-            if text[index] == "(" { depth += 1 }
-            if text[index] == ")" {
+            let character = text[index]
+            if character == "\\" {
+                index = text.index(index, offsetBy: 2, limitedBy: text.endIndex) ?? text.endIndex
+                continue
+            }
+            if character == " ", !inTitle {
+                let rest = text[index...].drop { $0 == " " }
+                guard let next = rest.first, "\"'()".contains(next) else { return nil }
+                inTitle = true
+            }
+            if character == "(" { depth += 1 }
+            if character == ")" {
                 depth -= 1
                 if depth == 0 { return text.index(after: index) }
             }
