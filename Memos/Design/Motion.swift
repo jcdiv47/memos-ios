@@ -18,6 +18,25 @@ extension Animation {
 enum Press {
     static let opacity = 0.6
     static let scale = 0.97
+    /// A single emoji or symbol is small enough that 0.97 reads as nothing.
+    static let glyphScale = 0.85
+}
+
+/// A lone emoji or symbol that shrinks under the finger, such as a reaction in the picker, and
+/// springs back on release. Reduce Motion dims it instead.
+struct GlyphPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? Press.glyphScale : 1)
+            .opacity(configuration.isPressed && reduceMotion ? Press.opacity : 1)
+            .animation(configuration.isPressed ? .memosPress : .reactionPop, value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == GlyphPressStyle {
+    static var glyphPress: GlyphPressStyle { GlyphPressStyle() }
 }
 
 /// Zooms out of `sourceID` and back into it, or uses the system transition when Reduce Motion is

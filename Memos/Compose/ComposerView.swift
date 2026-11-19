@@ -366,6 +366,9 @@ private struct TagSuggestionStyle: ButtonStyle {
             .frame(minHeight: FloatingBar.height)
             .contentShape(.rect)
             .opacity(configuration.isPressed ? Press.opacity : 1)
+            // Dims the instant the finger lands, like a system bar button, and eases back on
+            // release rather than snapping.
+            .animation(configuration.isPressed ? nil : .memosPress, value: configuration.isPressed)
     }
 }
 
@@ -429,6 +432,9 @@ private struct BarButtonStyle: ButtonStyle {
             .frame(width: FloatingBar.itemWidth, height: FloatingBar.height)
             .contentShape(.rect)
             .opacity(configuration.isPressed ? Press.opacity : 1)
+            // Dims the instant the finger lands, like a system bar button, and eases back on
+            // release rather than snapping.
+            .animation(configuration.isPressed ? nil : .memosPress, value: configuration.isPressed)
     }
 }
 

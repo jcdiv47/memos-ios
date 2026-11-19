@@ -494,6 +494,12 @@ private struct CommentsSection: View {
     var onEdit: (Memo) -> Void
     var onConfirmDelete: (Memo) -> Void
     @Environment(AccountSession.self) private var session
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// A comment you post rises out of the bar you typed it in; one you delete just fades.
+    private var arrival: AnyTransition {
+        reduceMotion ? .opacity : .asymmetric(insertion: .offset(y: Spacing.xxl).combined(with: .opacity), removal: .opacity)
+    }
 
     /// A comment is a memo, so its name gets a prefix to keep it apart from a memo card's.
     static func sourceID(_ comment: Memo) -> String { "comment.\(comment.name)" }
@@ -530,6 +536,7 @@ private struct CommentsSection: View {
                 .accessibilityElement(children: .combine)
                 .contentShape(.contextMenuPreview, .rect(cornerRadius: Radius.inner))
                 .matchedTransitionSource(id: Self.sourceID(comment), in: zoom)
+                .transition(arrival)
                 .contextMenu { actions(for: comment) }
                 .accessibilityActions { actions(for: comment) }
                 // Anchored to the comment it's about, not the whole list.
@@ -644,8 +651,7 @@ private struct DetailBar: View {
                         // widening the bar, and with it the whole page, past the screen edge.
                         ViewThatFits(in: .horizontal) {
                             reactionChoices
-                            ScrollView(.horizontal) { reactionChoices }
-                                .scrollIndicators(.hidden)
+                            FadingHorizontalScroll { reactionChoices }
                         }
                         Button {
                             withAnimation(pickerAnimation) { pickerOpen = false }
@@ -756,7 +762,7 @@ private struct DetailBar: View {
                             }
                         }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glyphPress)
                 .accessibilityLabel("React with \(emoji)")
                 .accessibilityAddTraits(isMine ? .isSelected : [])
             }
@@ -779,6 +785,40 @@ private struct DetailBar: View {
             }
             sending = false
         }
+    }
+}
+
+/// A row that scrolls sideways and fades whichever edge has more beyond it, so an emoji cut off
+/// at the edge reads as more to scroll to rather than as clipped.
+private struct FadingHorizontalScroll<Content: View>: View {
+    @ViewBuilder var content: Content
+    @State private var fadesLeading = false
+    @State private var fadesTrailing = true
+
+    private static var fade: CGFloat { Spacing.xxl }
+
+    var body: some View {
+        ScrollView(.horizontal) { content }
+            .scrollIndicators(.hidden)
+            .onScrollGeometryChange(for: [Bool].self) { geometry in
+                let offset = geometry.contentOffset.x + geometry.contentInsets.leading
+                let room = geometry.contentSize.width - geometry.containerSize.width
+                return [offset > 1, offset < room - 1]
+            } action: { _, edges in
+                withAnimation(.memosFade) {
+                    fadesLeading = edges[0]
+                    fadesTrailing = edges[1]
+                }
+            }
+            .mask {
+                HStack(spacing: 0) {
+                    LinearGradient(colors: [.black.opacity(fadesLeading ? 0 : 1), .black], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: Self.fade)
+                    Rectangle()
+                    LinearGradient(colors: [.black, .black.opacity(fadesTrailing ? 0 : 1)], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: Self.fade)
+                }
+            }
     }
 }
 
