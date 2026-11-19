@@ -35,6 +35,8 @@ final class PhotoSearchModel {
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
     @ObservationIgnored private var indexTask: Task<Void, Never>?
     @ObservationIgnored private var needsAnotherPass = false
+    /// Set on sign-out; no pass starts after it.
+    @ObservationIgnored private var isStopped = false
     /// Photos that couldn't be read this session, so each pass doesn't try them again.
     @ObservationIgnored private var unreadable: Set<String> = []
     /// Text embeddings for recent searches, since typing back over a word asks again.
@@ -141,7 +143,7 @@ final class PhotoSearchModel {
     /// forgets photos that are gone. Runs after launch and foreground syncs, and when search
     /// opens, so photos from any other sync are searchable by then.
     func indexIfNeeded() {
-        guard installed != nil, store.isLoaded else { return }
+        guard installed != nil, store.isLoaded, !isStopped else { return }
         // Photos that arrived after a running pass listed them get a pass of their own.
         guard indexTask == nil else {
             needsAnotherPass = true
@@ -162,6 +164,7 @@ final class PhotoSearchModel {
 
     /// Stops indexing and waits for it, so no write lands after the account's folder is gone.
     func stop() async {
+        isStopped = true
         let task = indexTask
         task?.cancel()
         needsAnotherPass = false

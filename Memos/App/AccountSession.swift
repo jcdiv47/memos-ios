@@ -118,7 +118,12 @@ final class AccountSession {
             guard let self else { return }
             self.engine.isExpensiveNetwork = expensive
             self.engine.isOnline = online
-            if online { Task { await self.engine.sync() } }
+            if online {
+                Task {
+                    await self.engine.sync()
+                    self.photoSearch.indexIfNeeded()
+                }
+            }
         }
         connectivity.start()
         dropMissingSpace()
