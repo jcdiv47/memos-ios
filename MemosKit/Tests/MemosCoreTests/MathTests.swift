@@ -64,6 +64,8 @@ import Testing
             let range = try! #require(parsed.range(of: tex))
             #expect(parsed[range].runs.allSatisfy { $0.inlinePresentationIntent?.contains(.code) == true })
         }
+        #expect(parsed.runs[InlineMathAttribute.self].compactMap(\.0) == ["a*b*c", "\\{x\\}", "x_1"], "each run carries its TeX")
+        #expect(InlineParsing.attributed("$$x$$").runs[InlineMathAttribute.self].compactMap(\.0) == ["x"])
         let bold = try! #require(parsed.range(of: "$x_1$"))
         #expect(parsed[bold].runs.first?.inlinePresentationIntent?.contains(.stronglyEmphasized) == true, "emphasis around math still applies")
         #expect(String(InlineParsing.attributed("cost $5 and *$10*").characters) == "cost $5 and $10")

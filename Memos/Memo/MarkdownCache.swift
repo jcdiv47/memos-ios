@@ -29,6 +29,12 @@ enum MarkdownCache {
         return cache
     }()
 
+    private static let typesetMath: NSCache<NSString, Box<TypesetMath?>> = {
+        let cache = NSCache<NSString, Box<TypesetMath?>>()
+        cache.countLimit = 500
+        return cache
+    }()
+
     private static let plainTexts: NSCache<NSString, NSString> = {
         let cache = NSCache<NSString, NSString>()
         cache.countLimit = 1000
@@ -68,6 +74,16 @@ enum MarkdownCache {
         }
         codeBlocks.setObject(Box(highlighted), forKey: key)
         return highlighted
+    }
+
+    /// ``MathTypesetter/typeset(_:fontSize:display:)``, cached. TeX SwiftMath can't set is
+    /// remembered too, so it isn't tried again on every render.
+    static func math(_ tex: String, fontSize: CGFloat, display: Bool) -> TypesetMath? {
+        let key = "\(display ? 1 : 0)\u{1F}\(fontSize)\u{1E}\(tex)" as NSString
+        if let hit = typesetMath.object(forKey: key) { return hit.value }
+        let math = MathTypesetter.typeset(tex, fontSize: fontSize, display: display)
+        typesetMath.setObject(Box(math), forKey: key)
+        return math
     }
 
     /// ``MemosCore/Memo/plainText``, cached by content.

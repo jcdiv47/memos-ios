@@ -31,6 +31,12 @@ settings:
 packages:
   MemosKit:
     path: MemosKit
+  # Typesets the TeX in `$math$` and `$$` blocks natively, with CoreText. Pinned to main after
+  # 1.7.3: the release crashes on some malformed TeX (a row break inside braces in a table), which
+  # main fixed (mgriebling/SwiftMath#76), and lacks \operatorname, \dfrac and Unicode in \text.
+  SwiftMath:
+    url: https://github.com/mgriebling/SwiftMath
+    revision: 0b0222e102ba415b352cd29f334075622bd4e6aa
 
 targets:
   Memos:
@@ -41,6 +47,7 @@ targets:
     dependencies:
       - package: MemosKit
         product: MemosCore
+      - package: SwiftMath
       - target: MemosWidgets
       - target: MemosShare
     settings:

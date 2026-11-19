@@ -123,8 +123,9 @@ public enum InlineSpans {
 
 /// Inline Markdown parsed by Foundation, with what Foundation would get wrong fixed first.
 public enum InlineParsing {
-    /// `AttributedString(markdown:)` for one block's text, with `$math$` kept exactly as written
-    /// and marked as code, and escaped hashes marked as in ``markingEscapedHashes(_:)``.
+    /// `AttributedString(markdown:)` for one block's text, with `$math$` kept exactly as written,
+    /// marked as code and with its TeX in ``InlineMathAttribute``, and escaped hashes marked as in
+    /// ``markingEscapedHashes(_:)``.
     ///
     /// Foundation doesn't know math: `$a*b*c$` would lose its asterisks to emphasis and
     /// `$\{x\}$` its backslashes. Each math span is swapped for a private-use character before
@@ -154,6 +155,8 @@ public enum InlineParsing {
             guard let range = attributed.range(of: String(Character(placeholder(offset)))) else { continue }
             var piece = AttributedString(String(tex), attributes: attributed[range].runs.first?.attributes ?? AttributeContainer())
             piece.inlinePresentationIntent = (piece.inlinePresentationIntent ?? []).union(.code)
+            let fence = tex.prefix { $0 == "$" }.count
+            piece[InlineMathAttribute.self] = String(tex.dropFirst(fence).dropLast(fence))
             attributed.replaceSubrange(range, with: piece)
         }
         return attributed
@@ -188,4 +191,10 @@ public enum InlineParsing {
     private static func isPlaceholder(_ scalar: Unicode.Scalar) -> Bool {
         (placeholderBase..<placeholderBase + UInt32(placeholderCount)).contains(scalar.value)
     }
+}
+
+/// The TeX of an inline math run, without its dollar signs, for typesetting it.
+public enum InlineMathAttribute: AttributedStringKey {
+    public typealias Value = String
+    public static let name = "memos.inlineMath"
 }
