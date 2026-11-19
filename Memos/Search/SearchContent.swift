@@ -18,6 +18,9 @@ struct SearchContent: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
+        // The search field floats over the bottom of the list, and without the software
+        // keyboard nothing insets the list for it, so its last rows would sit underneath.
+        .contentMargins(.bottom, FloatingBar.height + Spacing.l, for: .scrollContent)
         .sheet(isPresented: $isSavingView) {
             SaveViewSheet(query: search.query)
                 .presentationDetents([.height(300)])
@@ -79,6 +82,14 @@ struct SearchContent: View {
                     } else {
                         ForEach(others, id: \.name) { memo in
                             SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                        }
+                        if !search.remoteNextPageToken.isEmpty {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                // Keyed on the count, so it asks again after each page lands while still on screen.
+                                .task(id: search.remote.count) { search.loadMoreRemote() }
                         }
                     }
                 }

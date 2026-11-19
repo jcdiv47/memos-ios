@@ -36,7 +36,11 @@ struct MemoDetailView: View {
         .background(.paper)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: name) { await load() }
+        // Keyed on the link, so an edit that adds, changes or removes it updates the card.
+        .task(id: previewURL) { await loadLinkPreview(previewURL) }
     }
+
+    private var previewURL: String? { memo.flatMap { Self.firstLink(in: $0.content) } }
 
     @ViewBuilder
     private func content(_ memo: Memo) -> some View {
@@ -189,7 +193,6 @@ struct MemoDetailView: View {
             }
         }
         await loadComments()
-        await loadLinkPreview()
     }
 
     private func loadComments() async {
@@ -208,8 +211,12 @@ struct MemoDetailView: View {
         commentsLoaded = true
     }
 
-    private func loadLinkPreview() async {
-        guard let memo, let url = Self.firstLink(in: memo.content) else { return }
+    private func loadLinkPreview(_ url: String?) async {
+        guard let url else {
+            withAnimation(.memosSpring) { linkPreview = nil }
+            return
+        }
+        if linkPreview?.url != url { linkPreview = nil }
         if let cached = session.linkPreviews[url] {
             linkPreview = cached
             return
@@ -556,18 +563,12 @@ private struct DetailBar: View {
             HStack(spacing: Spacing.l) {
                 if pickerOpen {
                     HStack(spacing: Spacing.xs) {
-                        ForEach(session.store.profile.reactionChoices, id: \.self) { emoji in
-                            Button {
-                                reacted += 1
-                                withAnimation(pickerAnimation) { pickerOpen = false }
-                                Task { await onReact(emoji) }
-                            } label: {
-                                Text(emoji)
-                                    .font(.title2)
-                                    .frame(width: 40, height: Metrics.minTapTarget)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("React with \(emoji)")
+                        // A server can offer more reactions than fit; they scroll instead of
+                        // widening the bar, and with it the whole page, past the screen edge.
+                        ViewThatFits(in: .horizontal) {
+                            reactionChoices
+                            ScrollView(.horizontal) { reactionChoices }
+                                .scrollIndicators(.hidden)
                         }
                         Button {
                             withAnimation(pickerAnimation) { pickerOpen = false }
@@ -629,6 +630,24 @@ private struct DetailBar: View {
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: reacted)
+    }
+
+    private var reactionChoices: some View {
+        HStack(spacing: Spacing.xs) {
+            ForEach(session.store.profile.reactionChoices, id: \.self) { emoji in
+                Button {
+                    reacted += 1
+                    withAnimation(pickerAnimation) { pickerOpen = false }
+                    Task { await onReact(emoji) }
+                } label: {
+                    Text(emoji)
+                        .font(.title2)
+                        .frame(width: 40, height: Metrics.minTapTarget)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("React with \(emoji)")
+            }
+        }
     }
 
     /// Settles with a small bounce on the emoji you pick; Reduce Motion keeps the morph without it.

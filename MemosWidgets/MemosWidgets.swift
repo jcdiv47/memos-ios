@@ -1,5 +1,6 @@
 import AppIntents
 import MemosCore
+import SwiftProtobuf
 import SwiftUI
 import WidgetKit
 
@@ -105,6 +106,14 @@ struct MemosProvider: TimelineProvider {
         // By position: translations can share a length.
         memo.name = "memos/sample-\(index)"
         memo.content = text
+        // Without a date they read as 1 January 1970. The first doubles as the Memory widget's
+        // sample, so it's from a year ago; the others are from this week.
+        let calendar = Calendar.current
+        let created = index == 0
+            ? calendar.date(byAdding: .year, value: -1, to: .now)
+            : calendar.date(byAdding: .day, value: -(index * 2), to: .now)
+        memo.createTime = Google_Protobuf_Timestamp(date: created ?? .now)
+        memo.updateTime = memo.createTime
         return memo
     }
 }
