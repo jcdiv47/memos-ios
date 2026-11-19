@@ -74,6 +74,7 @@ private func day(_ days: Int, hour: Int = 12, minute: Int = 0) -> Date {
         "Dentist Wed, Nov 25, 2026|",
         "2026-11-20 20:00|",
         "`tomorrow 8pm|",
+        "tomorrow|land",
         "`tomorrow 8pm`|",
         "```\ntomorrow 8pm|",
     ])
@@ -105,7 +106,7 @@ private func day(_ days: Int, hour: Int = 12, minute: Int = 0) -> Date {
     @Test func `converting keeps the cursor after the phrase`() throws {
         let (text, cursor) = unmark("Call mom tomorrow 8pm |")
         let found = try #require(DatePhrases.phrase(in: text, before: cursor))
-        let edit = DatePhrases.convert(found, in: text, cursor: cursor, locale: Locale(identifier: "en_US"))
+        let edit = DatePhrases.convert(found, cursor: cursor, locale: Locale(identifier: "en_US"))
         let result = edit.applied(to: text)
         let written = DatePhrases.formatted(day(1, hour: 20), includesTime: true, locale: Locale(identifier: "en_US"))
         #expect(result == "Call mom \(written) ")

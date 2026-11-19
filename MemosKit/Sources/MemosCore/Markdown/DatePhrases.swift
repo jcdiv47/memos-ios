@@ -40,6 +40,9 @@ public enum DatePhrases {
         var end = local
         while end > 0, lineNS.character(at: end - 1) == space || lineNS.character(at: end - 1) == tab { end -= 1 }
         guard end > 0 else { return nil }
+        // In the middle of a word, like “at 8|pm”, the phrase isn't finished.
+        if end == local, cursor < NSMaxRange(lineRange),
+           let next = Unicode.Scalar(ns.character(at: cursor)), CharacterSet.alphanumerics.contains(next) { return nil }
 
         // A span like “until tomorrow” has a duration; it isn't one moment to write down.
         guard let match = detector.matches(in: line, range: NSRange(location: 0, length: lineNS.length))
@@ -79,13 +82,12 @@ public enum DatePhrases {
 
     /// Replaces `phrase` with the date in full. The cursor keeps its place after it.
     public static func convert(
-        _ phrase: DatePhrase, in text: String, cursor: Int,
+        _ phrase: DatePhrase, cursor: Int,
         timeZone: TimeZone = .autoupdatingCurrent, locale: Locale = .autoupdatingCurrent
     ) -> TextEdit {
         let replacement = formatted(phrase.date, includesTime: phrase.includesTime, timeZone: timeZone, locale: locale)
         let delta = replacement.utf16.count - phrase.range.length
-        let location = max(cursor, NSMaxRange(phrase.range)) + delta
-        return TextEdit(range: phrase.range, replacement: replacement, selection: NSRange(location: location, length: 0))
+        return TextEdit(range: phrase.range, replacement: replacement, selection: NSRange(location: cursor + delta, length: 0))
     }
 
     // MARK: - Private

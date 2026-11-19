@@ -139,7 +139,12 @@ final class ComposerModel {
         if self.text != text { self.text = text }
         if self.selection != selection { self.selection = selection }
         if self.isComposing != isComposing { self.isComposing = isComposing }
-        if !isComposing { updateSuggestions() }
+        if isComposing {
+            // Marked text can't be replaced, and the date before it may be what's being typed.
+            if datePhrase != nil { datePhrase = nil }
+        } else {
+            updateSuggestions()
+        }
     }
 
     /// Replaces the whole text, as a transcript does, leaving the cursor at the end.
@@ -171,7 +176,7 @@ final class ComposerModel {
         let (text, selection) = current
         // Read again rather than reusing the suggestion: “tomorrow” may have moved since.
         guard selection.length == 0, let phrase = DatePhrases.phrase(in: text, before: selection.location) else { return }
-        apply(DatePhrases.convert(phrase, in: text, cursor: selection.location))
+        apply(DatePhrases.convert(phrase, cursor: selection.location))
     }
 
     private var current: (text: String, selection: NSRange) {
