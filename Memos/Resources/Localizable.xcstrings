@@ -95,6 +95,23 @@
         }
       }
     },
+    "%@: %@" : {
+      "comment" : "A linked memo for VoiceOver: which way the link runs, then the start of the memo.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@：%2$@"
+          }
+        }
+      }
+    },
     "%@: %lld memos" : {
       "localizations" : {
         "en" : {
@@ -1615,12 +1632,32 @@
         }
       }
     },
+    "Link Memo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接备忘录"
+          }
+        }
+      }
+    },
     "Link unavailable" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "链接不可用"
+          }
+        }
+      }
+    },
+    "Linked memo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已链接的备忘录"
           }
         }
       }
@@ -1936,6 +1973,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%2$@ 中没有符合“%1$@”的 Memo。"
+          }
+        }
+      }
+    },
+    "No memos to link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可链接的备忘录"
           }
         }
       }
@@ -2351,12 +2398,44 @@
         }
       }
     },
+    "Referenced by" : {
+      "comment" : "A memo that links to this memo.",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "被引用"
+          }
+        }
+      }
+    },
+    "Referencing" : {
+      "comment" : "A memo this memo links to.",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引用"
+          }
+        }
+      }
+    },
     "Remove" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "移除"
+          }
+        }
+      }
+    },
+    "Remove Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除链接"
           }
         }
       }
@@ -2477,6 +2556,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "搜索 Memo"
+          }
+        }
+      }
+    },
+    "Search your memos" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索你的备忘录"
           }
         }
       }

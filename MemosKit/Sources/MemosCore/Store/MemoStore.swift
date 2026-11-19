@@ -177,7 +177,9 @@ public final class MemoStore {
         memo.createTime = Google_Protobuf_Timestamp(date: draft.createdAt)
         memo.updateTime = memo.createTime
         memo.refreshDerivedFields()
+        memo.setReferences(draft.references)
         own[memo.name] = memo
+        if !draft.references.isEmpty { reflectReferences(of: [memo]) }
 
         for attachment in draft.attachments where isStaged(attachment) {
             state.outbox.enqueue(PendingChange(memo: memo.name, operation: .uploadAttachment(attachment: attachment.name)), inFlight: inFlight)
@@ -199,6 +201,9 @@ public final class MemoStore {
         if fields.contains(.space) || fields.contains(.visibility) { fields.formUnion([.space, .visibility]) }
         if memo.content != before.content { memo.refreshDerivedFields() }
         own[name] = memo
+        if memo.references != before.references || (memo.snippet != before.snippet && !memo.references.isEmpty) {
+            reflectReferences(of: [memo])
+        }
 
         let newUploads = memo.attachments.filter { attachment in
             isStaged(attachment) && !before.attachments.contains { $0.name == attachment.name }
@@ -254,6 +259,7 @@ public final class MemoStore {
         }
         state.outbox.enqueue(PendingChange(memo: name, operation: .delete), inFlight: inFlight)
         state.conflicts[name] = nil
+        reflectReferences(of: [(name, "", [])])
         didChange(own: true)
     }
 
@@ -282,11 +288,15 @@ public final class MemoStore {
     /// version; the conflict check happens when the change uploads.
     func receiveOwn(_ memos: [Memo]) {
         guard !memos.isEmpty else { return }
+        var received: [Memo] = []
         for memo in memos where !isWaitingToSync(memo.name) {
-            own[memo.name] = memo
+            let stored = keepingSnippets(memo, from: own[memo.name] ?? others[memo.name])
+            own[memo.name] = stored
             others[memo.name] = nil
+            received.append(stored)
         }
-        didChange(own: true, notify: false)
+        reflectReferences(of: received)
+        didChange(own: true, others: true, notify: false)
     }
 
     /// Replaces the local copy with the server's complete list, dropping memos deleted
@@ -307,9 +317,10 @@ public final class MemoStore {
             if memo.creator == user {
                 ownMemos.append(memo)
             } else {
-                others[memo.name] = memo
+                others[memo.name] = keepingSnippets(memo, from: others[memo.name])
             }
         }
+        reflectReferences(of: memos.filter { $0.creator != user })
         if others.count > Self.othersCacheLimit {
             let keep = others.values.sorted { $0.createdAt > $1.createdAt }.prefix(Self.othersCacheLimit)
             others = Dictionary(keep.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
@@ -355,10 +366,11 @@ public final class MemoStore {
                     rebaseQueuedUpdates(of: memo)
                 }
             } else {
-                own[memo.name] = memo
+                own[memo.name] = keepingSnippets(memo, from: own[memo.name])
             }
+            if let stored = own[memo.name] { reflectReferences(of: [stored]) }
         }
-        didChange(own: true, notify: false)
+        didChange(own: true, others: true, notify: false)
     }
 
     /// Swaps a staged attachment for the uploaded one in the memo that uses it.
@@ -386,6 +398,72 @@ public final class MemoStore {
         state.conflicts[original.name] = copy.name
         state.conflicts[copy.name] = original.name
         didChange(own: true, notify: false)
+    }
+
+    /// Drops links to memos the server no longer has, without queuing a change: the change being
+    /// uploaded sends the memo's current links.
+    func removeReferences(_ name: String, to targets: Set<String>) {
+        guard var memo = own[name] else { return }
+        memo.setReferences(memo.references.filter { !targets.contains($0) })
+        own[name] = memo
+        reflectReferences(of: [memo])
+        didChange(own: true, others: true, notify: false)
+    }
+
+    // MARK: Links
+
+    private func reflectReferences(of memos: [Memo]) {
+        reflectReferences(of: memos.map { ($0.name, $0.snippet, $0.references) })
+    }
+
+    /// Keeps the other end of each link in step: a memo that `sources` link to lists them under
+    /// “Referenced by”, and one they stopped linking to doesn't. The server only sends those when
+    /// the linked memo itself is fetched, which a change fetch won't do since it didn't change.
+    private func reflectReferences(of sources: [(name: String, snippet: String, references: [String])]) {
+        guard !sources.isEmpty else { return }
+        let sourceNames = Set(sources.map(\.name))
+        var wanted: [String: [(name: String, snippet: String)]] = [:]
+        for source in sources {
+            for target in source.references { wanted[target, default: []].append((source.name, source.snippet)) }
+        }
+
+        func adjusted(_ memo: Memo) -> Memo? {
+            let isBacklink = { (relation: MemoRelation) in
+                relation.type == .reference && relation.relatedMemo.name == memo.name && sourceNames.contains(relation.memo.name)
+            }
+            let want = wanted[memo.name] ?? []
+            let current = memo.relations.filter(isBacklink)
+            guard current.map(\.memo.name) != want.map(\.name) || zip(current, want).contains(where: { $0.memo.snippet != $1.snippet && !$1.snippet.isEmpty })
+            else { return nil }
+            var memo = memo
+            memo.relations.removeAll(where: isBacklink)
+            memo.relations += want.map { source in
+                let snippet = source.snippet.isEmpty ? current.first { $0.memo.name == source.name }?.memo.snippet ?? "" : source.snippet
+                return MemoRelation.reference(from: source.name, to: memo.name, sourceSnippet: snippet)
+            }
+            return memo
+        }
+
+        // Only memos with a link to or from a source can change.
+        for (name, memo) in own where wanted[name] != nil || memo.relations.contains(where: { sourceNames.contains($0.memo.name) }) {
+            if let changed = adjusted(memo) { own[name] = changed }
+        }
+        for (name, memo) in others where wanted[name] != nil || memo.relations.contains(where: { sourceNames.contains($0.memo.name) }) {
+            if let changed = adjusted(memo) { others[name] = changed }
+        }
+    }
+
+    /// The server leaves snippets out of list responses; keep the ones a single fetch brought.
+    private func keepingSnippets(_ memo: Memo, from previous: Memo?) -> Memo {
+        guard let previous, memo.relations.contains(where: { $0.memo.snippet.isEmpty || $0.relatedMemo.snippet.isEmpty }) else { return memo }
+        var memo = memo
+        for index in memo.relations.indices {
+            let relation = memo.relations[index]
+            guard let known = previous.relations.first(where: { $0.memo.name == relation.memo.name && $0.relatedMemo.name == relation.relatedMemo.name }) else { continue }
+            if relation.memo.snippet.isEmpty { memo.relations[index].memo.snippet = known.memo.snippet }
+            if relation.relatedMemo.snippet.isEmpty { memo.relations[index].relatedMemo.snippet = known.relatedMemo.snippet }
+        }
+        return memo
     }
 
     private func rebaseQueuedUpdates(of memo: Memo) {
@@ -464,13 +542,16 @@ public struct MemoDraft: Sendable {
     public var pinned = false
     /// Staged with ``MemoStore/stageUpload(data:filename:mimeType:)``.
     public var attachments: [Attachment] = []
+    /// The memos it links to.
+    public var references: [String] = []
     public var createdAt = Date.now
     /// The memo's UID, when it was picked earlier (by an extension whose upload may already
     /// have gone through). Nil picks a new one.
     public var uid: String?
 
-    public init(content: String, visibility: MemoVisibility, space: String? = nil, location: MemoLocation? = nil, attachments: [Attachment] = []) {
+    public init(content: String, visibility: MemoVisibility, space: String? = nil, location: MemoLocation? = nil, attachments: [Attachment] = [], references: [String] = []) {
         self.content = content
+        self.references = references
         self.visibility = space == nil ? VisibilityRules.afterRemovingSpace(visibility) : visibility
         self.space = space
         self.location = location

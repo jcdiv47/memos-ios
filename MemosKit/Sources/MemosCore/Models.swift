@@ -12,6 +12,7 @@ public typealias MemoView = Memos_Api_MemoView
 public typealias Reaction = Memos_Api_Reaction
 public typealias UserNotification = Memos_Api_UserNotification
 public typealias MemoLocation = Memos_Api_Location
+public typealias MemoRelation = Memos_Api_MemoRelation
 
 extension Memo {
     /// The final segment of the resource name, `memos/{uid}`.
@@ -76,6 +77,72 @@ extension Memo {
 
     /// Comments are memos too; their parent is the memo they answer.
     public var isComment: Bool { hasParent && !parent.isEmpty }
+
+    /// The memos this one links to, in the order they were linked. The server sends both
+    /// directions in `relations`; these are the ones going out.
+    public var references: [String] {
+        var seen: Set<String> = []
+        return relations.compactMap { relation in
+            guard relation.type == .reference, relation.memo.name == name,
+                  relation.relatedMemo.name != name, seen.insert(relation.relatedMemo.name).inserted
+            else { return nil }
+            return relation.relatedMemo.name
+        }
+    }
+
+    /// The memos that link to this one, the web's “Referenced by”.
+    public var referencedBy: [String] {
+        var seen: Set<String> = []
+        return relations.compactMap { relation in
+            guard relation.type == .reference, relation.relatedMemo.name == name,
+                  relation.memo.name != name, seen.insert(relation.memo.name).inserted
+            else { return nil }
+            return relation.memo.name
+        }
+    }
+
+    /// The snippet the server sent for a memo on the other end of one of the relations, if any.
+    /// List responses leave it empty.
+    public func relationSnippet(for other: String) -> String? {
+        for relation in relations where relation.type == .reference {
+            if relation.memo.name == name, relation.relatedMemo.name == other, !relation.relatedMemo.snippet.isEmpty {
+                return relation.relatedMemo.snippet
+            }
+            if relation.relatedMemo.name == name, relation.memo.name == other, !relation.memo.snippet.isEmpty {
+                return relation.memo.snippet
+            }
+        }
+        return nil
+    }
+
+    /// Replaces the memos this one links to, keeping the links into it and the snippets already
+    /// known for links that stay.
+    public mutating func setReferences(_ targets: [String]) {
+        var seen: Set<String> = [name]
+        let targets = targets.filter { seen.insert($0).inserted }
+        let kept = Dictionary(relations.filter { $0.type == .reference && $0.memo.name == name }.map { ($0.relatedMemo.name, $0) }, uniquingKeysWith: { first, _ in first })
+        let source = name
+        relations.removeAll { $0.type == .reference && $0.memo.name == source }
+        relations += targets.map { target in
+            kept[target] ?? MemoRelation.reference(from: source, to: target)
+        }
+    }
+
+    /// The links this memo sends when it uploads its references: names only.
+    public var referenceRelations: [MemoRelation] {
+        references.map { MemoRelation.reference(from: name, to: $0) }
+    }
+}
+
+extension MemoRelation {
+    public static func reference(from source: String, to target: String, sourceSnippet: String = "") -> MemoRelation {
+        var relation = MemoRelation()
+        relation.type = .reference
+        relation.memo.name = source
+        relation.memo.snippet = sourceSnippet
+        relation.relatedMemo.name = target
+        return relation
+    }
 }
 
 extension MemoVisibility {
