@@ -12,14 +12,16 @@ private func facts(
     visibility: String = "PRIVATE",
     space: String? = nil,
     tasks: (list: Bool, open: Bool) = (false, false),
-    location: Bool = false
+    location: Bool = false,
+    attachments: Bool = false
 ) -> MemoFacts {
     let analysis = ContentAnalysis(content)
     return MemoFacts(
         content: content, creator: creator, createdAt: created, updatedAt: created, pinned: pinned,
         tags: analysis.tags, visibility: visibility, space: space,
         hasTaskList: tasks.list || analysis.hasTaskList, hasLink: analysis.hasLink, hasCode: analysis.hasCode,
-        hasIncompleteTasks: tasks.open || analysis.hasIncompleteTasks, hasLocation: location
+        hasIncompleteTasks: tasks.open || analysis.hasIncompleteTasks, hasLocation: location,
+        hasAttachments: attachments
     )
 }
 
@@ -59,10 +61,12 @@ private func matches(_ filter: String, _ facts: MemoFacts) throws -> Bool {
         (#"creator != "users/you""#, false),
         ("has_location", true),
         ("!has_location", false),
+        ("has_attachments", true),
+        ("!has_attachments", false),
         ("pinned == false", true),
     ])
     func `scalar fields`(filter: String, expected: Bool) throws {
-        let memo = facts(visibility: "PRIVATE", space: "spaces/studio", location: true)
+        let memo = facts(visibility: "PRIVATE", space: "spaces/studio", location: true, attachments: true)
         #expect(try matches(filter, memo) == expected)
     }
 
@@ -126,6 +130,7 @@ private func matches(_ filter: String, _ facts: MemoFacts) throws -> Bool {
         #expect(SearchToken.links.filterClause == "has_link")
         #expect(SearchToken.code.filterClause == "has_code")
         #expect(SearchToken.places.filterClause == "has_location")
+        #expect(SearchToken.attachments.filterClause == "has_attachments")
         #expect(SearchToken.pinned.filterClause == "pinned")
         #expect(SearchToken.visibility(.private).filterClause == #"visibility == "PRIVATE""#)
         #expect(SearchToken.space(name: "spaces/studio", title: "Studio").filterClause == #"space == "spaces/studio""#)

@@ -16,6 +16,8 @@ final class AccountSession {
     let engine: SyncEngine?
     let connectivity = Connectivity()
     let files: AttachmentFiles
+    /// Finding photos by describing them, once MobileCLIP is downloaded.
+    let photoSearch: PhotoSearchModel
     let people: PeopleDirectory
     let voice = VoiceRecorder()
     /// The composer's unsaved work.
@@ -75,6 +77,7 @@ final class AccountSession {
         drafts = DraftStore(directory: location.draftsDirectory)
         engine = client.map { SyncEngine(client: $0, store: store) }
         files = AttachmentFiles(client: client, store: store)
+        photoSearch = PhotoSearchModel(store: store, files: files)
         people = PeopleDirectory(client: client, store: store)
         self.preferencePrefix = preferencePrefix
         scope = UserDefaults.standard.bool(forKey: "timeline.everyone.\(preferencePrefix)") ? .everyone : .mine
@@ -140,11 +143,21 @@ final class AccountSession {
         #if DEBUG
         startFromEnvironment()
         #endif
-        guard let engine else { return }
-        connectivity.onChange = { online, expensive in
+        guard let engine else {
+            // Nothing to sync: every photo is already here.
+            photoSearch.indexIfNeeded()
+            return
+        }
+        connectivity.onChange = { [weak self] online, expensive in
             engine.isExpensiveNetwork = expensive
             engine.isOnline = online
-            if online { Task { await engine.sync() } }
+            if online {
+                Task {
+                    await engine.sync()
+                    guard let self, !self.isClosed else { return }
+                    self.photoSearch.indexIfNeeded()
+                }
+            }
         }
         connectivity.start()
         Task {
@@ -153,6 +166,7 @@ final class AccountSession {
             guard !isClosed else { return }
             dropMissingSpace()
             files.prefetchThumbnails()
+            photoSearch.indexIfNeeded()
             SpotlightIndex.update(store)
         }
     }
@@ -175,6 +189,7 @@ final class AccountSession {
         isClosed = true
         connectivity.stop()
         await engine?.stop()
+        await photoSearch.stop()
         drafts.flush()
         await store.save()
     }
@@ -186,6 +201,8 @@ final class AccountSession {
         if connectivity.isOnline { engine.isOnline = true }
         await engine.sync()
         files.prefetchThumbnails()
+        photoSearch.refresh()
+        photoSearch.indexIfNeeded()
     }
 
     func didEnterBackground() async {

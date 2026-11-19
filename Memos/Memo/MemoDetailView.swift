@@ -77,6 +77,8 @@ struct MemoDetailView: View {
                                 .accessibilityLabel(location.placeholder.isEmpty ? Text("Location") : Text("Location, \(location.placeholder)"))
                         }
 
+                        MemoLinks(memo: memo, showsDirection: true)
+
                         if let linkPreview {
                             LinkPreviewCard(metadata: linkPreview)
                         }

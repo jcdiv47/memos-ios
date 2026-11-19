@@ -9,7 +9,12 @@ final class SearchModel {
         didSet { if text != oldValue { textChanged() } }
     }
     var tokens: [SearchToken] = [] {
-        didSet { if tokens != oldValue { scheduleRemote() } }
+        didSet {
+            if tokens != oldValue {
+                scheduleRemote()
+                schedulePhotos()
+            }
+        }
     }
     var scope: MemoQuery.Scope = .mine {
         didSet { if scope != oldValue { scheduleRemote() } }
@@ -18,10 +23,13 @@ final class SearchModel {
     private(set) var remote: [Memo] = []
     private(set) var isLoadingRemote = false
     private(set) var remoteFailed = false
+    /// Your photos that look like what's typed, when photo search is on.
+    private(set) var photos: [PhotoSearchModel.Match] = []
     private(set) var recents: [String] = UserDefaults.standard.stringArray(forKey: "search.recents") ?? []
 
     @ObservationIgnored private weak var session: AccountSession?
     @ObservationIgnored private var remoteTask: Task<Void, Never>?
+    @ObservationIgnored private var photoTask: Task<Void, Never>?
     /// Where the server's next page of other people's matches starts; empty when there isn't one.
     private(set) var remoteNextPageToken = ""
     @ObservationIgnored private var remoteFilter = ""
@@ -37,6 +45,10 @@ final class SearchModel {
            !tokens.contains(where: { if case .space = $0 { true } else { false } }) {
             tokens.insert(.space(name: space.name, title: space.title), at: 0)
         }
+        // Photos from a sync that didn't index them, such as pull to refresh.
+        session.photoSearch.indexIfNeeded()
+        // A search from a link or Siri sets its text before search opens.
+        schedulePhotos()
     }
 
     func end() {
@@ -45,6 +57,8 @@ final class SearchModel {
         text = ""
         tokens = []
         remote = []
+        photoTask?.cancel()
+        photos = []
     }
 
     // MARK: Typing
@@ -57,6 +71,7 @@ final class SearchModel {
             if !tokens.contains(.tag(String(tag))) { tokens.append(.tag(String(tag))) }
         }
         scheduleRemote()
+        schedulePhotos()
     }
 
     /// The partial tag being typed, for tag suggestions.
@@ -117,6 +132,27 @@ final class SearchModel {
             } catch {
                 self.remoteFailed = true
             }
+        }
+    }
+
+    /// Your photos that look like the typed words, among the memos the tokens allow. Waits for
+    /// a pause in typing, since each new word is a new description.
+    func schedulePhotos() {
+        photoTask?.cancel()
+        let description = query.words.filter { !$0.hasPrefix("#") }.joined(separator: " ")
+        guard let session, session.photoSearch.isReady, !description.isEmpty else {
+            photos = []
+            return
+        }
+        let tokens = tokens
+        photoTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            let filter = SearchQuery(tokens: tokens).filter().flatMap { try? MemoFilter($0) }
+            let memos = session.memos(MemoQuery(scope: .mine, filter: filter, order: .newest))
+            let matches = await session.photoSearch.matches(for: description, in: memos)
+            guard let self, !Task.isCancelled else { return }
+            self.photos = matches
         }
     }
 

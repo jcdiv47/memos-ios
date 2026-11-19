@@ -44,6 +44,8 @@ struct MemoCard: View {
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel("Location, \(location.placeholder)")
                     }
+
+                    MemoLinks(memo: memo)
                 }
             }
 

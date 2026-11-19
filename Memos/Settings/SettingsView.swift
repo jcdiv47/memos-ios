@@ -1,4 +1,5 @@
 import MemosCore
+import PhotoSearch
 import SwiftProtobuf
 import SwiftUI
 
@@ -96,6 +97,8 @@ private struct ServerSettings: View {
         .task {
             cacheSize = await session.files.cacheSize()
         }
+
+        PhotoSearchSection()
 
         SyncSection(engine: engine)
 
@@ -199,6 +202,9 @@ private struct OnDeviceSettings: View {
             storageSize = await session.files.librarySize()
         }
 
+        // The photos are all here, so photo search works just as it does for a server account.
+        PhotoSearchSection()
+
         Section {
             if let account = model.serverAccount {
                 let host = account.url.host() ?? account.url.absoluteString
@@ -232,6 +238,67 @@ private struct OnDeviceSettings: View {
         }
         .sheet(isPresented: $isConnecting) {
             SignInView(connecting: true)
+        }
+    }
+}
+
+/// Downloading MobileCLIP turns on photo search; removing it turns it off.
+private struct PhotoSearchSection: View {
+    @Environment(AccountSession.self) private var session
+    @State private var variant: MobileCLIPVariant = .s2
+    @State private var confirmRemove = false
+
+    var body: some View {
+        let photos = session.photoSearch
+        Section {
+            if let installed = photos.installed {
+                LabeledContent("Model", value: installed.displayName)
+                LabeledContent("Photos ready") {
+                    HStack(spacing: Spacing.s) {
+                        if photos.isIndexing { ProgressView() }
+                        Text("\(photos.indexedCount) of \(photos.photoCount)", comment: "Photos ready for photo search, out of all the photos in your memos.")
+                    }
+                }
+                Button("Remove Model", role: .destructive) { confirmRemove = true }
+                    .confirmationDialog("Remove the photo search model?", isPresented: $confirmRemove, titleVisibility: .visible) {
+                        Button("Remove", role: .destructive) { photos.remove() }
+                    } message: {
+                        Text("Photo search turns off, here and in your other apps that share the model. You can download it again at any time.")
+                    }
+            } else if let progress = photos.downloadProgress {
+                ProgressView(value: progress) {
+                    Text("Downloading \(variant.displayName)…")
+                } currentValueLabel: {
+                    Text(progress, format: .percent.precision(.fractionLength(0)))
+                }
+                Button("Cancel Download", role: .cancel) { photos.cancelDownload() }
+            } else {
+                Picker("Model", selection: $variant) {
+                    ForEach(MobileCLIPVariant.allCases) { variant in
+                        Text(label(variant)).tag(variant)
+                    }
+                }
+                Button("Download Model") { photos.download(variant) }
+            }
+        } header: {
+            Text("Photo search")
+        } footer: {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPhone, so your photos stay on it. Descriptions in English work best.")
+                if let error = photos.error { Text(error).foregroundStyle(.danger) }
+            }
+        }
+        .onAppear {
+            photos.refresh()
+            if let installed = photos.installed { variant = installed }
+        }
+    }
+
+    private func label(_ variant: MobileCLIPVariant) -> String {
+        let size = variant.downloadSize.formatted(.byteCount(style: .file))
+        return switch variant {
+        case .s0: String(localized: "Smaller · \(size)", comment: "The smaller photo search model, with its download size.")
+        case .s2: String(localized: "More accurate · \(size)", comment: "The larger photo search model, with its download size.")
         }
     }
 }
