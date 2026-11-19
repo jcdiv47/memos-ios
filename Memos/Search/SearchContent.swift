@@ -62,7 +62,7 @@ struct SearchContent: View {
 
             if !search.photos.isEmpty {
                 Section("Photos") {
-                    PhotoMatchStrip(matches: search.photos)
+                    PhotoMatchStrip(matches: search.photos, zoom: zoom)
                 }
             }
 
@@ -158,6 +158,7 @@ struct SearchContent: View {
 /// the memo the photo is in.
 private struct PhotoMatchStrip: View {
     let matches: [PhotoSearchModel.Match]
+    let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
 
@@ -165,8 +166,10 @@ private struct PhotoMatchStrip: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: Spacing.s) {
                 ForEach(matches) { match in
+                    let source = "photo.\(match.attachment.name)"
                     Button {
-                        session.path.append(.memo(match.memo.name))
+                        // The memo grows out of the photo you tapped.
+                        session.path.append(.memo(match.memo.name, source: source))
                     } label: {
                         AttachmentImage(attachment: match.attachment)
                             .frame(width: 104, height: 104)
@@ -174,6 +177,7 @@ private struct PhotoMatchStrip: View {
                             // own frame rather than bleeding into the next one.
                             .blur(radius: session.isHidden(match.memo) ? 16 : 0, opaque: true)
                             .clipShape(.rect(cornerRadius: Radius.tight))
+                            .matchedTransitionSource(id: source, in: zoom)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(session.redactedTitle(of: match.memo))
@@ -199,7 +203,7 @@ private struct SearchRow: View {
 
     var body: some View {
         Button {
-            session.path.append(.memo(memo.name))
+            session.path.append(.memo(memo.name, source: memo.name))
         } label: {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 let hidden = session.isHidden(memo)

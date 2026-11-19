@@ -285,7 +285,7 @@ struct TimelineRow: View {
 
     var body: some View {
         Button {
-            session.path.append(.memo(memo.name))
+            session.path.append(.memo(memo.name, source: memo.name))
         } label: {
             MemoCard(memo: memo, highlights: highlights, showsSpace: showsSpace, showsAuthor: namesEveryAuthor || !isMine)
                 .matchedTransitionSource(id: memo.name, in: zoom)
@@ -375,7 +375,7 @@ struct MemoActions: View {
         }
         if !session.isOnDevice {
             Button("React", systemImage: "face.smiling") {
-                if let onReact { onReact() } else { session.path.append(.memo(memo.name)) }
+                if let onReact { onReact() } else { session.path.append(.memo(memo.name, source: memo.name)) }
             }
         }
         if let link = session.webURL(for: memo) {

@@ -56,6 +56,16 @@ struct ZoomTransition: ViewModifier {
 }
 
 extension View {
+    /// Marks the view as what a zoom grows out of, where there's a namespace to zoom in.
+    @ViewBuilder
+    func matchedTransitionSource(id: String, in namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
+    }
+
     /// Pushes and sheets grow out of the control that opened them, never from the middle of the
     /// screen: pair with `matchedTransitionSource(id:in:)` on the trigger.
     func zoomTransition(from sourceID: String?, in namespace: Namespace.ID) -> some View {
