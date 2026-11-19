@@ -11,6 +11,8 @@ final class AccountSession {
     let engine: SyncEngine
     let connectivity = Connectivity()
     let files: AttachmentFiles
+    /// Finding photos by describing them, once MobileCLIP is downloaded.
+    let photoSearch: PhotoSearchModel
     let people: PeopleDirectory
     let voice = VoiceRecorder()
     /// The composer's unsaved work.
@@ -59,6 +61,7 @@ final class AccountSession {
         drafts = DraftStore(directory: location.draftsDirectory)
         engine = SyncEngine(client: client, store: store)
         files = AttachmentFiles(client: client, store: store)
+        photoSearch = PhotoSearchModel(store: store, files: files)
         people = PeopleDirectory(client: client, store: store)
         preferencePrefix = "\(client.serverURL.absoluteString)|\(user)"
         scope = UserDefaults.standard.bool(forKey: "timeline.everyone.\(preferencePrefix)") ? .everyone : .mine
@@ -123,6 +126,7 @@ final class AccountSession {
             await engine.sync()
             dropMissingSpace()
             files.prefetchThumbnails()
+            photoSearch.indexIfNeeded()
             SpotlightIndex.update(store)
         }
         #if DEBUG
@@ -149,6 +153,8 @@ final class AccountSession {
         if connectivity.isOnline { engine.isOnline = true }
         await engine.sync()
         files.prefetchThumbnails()
+        photoSearch.refresh()
+        photoSearch.indexIfNeeded()
     }
 
     func didEnterBackground() async {
