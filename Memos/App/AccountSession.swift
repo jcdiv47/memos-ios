@@ -29,6 +29,9 @@ final class AccountSession {
     var composer: ComposerRequest?
     var isInboxPresented = false
     var isSettingsPresented = false
+    /// The control Inbox or Settings grew out of, so the sheet shrinks back into it. Nil when a
+    /// link opened it. See ``SheetSource``.
+    var accountSheetSource: String?
     /// The Voice memo control's recorder, which saves without a composer.
     var isQuickVoiceMemoPresented = false
     /// Set by deep links and the search intent; the timeline opens search with it.
@@ -221,12 +224,14 @@ final class AccountSession {
 
     /// Opens the composer as the capture field would: in the current Space, with the visibility
     /// rules applied.
-    func capture(text: String = "", record: Bool = false, origin: CaptureOrigin? = nil) {
-        composer = ComposerRequest(mode: .new(origin: origin ?? .timeline(space: selectedSpace), text: text, record: record))
+    /// `source` is the control the composer grows out of; see ``SheetSource``.
+    func capture(text: String = "", record: Bool = false, origin: CaptureOrigin? = nil, from source: String? = nil) {
+        composer = ComposerRequest(mode: .new(origin: origin ?? .timeline(space: selectedSpace), text: text, record: record), source: source)
     }
 
-    func edit(_ name: String) {
-        composer = ComposerRequest(mode: .edit(name))
+    /// `source` is the card or menu the composer grows out of.
+    func edit(_ name: String, from source: String? = nil) {
+        composer = ComposerRequest(mode: .edit(name), source: source)
     }
 
     var defaultVisibility: MemoVisibility? {
@@ -255,10 +260,12 @@ final class AccountSession {
                 let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "q" }?.value ?? ""
                 pendingSearch = SearchQuery(text: text)
             case "inbox":
+                accountSheetSource = nil
                 isInboxPresented = !isOnDevice
             case "library":
                 path = [.library] + (parts.first.flatMap(Self.libraryRoute).map { [$0] } ?? [])
             case "settings":
+                accountSheetSource = nil
                 isSettingsPresented = true
             case "space":
                 selectedSpace = parts.first.map { "spaces/\($0)" }
@@ -290,10 +297,10 @@ final class AccountSession {
         }
     }
 
-    func show(memo name: String) {
+    func show(memo name: String, from source: String? = nil) {
         composer = nil
         isInboxPresented = false
-        path.append(.memo(name))
+        path.append(.memo(name, source: source))
     }
 
     /// The web address of a memo on this instance. Nil in the on-device library, where a memo has
@@ -305,7 +312,9 @@ final class AccountSession {
 
 /// Screens pushed onto the timeline's stack.
 enum Route: Hashable {
-    case memo(String)
+    /// A memo, zooming out of `source` and back into it: its card, a photo, a pin. Nil when
+    /// nothing on screen opened it (a link, an intent), which pushes from the edge instead.
+    case memo(String, source: String? = nil)
     case sharedMemo(token: String)
     case library
     case activity
@@ -315,6 +324,9 @@ enum Route: Hashable {
     case archived
     case view(String)
     case filtered(title: String, tokens: [SearchToken])
+    /// Another page, zooming out of the card that opened it and back into it, such as a Library
+    /// tile. Pages reached any other way push from the edge.
+    indirect case zoomed(Route, from: String)
 }
 
 /// What the composer opens for.
@@ -328,4 +340,6 @@ struct ComposerRequest: Identifiable {
 
     let id = UUID()
     var mode: Mode
+    /// The control the sheet grows out of and shrinks back into, or nil to rise from the bottom.
+    var source: String?
 }

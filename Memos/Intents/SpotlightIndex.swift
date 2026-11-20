@@ -20,13 +20,14 @@ enum SpotlightIndex {
     }
 
     static func update(_ store: MemoStore) {
-        let entities = store.own.values.filter { !$0.isArchived }.map(MemoEntity.init)
+        // Re-indexing by the same ID also redacts a memo indexed before its tag was set to blur.
+        let entities = store.own.values.filter { !$0.isArchived }.map { MemoEntity($0, rules: store.profile.tagBlurRules) }
         enqueue { await index(entities) }
     }
 
     /// Swaps in `store`'s memos for whatever library was indexed before.
     static func replace(with store: MemoStore) {
-        let entities = store.own.values.filter { !$0.isArchived }.map(MemoEntity.init)
+        let entities = store.own.values.filter { !$0.isArchived }.map { MemoEntity($0, rules: store.profile.tagBlurRules) }
         enqueue {
             await removeAll()
             await index(entities)
@@ -49,7 +50,7 @@ enum SpotlightIndex {
 
     /// Waits for Spotlight to take the memos, for callers that must finish before suspension.
     static func reindex(_ store: MemoStore) async {
-        let entities = store.own.values.filter { !$0.isArchived }.map(MemoEntity.init)
+        let entities = store.own.values.filter { !$0.isArchived }.map { MemoEntity($0, rules: store.profile.tagBlurRules) }
         enqueue { await index(entities) }
         await queue?.value
     }

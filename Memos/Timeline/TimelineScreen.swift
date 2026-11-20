@@ -7,10 +7,16 @@ import SwiftUI
 struct TimelineScreen: View {
     /// False when an enclosing split view presents the composer, Inbox and Settings itself.
     var presentsSheets = true
+    /// The split view's namespace, so cards and buttons here are sources for the sheets it
+    /// presents.
+    var sharedZoom: Namespace.ID?
 
     @Environment(AccountSession.self) private var session
-    @Namespace private var zoom
+    @Namespace private var ownZoom
     @State private var search = SearchModel()
+
+    /// Cards zoom into their detail, and the composer, Inbox and Settings out of what opened them.
+    private var zoom: Namespace.ID { sharedZoom ?? ownZoom }
 
     var body: some View {
         @Bindable var session = session
@@ -22,12 +28,15 @@ struct TimelineScreen: View {
         }
         .sheet(item: presentsSheets ? $session.composer : .constant(nil)) { request in
             ComposerView(request: request)
+                .zoomTransition(from: request.source, in: zoom)
         }
         .sheet(isPresented: presentsSheets ? $session.isInboxPresented : .constant(false)) {
             InboxView()
+                .zoomTransition(from: session.accountSheetSource, in: zoom)
         }
         .sheet(isPresented: presentsSheets ? $session.isSettingsPresented : .constant(false)) {
             SettingsView()
+                .zoomTransition(from: session.accountSheetSource, in: zoom)
         }
         .sheet(isPresented: presentsSheets ? $session.isQuickVoiceMemoPresented : .constant(false)) {
             QuickVoiceMemoSheet()
@@ -58,7 +67,6 @@ private struct TimelineRoot: View {
     @State private var feed = OthersFeed()
     @State private var isSearching = false
     @State private var newSpace: String?
-    @State private var savedCount = 0
 
     private var query: MemoQuery {
         let filter = session.quickFilter.flatMap { try? MemoFilter($0.filterClause) }
@@ -120,7 +128,6 @@ private struct TimelineRoot: View {
         } message: {
             Text("Spaces are shared with the people you invite. Invite them on the web.")
         }
-        .sensoryFeedback(.success, trigger: savedCount)
     }
 
     private var subtitle: String {
@@ -150,7 +157,7 @@ private struct TimelineRoot: View {
             }
 
             ForEach(memos, id: \.name) { memo in
-                TimelineRow(memo: memo, zoom: zoom, showsSpace: session.selectedSpace == nil)
+                TimelineRow(memo: memo, zoom: zoom, showsSpace: session.selectedSpace == nil, namesEveryAuthor: session.effectiveScope == .everyone)
                     .id(memo.name)
             }
 
@@ -211,8 +218,9 @@ private struct TimelineRoot: View {
             } description: {
                 session.selectedSpace == nil ? Text("Capture a thought and it lands here.") : Text("Nothing in \(session.selectedSpaceTitle) yet.")
             } actions: {
-                Button("Capture a Thought") { session.capture() }
+                Button("Capture a Thought") { session.capture(from: SheetSource.emptyTimeline) }
                     .buttonStyle(.glass)
+                    .matchedTransitionSource(id: SheetSource.emptyTimeline, in: zoom)
             }
         }
     }
@@ -224,6 +232,8 @@ private struct TimelineRoot: View {
         ToolbarItem(placement: .topBarLeading) {
             AccountMenu()
         }
+        // Inbox and Settings grow out of the button, and shrink back into it.
+        .matchedTransitionSource(id: SheetSource.accountMenu, in: zoom)
         ToolbarItemGroup(placement: .topBarTrailing) {
             FilterMenu()
             Button {
@@ -237,6 +247,8 @@ private struct TimelineRoot: View {
         ToolbarItem(placement: .bottomBar) {
             CaptureField()
         }
+        // The field opens into the composer.
+        .matchedTransitionSource(id: SheetSource.captureField, in: zoom)
         ToolbarSpacer(.fixed, placement: .bottomBar)
         DefaultToolbarItem(kind: .search, placement: .bottomBar)
     }
@@ -262,6 +274,9 @@ struct TimelineRow: View {
     let zoom: Namespace.ID
     var showsSpace = true
     var highlights: [String] = []
+    /// Names the author on your own memos too, as the Everyone feed does so its cards line up.
+    /// Elsewhere a memo without a name is yours.
+    var namesEveryAuthor = false
 
     @Environment(AccountSession.self) private var session
     @State private var swipeCommits = 0
@@ -270,9 +285,9 @@ struct TimelineRow: View {
 
     var body: some View {
         Button {
-            session.path.append(.memo(memo.name))
+            session.path.append(.memo(memo.name, source: memo.name))
         } label: {
-            MemoCard(memo: memo, highlights: highlights, showsSpace: showsSpace)
+            MemoCard(memo: memo, highlights: highlights, showsSpace: showsSpace, showsAuthor: namesEveryAuthor || !isMine)
                 .matchedTransitionSource(id: memo.name, in: zoom)
         }
         .buttonStyle(.plain)
@@ -292,7 +307,7 @@ struct TimelineRow: View {
             } else if isMine {
                 Button {
                     swipeCommits += 1
-                    session.store.setPinned(memo.name, !memo.pinned)
+                    withAnimation(.memosSpring) { session.store.setPinned(memo.name, !memo.pinned) }
                 } label: {
                     Label(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin")
                 }
@@ -319,7 +334,8 @@ struct TimelineRow: View {
                 .tint(.ink2)
                 // After Archive, so a full swipe still archives.
                 Button {
-                    session.edit(memo.name)
+                    // The card opens into the editor.
+                    session.edit(memo.name, from: memo.name)
                 } label: {
                     Label("Edit", systemImage: "pencil")
                 }
@@ -327,7 +343,7 @@ struct TimelineRow: View {
             }
         }
         .sensoryFeedback(.impact(weight: .medium), trigger: swipeCommits)
-        .contextMenu { MemoActions(memo: memo) }
+        .contextMenu { MemoActions(memo: memo, editSource: memo.name) }
         .accessibilityElement(children: .combine)
         .accessibilityActions { MemoActions(memo: memo, forAccessibility: true) }
     }
@@ -337,6 +353,8 @@ struct TimelineRow: View {
 struct MemoActions: View {
     let memo: Memo
     var forAccessibility = false
+    /// What the composer grows out of on Edit: the memo's card, or the menu Edit is in.
+    var editSource: String?
     /// Opens the reaction picker in place; without it, React opens the memo.
     var onReact: (() -> Void)?
 
@@ -346,18 +364,18 @@ struct MemoActions: View {
         let isMine = memo.creator == session.user
         if isMine {
             Button(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin") {
-                session.store.setPinned(memo.name, !memo.pinned)
+                withAnimation(.memosSpring) { session.store.setPinned(memo.name, !memo.pinned) }
             }
             if !forAccessibility {
-                Button("Edit", systemImage: "pencil") { session.edit(memo.name) }
+                Button("Edit", systemImage: "pencil") { session.edit(memo.name, from: editSource) }
             }
             Button(memo.isArchived ? "Restore" : "Archive" as LocalizedStringKey, systemImage: memo.isArchived ? "tray.and.arrow.up" : "archivebox") {
-                session.store.setArchived(memo.name, !memo.isArchived)
+                withAnimation(.memosSpring) { session.store.setArchived(memo.name, !memo.isArchived) }
             }
         }
         if !session.isOnDevice {
             Button("React", systemImage: "face.smiling") {
-                if let onReact { onReact() } else { session.path.append(.memo(memo.name)) }
+                if let onReact { onReact() } else { session.path.append(.memo(memo.name, source: memo.name)) }
             }
         }
         if let link = session.webURL(for: memo) {
@@ -421,6 +439,7 @@ private struct AccountMenu: View {
             // Notifications come from the server; the on-device library has none.
             if !session.isOnDevice {
                 Button {
+                    session.accountSheetSource = SheetSource.accountMenu
                     session.isInboxPresented = true
                 } label: {
                     Label("Inbox", systemImage: "bell")
@@ -428,15 +447,21 @@ private struct AccountMenu: View {
                     if unread > 0 { Text("\(unread) unread") }
                 }
             }
-            Button("Settings", systemImage: "gearshape") { session.isSettingsPresented = true }
+            Button("Settings", systemImage: "gearshape") {
+                session.accountSheetSource = SheetSource.accountMenu
+                session.isSettingsPresented = true
+            }
         } label: {
             Image(systemName: "ellipsis")
                 .overlay(alignment: .topTrailing) {
                     if unread > 0 {
                         UnreadDot(ringed: true)
                             .offset(x: 5, y: -11)
+                            // Pops in when a sync brings something new, rather than appearing.
+                            .transition(.scale(scale: 0.5).combined(with: .opacity))
                     }
                 }
+                .animation(.reactionPop, value: unread > 0)
         }
         .accessibilityLabel("Account")
         .accessibilityValue(unread > 0 ? Text("\(unread) unread") : Text(verbatim: ""))
@@ -452,7 +477,7 @@ private struct FilterMenu: View {
             Section {
                 ForEach(SearchToken.commonFilters, id: \.self) { token in
                     Button {
-                        session.quickFilter = session.quickFilter == token ? nil : token
+                        withAnimation(.memosSpring) { session.quickFilter = session.quickFilter == token ? nil : token }
                     } label: {
                         Label(token.label, systemImage: session.quickFilter == token ? "checkmark" : token.systemImage)
                     }
@@ -470,10 +495,11 @@ private struct FilterMenu: View {
                 }
             }
             if session.quickFilter != nil {
-                Button("Clear Filter", systemImage: "xmark", role: .destructive) { session.quickFilter = nil }
+                Button("Clear Filter", systemImage: "xmark", role: .destructive) { withAnimation(.memosSpring) { session.quickFilter = nil } }
             }
         } label: {
             Image(systemName: session.quickFilter == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+                .contentTransition(.symbolEffect(.replace))
         }
         .accessibilityLabel("Filter")
     }

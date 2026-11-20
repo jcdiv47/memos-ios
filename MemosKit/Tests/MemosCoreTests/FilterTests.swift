@@ -162,3 +162,23 @@ private func matches(_ filter: String, _ facts: MemoFacts) throws -> Bool {
         #expect(try MemoFilter(#"space == "spaces/studio""#).pinnedSpace == "spaces/studio")
     }
 }
+
+@Suite struct `Filters described as tokens` {
+    @Test func `a tag and a flag read as their labels`() throws {
+        #expect(try MemoFilter(#"tag in ["idea"] && pinned"#).tokens() == [.tag("idea"), .pinned])
+        #expect(try MemoFilter("has_incomplete_tasks").tokens() == [.openTasks])
+    }
+
+    @Test func `every token's own clause round-trips`() throws {
+        let tokens: [SearchToken] = [.tag("a b"), .openTasks, .tasks, .links, .code, .places, .pinned, .date(.thisWeek), .visibility(.protected), .space(name: "spaces/x", title: "Studio")]
+        for token in tokens {
+            #expect(try MemoFilter(token.filterClause).tokens { _ in "Studio" } == [token])
+        }
+    }
+
+    @Test func `anything a token can't write has no description`() throws {
+        #expect(try MemoFilter(#"tag in ["a", "b"]"#).tokens() == nil)
+        #expect(try MemoFilter("pinned || has_link").tokens() == nil)
+        #expect(try MemoFilter("!pinned").tokens() == nil)
+    }
+}

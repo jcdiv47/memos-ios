@@ -98,13 +98,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Memos transcribes voice memos on this iPhone when your server can’t."
+            "value" : "Memos transcribes voice memos on this device when your server can’t."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "当服务器无法转写时，Memos 会在这台 iPhone 上转写语音 Memo。"
+            "value" : "当服务器无法转写时，Memos 会在这台设备上转写语音 Memo。"
           }
         }
       }

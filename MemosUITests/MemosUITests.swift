@@ -71,7 +71,7 @@ final class MemosUITests: XCTestCase {
     func testCaptureSavesAndUploads() throws {
         let app = launch()
         let marker = "uitest-\(UUID().uuidString.prefix(8))"
-        let capture = app.otherElements["captureField"].firstMatch
+        let capture = app.descendants(matching: .any)["captureField"].firstMatch
         XCTAssertTrue(capture.waitForExistence(timeout: 15))
         capture.tap()
 
@@ -90,9 +90,14 @@ final class MemosUITests: XCTestCase {
     @MainActor
     func testSearchFindsOtherPeoplesMemos() throws {
         let app = launch()
-        XCTAssertTrue(app.otherElements["captureField"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["captureField"].firstMatch.waitForExistence(timeout: 15))
         app.buttons["Search"].firstMatch.tap()
         app.typeText("kiln")
+        // Search starts in the timeline's scope, Mine on a fresh account; other people's memos
+        // are under Everyone.
+        let everyone = app.buttons["Everyone"].firstMatch
+        XCTAssertTrue(everyone.waitForExistence(timeout: 5))
+        everyone.tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Kiln is free'")).firstMatch.waitForExistence(timeout: 10))
     }
 

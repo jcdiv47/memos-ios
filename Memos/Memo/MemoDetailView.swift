@@ -5,6 +5,9 @@ import SwiftUI
 /// floating glass bar; anything that reaches another person needs a connection.
 struct MemoDetailView: View {
     let name: String
+    /// The presenter's namespace: the composer, the share link and the comment editor grow out of
+    /// what opened them.
+    let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -19,8 +22,12 @@ struct MemoDetailView: View {
     @State private var reactionPickerOpen = false
     @State private var editingComment: EditableComment?
     @State private var commentToDelete: Memo?
+    /// A reaction shown before the server confirms it, so a tap lands at once. Cleared when the
+    /// refreshed memo arrives, or on failure, which puts the chips back as they were.
+    @State private var pendingReaction: PendingReaction?
+    @State private var chipTaps = 0
 
-    private var memo: Memo? { session.store.memo(named: name) }
+    private var memo: Memo? { session.store.memo(named: name).map(withPendingReaction) }
 
     var body: some View {
         Group {
@@ -71,13 +78,14 @@ struct MemoDetailView: View {
 
                         if let location = memo.locationIfSet {
                             Label(location.placeholder.isEmpty ? String(localized: "Location") : location.placeholder, systemImage: "mappin.and.ellipse")
+                                .labelStyle(.compact)
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel(location.placeholder.isEmpty ? Text("Location") : Text("Location, \(location.placeholder)"))
                         }
 
-                        MemoLinks(memo: memo, showsDirection: true)
+                        MemoLinks(memo: memo, showsDirection: true, zoom: zoom)
 
                         if let linkPreview {
                             LinkPreviewCard(metadata: linkPreview)
@@ -88,8 +96,11 @@ struct MemoDetailView: View {
 
                 if !memo.reactions.isEmpty {
                     ReactionSummary(memo: memo) { emoji in
+                        chipTaps += 1
                         Task { await toggleReaction(emoji, on: memo) }
                     }
+                    .sensoryFeedback(.impact(weight: .light), trigger: chipTaps)
+                    .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
                 }
 
                 // Comments live on the server; the on-device library has none.
@@ -124,7 +135,7 @@ struct MemoDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    MemoActions(memo: memo, onReact: { withAnimation(.memosSpring) { reactionPickerOpen = true } })
+                    MemoActions(memo: memo, editSource: SheetSource.detailMenu, onReact: { withAnimation(.memosSpring) { reactionPickerOpen = true } })
                     if !session.isOnDevice {
                         Button("Create Share Link", systemImage: "link.badge.plus") {
                             Task { await createShareLink(memo) }
@@ -149,23 +160,26 @@ struct MemoDetailView: View {
                     Image(systemName: "ellipsis")
                 }
                 .accessibilityLabel("More")
+                // Anchored to the menu Delete is in, so the question points at what asked it.
+                .confirmationDialog("Delete this memo?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Delete", role: .destructive) {
+                        session.store.delete(memo.name)
+                        dismiss()
+                    }
+                } message: {
+                    if session.isOnDevice {
+                        Text("It’s removed from this iPhone, along with its attachments.")
+                    } else {
+                        Text("It’s removed everywhere, along with its comments.")
+                    }
+                }
             }
-        }
-        .confirmationDialog("Delete this memo?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
-                session.store.delete(memo.name)
-                dismiss()
-            }
-        } message: {
-            if session.isOnDevice {
-                Text("It’s removed from this iPhone, along with its attachments.")
-            } else {
-                Text("It’s removed everywhere, along with its comments.")
-            }
+            .matchedTransitionSource(id: SheetSource.detailMenu, in: zoom)
         }
         .sheet(item: Binding(get: { shareURL.map(IdentifiedURL.init) }, set: { shareURL = $0?.url })) { item in
             ShareLinkSheet(url: item.url)
                 .presentationDetents([.height(220)])
+                .zoomTransition(from: SheetSource.detailMenu, in: zoom)
         }
         .sheet(item: $editingComment) { item in
             CommentEditor(original: item.memo.content) { text in
@@ -173,6 +187,8 @@ struct MemoDetailView: View {
             }
             // Medium leaves the top of the memo, where errors appear, in view.
             .presentationDetents([.medium, .large])
+            // Grows out of the comment being edited.
+            .zoomTransition(from: CommentsSection.sourceID(item.memo), in: zoom)
         }
     }
 
@@ -181,21 +197,11 @@ struct MemoDetailView: View {
             comments: comments,
             loaded: commentsLoaded,
             online: session.isOnline,
+            zoom: zoom,
+            toDelete: $commentToDelete,
             onEdit: { editingComment = EditableComment(memo: $0) },
-            onDelete: { commentToDelete = $0 }
+            onConfirmDelete: { comment in Task { await deleteComment(comment) } }
         )
-        .confirmationDialog(
-            "Delete this comment?",
-            isPresented: Binding(get: { commentToDelete != nil }, set: { if !$0 { commentToDelete = nil } }),
-            titleVisibility: .visible,
-            presenting: commentToDelete
-        ) { comment in
-            Button("Delete", role: .destructive) {
-                Task { await deleteComment(comment) }
-            }
-        } message: { _ in
-            Text("It’s removed for everyone who can read this memo.")
-        }
     }
 
     // MARK: Loading
@@ -259,13 +265,35 @@ struct MemoDetailView: View {
 
     // MARK: Actions
 
+    private func withPendingReaction(_ memo: Memo) -> Memo {
+        guard let pendingReaction else { return memo }
+        var memo = memo
+        let isPending = { (reaction: Reaction) in reaction.reactionType == pendingReaction.emoji && reaction.creator == session.user }
+        if pendingReaction.adding {
+            if !memo.reactions.contains(where: isPending) {
+                var reaction = Reaction()
+                reaction.reactionType = pendingReaction.emoji
+                reaction.creator = session.user
+                memo.reactions.append(reaction)
+            }
+        } else {
+            memo.reactions.removeAll(where: isPending)
+        }
+        return memo
+    }
+
     private func toggleReaction(_ emoji: String, on memo: Memo) async {
         guard session.isOnline, let client = session.client else {
             show("Connect to react.")
             return
         }
+        // One at a time: removing needs the server's name for the reaction.
+        guard pendingReaction == nil, let stored = session.store.memo(named: memo.name) else { return }
+        let existing = stored.reactions.first(where: { $0.reactionType == emoji && $0.creator == session.user })
+        withAnimation(reactionAnimation) { pendingReaction = PendingReaction(emoji: emoji, adding: existing == nil) }
+        defer { withAnimation(reactionAnimation) { pendingReaction = nil } }
         do {
-            if let existing = memo.reactions.first(where: { $0.reactionType == emoji && $0.creator == session.user }) {
+            if let existing {
                 var request = Memos_Api_DeleteMemoReactionRequest()
                 request.name = existing.name
                 _ = try await client.call(client.memos.deleteMemoReaction(request:headers:), request)
@@ -374,6 +402,11 @@ struct MemoDetailView: View {
         }
     }
 
+    /// The chosen emoji pops in; Reduce Motion keeps the change without the bounce.
+    private var reactionAnimation: Animation {
+        reduceMotion ? .memosFade : .reactionPop
+    }
+
     private func show(_ message: LocalizedStringResource) {
         show(verbatim: String(localized: message))
     }
@@ -382,6 +415,11 @@ struct MemoDetailView: View {
     private func show(verbatim message: String) {
         withAnimation(.memosSpring) { notice = message }
     }
+}
+
+private struct PendingReaction: Equatable {
+    let emoji: String
+    let adding: Bool
 }
 
 private struct IdentifiedURL: Identifiable {
@@ -450,14 +488,27 @@ private struct CommentsSection: View {
     let comments: [Memo]
     let loaded: Bool
     let online: Bool
+    let zoom: Namespace.ID
+    /// The comment whose Delete was chosen, awaiting the answer.
+    @Binding var toDelete: Memo?
     var onEdit: (Memo) -> Void
-    var onDelete: (Memo) -> Void
+    var onConfirmDelete: (Memo) -> Void
     @Environment(AccountSession.self) private var session
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// A comment you post rises out of the bar you typed it in; one you delete just fades.
+    private var arrival: AnyTransition {
+        reduceMotion ? .opacity : .asymmetric(insertion: .offset(y: Spacing.xxl).combined(with: .opacity), removal: .opacity)
+    }
+
+    /// A comment is a memo, so its name gets a prefix to keep it apart from a memo card's.
+    static func sourceID(_ comment: Memo) -> String { "comment.\(comment.name)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             if !comments.isEmpty {
                 Text("\(comments.count) comments")
+                    .contentTransition(.numericText(value: Double(comments.count)))
                     .font(.headline)
                     .foregroundStyle(.ink)
                     .accessibilityAddTraits(.isHeader)
@@ -484,8 +535,20 @@ private struct CommentsSection: View {
                 }
                 .accessibilityElement(children: .combine)
                 .contentShape(.contextMenuPreview, .rect(cornerRadius: Radius.inner))
+                .matchedTransitionSource(id: Self.sourceID(comment), in: zoom)
+                .transition(arrival)
                 .contextMenu { actions(for: comment) }
                 .accessibilityActions { actions(for: comment) }
+                // Anchored to the comment it's about, not the whole list.
+                .confirmationDialog(
+                    "Delete this comment?",
+                    isPresented: Binding(get: { toDelete?.name == comment.name }, set: { if !$0 { toDelete = nil } }),
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete", role: .destructive) { onConfirmDelete(comment) }
+                } message: {
+                    Text("It’s removed for everyone who can read this memo.")
+                }
             }
             if loaded && !online && comments.isEmpty {
                 Text("Comments load when you’re online.")
@@ -501,7 +564,7 @@ private struct CommentsSection: View {
         if comment.creator == session.user {
             Button("Edit", systemImage: "pencil") { onEdit(comment) }
                 .disabled(!online)
-            Button("Delete", systemImage: "trash", role: .destructive) { onDelete(comment) }
+            Button("Delete", systemImage: "trash", role: .destructive) { toDelete = comment }
                 .disabled(!online)
         }
     }
@@ -588,8 +651,7 @@ private struct DetailBar: View {
                         // widening the bar, and with it the whole page, past the screen edge.
                         ViewThatFits(in: .horizontal) {
                             reactionChoices
-                            ScrollView(.horizontal) { reactionChoices }
-                                .scrollIndicators(.hidden)
+                            FadingHorizontalScroll { reactionChoices }
                         }
                         Button {
                             withAnimation(pickerAnimation) { pickerOpen = false }
@@ -629,14 +691,26 @@ private struct DetailBar: View {
                             Button {
                                 send()
                             } label: {
-                                Image(systemName: sending ? "ellipsis" : "arrow.up.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.memosBlue)
+                                Group {
+                                    if sending {
+                                        ProgressView()
+                                    } else {
+                                        Image(systemName: "arrow.up.circle.fill")
+                                            .font(.title2)
+                                            .foregroundStyle(.memosBlue)
+                                    }
+                                }
+                                .frame(width: 28, height: 28)
                             }
+                            .buttonStyle(.glyphPress)
                             .disabled(sending)
                             .accessibilityLabel("Send comment")
+                            // Grows in under the thumb as you start typing, instead of popping.
+                            .transition(.scale(scale: 0.6).combined(with: .opacity))
                         }
                     }
+                    .animation(.memosFade, value: draft.isEmpty)
+                    .animation(.memosFade, value: sending)
                     .padding(.horizontal, Spacing.xl)
                     .frame(minHeight: FloatingBar.height)
                     .glassEffect(.regular.interactive(), in: .capsule)
@@ -673,6 +747,7 @@ private struct DetailBar: View {
     private var reactionChoices: some View {
         HStack(spacing: Spacing.xs) {
             ForEach(session.store.profile.reactionChoices, id: \.self) { emoji in
+                let isMine = memo.reactions.contains { $0.reactionType == emoji && $0.creator == session.user }
                 Button {
                     reacted += 1
                     withAnimation(pickerAnimation) { pickerOpen = false }
@@ -681,9 +756,16 @@ private struct DetailBar: View {
                     Text(emoji)
                         .font(.title2)
                         .frame(width: 40, height: Metrics.minTapTarget)
+                        // Opaque inside the glass: the ones you've already used.
+                        .background {
+                            if isMine {
+                                Circle().fill(Color.accentWash).frame(width: 38, height: 38)
+                            }
+                        }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glyphPress)
                 .accessibilityLabel("React with \(emoji)")
+                .accessibilityAddTraits(isMine ? .isSelected : [])
             }
         }
     }
@@ -704,6 +786,40 @@ private struct DetailBar: View {
             }
             sending = false
         }
+    }
+}
+
+/// A row that scrolls sideways and fades whichever edge has more beyond it, so an emoji cut off
+/// at the edge reads as more to scroll to rather than as clipped.
+private struct FadingHorizontalScroll<Content: View>: View {
+    @ViewBuilder var content: Content
+    @State private var fadesLeading = false
+    @State private var fadesTrailing = true
+
+    private static var fade: CGFloat { Spacing.xxl }
+
+    var body: some View {
+        ScrollView(.horizontal) { content }
+            .scrollIndicators(.hidden)
+            .onScrollGeometryChange(for: [Bool].self) { geometry in
+                let offset = geometry.contentOffset.x + geometry.contentInsets.leading
+                let room = geometry.contentSize.width - geometry.containerSize.width
+                return [offset > 1, offset < room - 1]
+            } action: { _, edges in
+                withAnimation(.memosFade) {
+                    fadesLeading = edges[0]
+                    fadesTrailing = edges[1]
+                }
+            }
+            .mask {
+                HStack(spacing: 0) {
+                    LinearGradient(colors: [.black.opacity(fadesLeading ? 0 : 1), .black], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: Self.fade)
+                    Rectangle()
+                    LinearGradient(colors: [.black, .black.opacity(fadesTrailing ? 0 : 1)], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: Self.fade)
+                }
+            }
     }
 }
 

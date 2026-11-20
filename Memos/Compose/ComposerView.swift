@@ -22,6 +22,9 @@ struct ComposerView: View {
     @State private var saved = 0
     @State private var editorFocused = false
     @State private var hasBegun = false
+    /// The camera, the scanner and the memo picker grow out of the paperclip that opens them.
+    @Namespace private var attachMenu
+    private static let attachSource = "composer.attach"
 
     init(request: ComposerRequest) {
         self.request = request
@@ -71,6 +74,7 @@ struct ComposerView: View {
                 VoiceStatus(recorder: session.voice) {
                     Task { await finishRecording(model) }
                 }
+                .transition(.opacity)
             }
 
             MemoTextView(model: model, isFocused: $editorFocused)
@@ -88,8 +92,9 @@ struct ComposerView: View {
                 // The text lines up with the chips above it.
                 .padding(.horizontal, -5)
 
-            if !model.attachments.isEmpty || model.location != nil || model.preparing > 0 {
+            if !model.attachments.isEmpty || model.location != nil || model.preparing > 0 || model.isLocating {
                 AttachmentStrip(model: model)
+                    .transition(.opacity)
             }
 
             if !model.references.isEmpty {
@@ -100,14 +105,23 @@ struct ComposerView: View {
                 Text(error)
                     .font(.metadata)
                     .foregroundStyle(.danger)
+                    .transition(.opacity)
             } else if let notice = model.notice {
                 Text(notice)
                     .font(.metadata)
                     .foregroundStyle(.ink2)
+                    .transition(.opacity)
             }
         }
         .padding(.horizontal, Metrics.screenInset)
         .padding(.bottom, Spacing.m)
+        // Rows that come and go above and below the text ease the editor aside instead of
+        // shoving it.
+        .animation(.memosSpring, value: session.voice.phase)
+        .animation(.memosSpring, value: model.preparing > 0 || model.isLocating)
+        // A message fades in under the text rather than appearing between frames.
+        .animation(.memosFade, value: model.error)
+        .animation(.memosFade, value: model.notice)
         // In the sheet's own layout rather than a keyboard toolbar: the input accessory attaches
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
         .safeAreaBar(edge: .bottom) {
@@ -140,6 +154,11 @@ struct ComposerView: View {
                 Button(role: .cancel) {
                     if model.hasChanges { confirmDiscard = true } else { close(model) }
                 }
+                // Points at Cancel, which asked, rather than rising from the bottom of the sheet.
+                .confirmationDialog("Discard this memo?", isPresented: $confirmDiscard) {
+                    Button("Discard", role: .destructive) { discard(model) }
+                    Button("Keep Draft") { close(model) }
+                }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save(model) }
@@ -148,10 +167,6 @@ struct ComposerView: View {
                     .disabled(model.isEmpty || (model.editing != nil && !model.hasChanges) || isCapturingVoice || model.preparing > 0)
                     .keyboardShortcut(.return, modifiers: .command)
             }
-        }
-        .confirmationDialog("Discard this memo?", isPresented: $confirmDiscard) {
-            Button("Discard", role: .destructive) { discard(model) }
-            Button("Keep Draft") { close(model) }
         }
         .photosPicker(isPresented: $isPickingPhotos, selection: $photoItems, maxSelectionCount: 10, matching: .any(of: [.images, .livePhotos]))
         .onChange(of: photoItems) { _, items in
@@ -170,6 +185,7 @@ struct ComposerView: View {
                 if let image { Task { await model.addCameraPhoto(image, store: session.store) } }
             }
             .ignoresSafeArea()
+            .zoomTransition(from: Self.attachSource, in: attachMenu)
         }
         .fullScreenCover(isPresented: $isScanning) {
             DocumentScanner { pages in
@@ -177,9 +193,11 @@ struct ComposerView: View {
                 Task { await model.addScan(pages, store: session.store) }
             }
             .ignoresSafeArea()
+            .zoomTransition(from: Self.attachSource, in: attachMenu)
         }
         .sheet(isPresented: $isLinkingMemo) {
             LinkMemoPicker(excluded: Set(model.references + [model.editing?.name].compactMap(\.self))) { model.link($0) }
+                .zoomTransition(from: Self.attachSource, in: attachMenu)
         }
         .task { await begin(model) }
     }
@@ -223,10 +241,12 @@ struct ComposerView: View {
             Image(systemName: "paperclip")
         }
         .accessibilityLabel("Attach")
+        .matchedTransitionSource(id: Self.attachSource, in: attachMenu)
         Button {
             Task { await toggleRecording(model) }
         } label: {
             Image(systemName: session.voice.isRecording ? "stop.fill" : "mic")
+                .contentTransition(.symbolEffect(.replace))
         }
         .accessibilityLabel(session.voice.isRecording ? Text("Stop recording") : Text("Record voice memo"))
     }
@@ -351,6 +371,9 @@ private struct TagSuggestionStyle: ButtonStyle {
             .frame(minHeight: FloatingBar.height)
             .contentShape(.rect)
             .opacity(configuration.isPressed ? Press.opacity : 1)
+            // Dims the instant the finger lands, like a system bar button, and eases back on
+            // release rather than snapping.
+            .animation(configuration.isPressed ? nil : .memosPress, value: configuration.isPressed)
     }
 }
 
@@ -414,6 +437,9 @@ private struct BarButtonStyle: ButtonStyle {
             .frame(width: FloatingBar.itemWidth, height: FloatingBar.height)
             .contentShape(.rect)
             .opacity(configuration.isPressed ? Press.opacity : 1)
+            // Dims the instant the finger lands, like a system bar button, and eases back on
+            // release rather than snapping.
+            .animation(configuration.isPressed ? nil : .memosPress, value: configuration.isPressed)
     }
 }
 

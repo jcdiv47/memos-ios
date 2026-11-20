@@ -38,7 +38,14 @@ struct SignInView: View {
         NavigationStack {
             Group {
                 if let instance {
-                    CredentialsForm(instance: instance, resuming: resuming != nil, prefilledUser: resuming != nil ? model.session?.store.profile.user?.username : nil)
+                    CredentialsForm(
+                        instance: instance,
+                        resuming: resuming != nil,
+                        prefilledUser: resuming != nil ? model.session?.store.profile.user?.username : nil,
+                        // Signing back in stays on the same server; a first sign-in can still
+                        // correct the address.
+                        onChangeServer: resuming == nil ? { self.instance = nil } : nil
+                    )
                 } else {
                     serverForm
                 }
@@ -73,8 +80,11 @@ struct SignInView: View {
                         .foregroundStyle(.ink2)
                 }
                 // Padding rather than a row inset: the row clips at its inset, and the serif
-                // overhangs it.
-                .padding(.horizontal, Spacing.xs)
+                // overhangs it. The row also keeps its rounded corners as a mask, which shaved
+                // the bottom of the last line's first letter, so the text clears the arc. It
+                // lines up with the section headers below, as the next step's title does.
+                .padding(.horizontal, Spacing.xl + Spacing.xs)
+                .padding(.vertical, Spacing.l)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
@@ -186,6 +196,7 @@ private struct CredentialsForm: View {
     let instance: SignInView.InstanceInfo
     var resuming = false
     var prefilledUser: String?
+    var onChangeServer: (() -> Void)?
 
     @Environment(AppModel.self) private var model
     @State private var username = ""
@@ -205,8 +216,9 @@ private struct CredentialsForm: View {
             Section {
             } header: {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
+                    // The same title as the address step, so the two read as one page.
                     Text(instance.title)
-                        .font(.memoTitle)
+                        .font(.largeTitleSerif)
                         .foregroundStyle(.ink)
                     Text(instance.url.absoluteString)
                         .font(.metadata)
@@ -275,6 +287,18 @@ private struct CredentialsForm: View {
             }
 
             tokenSection
+        }
+        .toolbar {
+            if let onChangeServer {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: onChangeServer) {
+                        // Drawn like the system back button elsewhere in the app.
+                        Image(systemName: "chevron.backward")
+                            .foregroundStyle(.ink)
+                    }
+                    .accessibilityLabel("Change Server")
+                }
+            }
         }
         .onAppear {
             if let prefilledUser, username.isEmpty { username = prefilledUser }

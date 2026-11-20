@@ -9,19 +9,19 @@ struct RouteDestination: View {
 
     var body: some View {
         switch route {
-        case .memo(let name):
-            MemoDetailView(name: name)
-                .zoomTransition(from: name, in: zoom)
+        case .memo(let name, let source):
+            MemoDetailView(name: name, zoom: zoom)
+                .zoomTransition(from: source, in: zoom)
         case .sharedMemo(let token):
             SharedMemoView(token: token)
         case .library:
-            LibraryView()
+            LibraryView(zoom: zoom)
         case .activity:
             ActivityView()
         case .attachments:
-            AttachmentsLibraryView()
+            AttachmentsLibraryView(zoom: zoom)
         case .map:
-            PlacesMapView()
+            PlacesMapView(zoom: zoom)
         case .tags:
             TagsView()
         case .archived:
@@ -34,6 +34,9 @@ struct RouteDestination: View {
             }
         case .filtered(let title, let tokens):
             FilteredTimelineView(title: title, filter: SearchQuery(tokens: tokens).filter(), zoom: zoom)
+        case .zoomed(let page, let source):
+            RouteDestination(route: page, zoom: zoom)
+                .zoomTransition(from: source, in: zoom)
         }
     }
 }
@@ -81,14 +84,19 @@ struct FilteredTimelineView: View {
         let memos = self.memos
         List {
             if let filter, view != nil {
-                Text(filter)
-                    .font(.memoCode)
-                    .foregroundStyle(.ink2)
+                Group {
+                    if let summary = session.summary(ofFilter: filter) {
+                        Text(summary).font(.subheadline)
+                    } else {
+                        Text(filter).font(.memoCode)
+                    }
+                }
+                .foregroundStyle(.ink2)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
             ForEach(memos, id: \.name) { memo in
-                TimelineRow(memo: memo, zoom: zoom)
+                TimelineRow(memo: memo, zoom: zoom, namesEveryAuthor: includesOthers)
             }
             if (includesOthers || !evaluatesLocally), feed.hasMore, session.isOnline {
                 ProgressView()
@@ -102,7 +110,11 @@ struct FilteredTimelineView: View {
         .paperBackground()
         .overlay {
             if memos.isEmpty && !feed.isLoading {
-                ContentUnavailableView(state == .archived ? "Nothing archived" : "No memos match" as LocalizedStringKey, systemImage: state == .archived ? "archivebox" : "line.3.horizontal.decrease")
+                if state == .archived {
+                    ContentUnavailableView("Nothing archived", systemImage: "archivebox", description: Text("Swipe left on a memo to archive it."))
+                } else {
+                    ContentUnavailableView("No memos match", systemImage: "line.3.horizontal.decrease", description: Text("New memos that match show up here."))
+                }
             }
         }
         .navigationTitle(view.map { "\($0.emoji.map { "\($0) " } ?? "")\($0.displayTitle)" } ?? title)

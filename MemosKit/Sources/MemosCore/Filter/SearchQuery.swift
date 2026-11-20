@@ -100,7 +100,8 @@ extension MemoVisibility {
         case .private: "lock"
         case .protected: "person.2"
         case .public: "globe"
-        case .space: "square.stack"
+        // Only the Space's members: people with a key. The Space itself is `square.stack`.
+        case .space: "person.2.badge.key"
         default: "lock"
         }
     }
@@ -195,4 +196,40 @@ extension MemoFilter {
 
 extension SearchToken: Identifiable {
     public var id: Self { self }
+}
+
+extension MemoFilter {
+    /// The filter as search tokens, when every top-level `&&` clause is one a token writes, so
+    /// a saved view can be described in words rather than code. `nil` for anything else, such as
+    /// an `||`, a negation, or a tag list with more than one tag. A Space clause takes its title
+    /// from `spaceTitle`, and falls back to the Space's name.
+    public func tokens(spaceTitle: (String) -> String? = { _ in nil }) -> [SearchToken]? {
+        var tokens: [SearchToken] = []
+        for clause in Self.conjuncts(expression) {
+            guard let token = Self.token(for: clause, spaceTitle: spaceTitle) else { return nil }
+            tokens.append(token)
+        }
+        return tokens
+    }
+
+    private static func token(for clause: CELExpression, spaceTitle: (String) -> String?) -> SearchToken? {
+        switch clause {
+        case .binary(.in, .identifier("tag"), .list(let items)):
+            guard items.count == 1, case .literal(.string(let tag)) = items[0] else { return nil }
+            return .tag(tag)
+        case .binary(.equal, .identifier("space"), .literal(.string(let name))):
+            return .space(name: name, title: spaceTitle(name) ?? name)
+        default:
+            return fixedTokens.first { $0.expression == clause }?.token
+        }
+    }
+
+    /// Every token whose clause doesn't carry a value of its own, parsed once.
+    private static let fixedTokens: [(token: SearchToken, expression: CELExpression)] = {
+        let tokens: [SearchToken] = [.openTasks, .tasks, .links, .code, .places, .pinned, .date(.today), .date(.thisWeek), .date(.thisMonth)]
+            + [MemoVisibility.private, .protected, .public, .space].map { .visibility($0) }
+        return tokens.compactMap { token in
+            (try? MemoFilter(token.filterClause)).map { (token, $0.expression) }
+        }
+    }()
 }

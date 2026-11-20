@@ -114,16 +114,23 @@ struct MemoContentView: View {
         switch item.marker {
         case .task(let checked):
             HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
-                Button {
-                    // The symbol replace and the strikethrough only play inside an animation.
-                    withAnimation(.memosSpring) { onToggleTask?(item.line) }
-                } label: {
-                    Image(systemName: checked ? "checkmark.square.fill" : "square")
-                        .foregroundStyle(checked ? Color.memosBlue : Color.ink2)
-                        .contentTransition(.symbolEffect(.replace))
+                let box = Image(systemName: checked ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(checked ? Color.memosBlue : Color.ink2)
+                    .contentTransition(.symbolEffect(.replace))
+                Group {
+                    if let onToggleTask {
+                        Button {
+                            // The symbol replace and the strikethrough only play inside an animation.
+                            withAnimation(.memosSpring) { onToggleTask(item.line) }
+                        } label: {
+                            box
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        // Someone else's list reads at full strength; a disabled button would dim it.
+                        box
+                    }
                 }
-                .buttonStyle(.plain)
-                .disabled(onToggleTask == nil)
                 .sensoryFeedback(.selection, trigger: checked)
                 .accessibilityLabel(checked ? Text("Completed") : Text("Not completed"))
 

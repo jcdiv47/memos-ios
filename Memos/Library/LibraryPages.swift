@@ -289,6 +289,9 @@ struct ActivityHeatmap: View {
 
 /// Every attachment across your memos, newest first.
 struct AttachmentsLibraryView: View {
+    /// The memo grows out of the tile you tapped.
+    let zoom: Namespace.ID
+
     @Environment(AccountSession.self) private var session
     @State private var previewURL: URL?
 
@@ -300,8 +303,9 @@ struct AttachmentsLibraryView: View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: Spacing.xs)], spacing: Spacing.xs) {
                 ForEach(items, id: \.attachment.name) { item in
+                    let source = "attachment.\(item.attachment.name)"
                     Button {
-                        session.path.append(.memo(item.memo.name))
+                        session.path.append(.memo(item.memo.name, source: source))
                     } label: {
                         Color.clear
                             .aspectRatio(1, contentMode: .fit)
@@ -323,9 +327,13 @@ struct AttachmentsLibraryView: View {
                                     .background(.well)
                                 }
                             }
+                            // From a memo your tags blur: blurred as on its card, file names too.
+                            .blur(radius: session.isHidden(item.memo) ? 16 : 0, opaque: true)
                             .clipShape(.rect(cornerRadius: Radius.tight))
+                            .matchedTransitionSource(id: source, in: zoom)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(session.isHidden(item.memo) ? Text("Sensitive content") : Text(verbatim: item.attachment.filename))
                 }
             }
             .padding(Spacing.xs)
@@ -348,6 +356,12 @@ struct PlacesMapView: View {
     @State private var showsList = false
     @State private var includeOthers = false
     @Namespace private var mapScope
+    /// The places list grows out of its button.
+    @Namespace private var listButton
+    /// Memos grow out of their pins.
+    let zoom: Namespace.ID
+
+    private static func pinSource(_ memo: Memo) -> String { "pin.\(memo.name)" }
 
     private var places: [Memo] {
         let scope: MemoQuery.Scope = includeOthers && session.showsScopeToggle ? .everyone : .mine
@@ -360,15 +374,16 @@ struct PlacesMapView: View {
             ForEach(places, id: \.name) { memo in
                 Annotation(memo.location.placeholder, coordinate: CLLocationCoordinate2D(latitude: memo.location.latitude, longitude: memo.location.longitude)) {
                     Button {
-                        session.path.append(.memo(memo.name))
+                        session.path.append(.memo(memo.name, source: Self.pinSource(memo)))
                     } label: {
                         Image(systemName: "note.text")
                             .font(.metadata.weight(.semibold))
                             .foregroundStyle(.white)
                             .padding(Spacing.m)
                             .background(.memosBlue, in: .circle)
+                            .matchedTransitionSource(id: Self.pinSource(memo), in: zoom)
                     }
-                    .accessibilityLabel(memo.displayTitle)
+                    .accessibilityLabel(session.redactedTitle(of: memo))
                 }
             }
             UserAnnotation()
@@ -385,10 +400,11 @@ struct PlacesMapView: View {
                         .glassEffect(.regular.interactive(), in: .circle)
                     if session.showsScopeToggle {
                         mapButton(includeOthers ? "person.2.fill" : "person", label: includeOthers ? Text("Showing everyone") : Text("Showing yours")) {
-                            includeOthers.toggle()
+                            withAnimation(.memosSpring) { includeOthers.toggle() }
                         }
                     }
                     mapButton("list.bullet", label: Text("List places")) { showsList = true }
+                        .matchedTransitionSource(id: "map.list", in: listButton)
                 }
             }
             .padding(Metrics.screenInset)
@@ -409,12 +425,13 @@ struct PlacesMapView: View {
                 List(places, id: \.name) { memo in
                     Button {
                         showsList = false
-                        session.path.append(.memo(memo.name))
+                        // The list is gone by then, so the memo grows out of its pin instead.
+                        session.path.append(.memo(memo.name, source: Self.pinSource(memo)))
                     } label: {
                         VStack(alignment: .leading, spacing: Spacing.xxs) {
                             Text(memo.location.placeholder.isEmpty ? memo.location.latitude.formatted() : memo.location.placeholder)
                                 .foregroundStyle(.ink)
-                            Text(memo.displayTitle)
+                            Text(session.redactedTitle(of: memo))
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
                                 .lineLimit(1)
@@ -427,6 +444,7 @@ struct PlacesMapView: View {
                 .navigationBarTitleDisplayMode(.inline)
             }
             .presentationDetents([.medium, .large])
+            .zoomTransition(from: "map.list", in: listButton)
         }
     }
 
@@ -435,6 +453,7 @@ struct PlacesMapView: View {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.ink)
+                .contentTransition(.symbolEffect(.replace))
                 .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
         }
         .buttonStyle(.plain)

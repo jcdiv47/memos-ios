@@ -147,6 +147,17 @@ struct WideButtonLabel: View {
     }
 }
 
+// MARK: The device in hand
+
+/// The on-device library lives on an iPhone or an iPad. Its words say which through the string
+/// catalog's device variations; its symbol through this.
+@MainActor
+enum ThisDevice {
+    static var symbol: String {
+        UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+    }
+}
+
 // MARK: Conditional modifiers
 
 extension View {
@@ -205,4 +216,19 @@ struct Toast: View {
             .padding(.vertical, Spacing.m)
             .glassEffect(in: .capsule)
     }
+}
+
+/// An icon tight against its text, on the text's baseline, for metadata inside cards. A List
+/// row's default label reserves an icon column, which leaves a gap that reads as a bug.
+struct CompactLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
+extension LabelStyle where Self == CompactLabelStyle {
+    static var compact: CompactLabelStyle { CompactLabelStyle() }
 }

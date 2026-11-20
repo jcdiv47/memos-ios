@@ -170,17 +170,47 @@
       "localizations" : {
         "en" : {
           "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld change hasn’t uploaded yet and will be lost. This removes your memos from this iPhone. They stay on your server."
+            "device" : {
+              "ipad" : {
+                "variations" : {
+                  "plural" : {
+                    "one" : {
+                      "stringUnit" : {
+                        "state" : "translated",
+                        "value" : "%lld change hasn’t uploaded yet and will be lost. This removes your memos from this iPad. They stay on your server."
+                      }
+                    },
+                    "other" : {
+                      "stringUnit" : {
+                        "state" : "translated",
+                        "value" : "%lld changes haven’t uploaded yet and will be lost. This removes your memos from this iPad. They stay on your server."
+                      }
+                    }
+                  }
+                }
+              },
+              "iphone" : {
+                "variations" : {
+                  "plural" : {
+                    "one" : {
+                      "stringUnit" : {
+                        "state" : "translated",
+                        "value" : "%lld change hasn’t uploaded yet and will be lost. This removes your memos from this iPhone. They stay on your server."
+                      }
+                    },
+                    "other" : {
+                      "stringUnit" : {
+                        "state" : "translated",
+                        "value" : "%lld changes haven’t uploaded yet and will be lost. This removes your memos from this iPhone. They stay on your server."
+                      }
+                    }
+                  }
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld changes haven’t uploaded yet and will be lost. This removes your memos from this iPhone. They stay on your server."
+                  "value" : "%lld changes haven’t uploaded yet and will be lost. This removes your memos from this device. They stay on your server."
                 }
               }
             }
@@ -188,11 +218,35 @@
         },
         "zh-Hans" : {
           "variations" : {
-            "plural" : {
+            "device" : {
+              "ipad" : {
+                "variations" : {
+                  "plural" : {
+                    "other" : {
+                      "stringUnit" : {
+                        "state" : "translated",
+                        "value" : "还有 %lld 项更改尚未上传，退出后将会丢失。这会从这台 iPad 上移除你的 Memo，服务器上的 Memo 不受影响。"
+                      }
+                    }
+                  }
+                }
+              },
+              "iphone" : {
+                "variations" : {
+                  "plural" : {
+                    "other" : {
+                      "stringUnit" : {
+                        "state" : "translated",
+                        "value" : "还有 %lld 项更改尚未上传，退出后将会丢失。这会从这台 iPhone 上移除你的 Memo，服务器上的 Memo 不受影响。"
+                      }
+                    }
+                  }
+                }
+              },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "还有 %lld 项更改尚未上传，退出后将会丢失。这会从这台 iPhone 上移除你的 Memo，服务器上的 Memo 不受影响。"
+                  "value" : "还有 %lld 项更改尚未上传，退出后将会丢失。这会从这台设备 上移除你的 Memo，服务器上的 Memo 不受影响。"
                 }
               }
             }
@@ -689,6 +743,16 @@
         }
       }
     },
+    "Change Server" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更换服务器"
+          }
+        }
+      }
+    },
     "Clear" : {
       "localizations" : {
         "zh-Hans" : {
@@ -901,10 +965,40 @@
     },
     "Continue with Memos on This iPhone" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Continue with Memos on This iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Continue with Memos on This iPhone"
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "继续使用这台 iPhone 上的 Memo"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "继续使用这台 iPad 上的 Memo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "继续使用这台 iPhone 上的 Memo"
+                }
+              }
+            }
           }
         }
       }
@@ -1412,20 +1506,80 @@
     },
     "Erase Memos on This iPhone" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Erase Memos on This iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Erase Memos on This iPhone"
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "抹掉这台 iPhone 上的 Memo"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "抹掉这台 iPad 上的 Memo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "抹掉这台 iPhone 上的 Memo"
+                }
+              }
+            }
           }
         }
       }
     },
     "Erase memos on this iPhone?" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Erase memos on this iPad?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Erase memos on this iPhone?"
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "抹掉这台 iPhone 上的 Memo？"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "抹掉这台 iPad 上的 Memo？"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "抹掉这台 iPhone 上的 Memo？"
+                }
+              }
+            }
           }
         }
       }
@@ -1498,6 +1652,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "筛选条件"
+          }
+        }
+      }
+    },
+    "Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPhone, so your photos stay on it. Descriptions in English work best." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPad, so your photos stay on it. Descriptions in English work best."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPhone, so your photos stay on it. Descriptions in English work best."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "描述照片即可在 Memo 中找到它，比如“收据”或“海滩上的狗”。Apple 的 MobileCLIP 模型在这台 iPad 上运行，你的照片不会离开设备。使用英文描述效果最佳。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "描述照片即可在 Memo 中找到它，比如“收据”或“海滩上的狗”。Apple 的 MobileCLIP 模型在这台 iPhone 上运行，你的照片不会离开设备。使用英文描述效果最佳。"
+                }
+              }
+            }
           }
         }
       }
@@ -1644,10 +1838,40 @@
     },
     "It’s removed from this iPhone, along with its attachments." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "It’s removed from this iPad, along with its attachments."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "It’s removed from this iPhone, along with its attachments."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "它会连同附件一起从这台 iPhone 上删除。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "它会连同附件一起从这台 iPad 上删除。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "它会连同附件一起从这台 iPhone 上删除。"
+                }
+              }
+            }
           }
         }
       }
@@ -1824,20 +2048,80 @@
     },
     "Memos and attachments are kept on this iPhone only. They don’t sync, and nobody else can see them." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Memos and attachments are kept on this iPad only. They don’t sync, and nobody else can see them."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Memos and attachments are kept on this iPhone only. They don’t sync, and nobody else can see them."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Memo 和附件仅保存在这台 iPhone 上，不会同步，其他人也无法看到。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Memo 和附件仅保存在这台 iPad 上，不会同步，其他人也无法看到。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Memo 和附件仅保存在这台 iPhone 上，不会同步，其他人也无法看到。"
+                }
+              }
+            }
           }
         }
       }
     },
     "Memos on this iPhone are kept apart from this server and never upload. You stay signed in, and can switch back at any time." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Memos on this iPad are kept apart from this server and never upload. You stay signed in, and can switch back at any time."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Memos on this iPhone are kept apart from this server and never upload. You stay signed in, and can switch back at any time."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这台 iPhone 上的 Memo 与此服务器分开保存，不会上传。你会保持登录状态，可随时切换回来。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这台 iPad 上的 Memo 与此服务器分开保存，不会上传。你会保持登录状态，可随时切换回来。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这台 iPhone 上的 Memo 与此服务器分开保存，不会上传。你会保持登录状态，可随时切换回来。"
+                }
+              }
+            }
           }
         }
       }
@@ -1962,6 +2246,16 @@
         }
       }
     },
+    "New memos that match show up here." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "符合条件的新 Memo 会显示在这里。"
+          }
+        }
+      }
+    },
     "New Space" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2004,10 +2298,40 @@
     },
     "No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No account needed. Memos stay on this iPad and never upload. You can add a server later; its memos are kept apart."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无需账号。Memo 只保存在这台 iPhone 上，不会上传。你可以稍后添加服务器，服务器上的 Memo 会与之分开保存。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "无需账号。Memo 只保存在这台 iPad 上，不会上传。你可以稍后添加服务器，服务器上的 Memo 会与之分开保存。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "无需账号。Memo 只保存在这台 iPhone 上，不会上传。你可以稍后添加服务器，服务器上的 Memo 会与之分开保存。"
+                }
+              }
+            }
           }
         }
       }
@@ -2127,6 +2451,16 @@
         }
       }
     },
+    "None" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
+          }
+        }
+      }
+    },
     "Not completed" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2220,10 +2554,40 @@
     },
     "On This iPhone" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "On This iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "On This iPhone"
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这台 iPhone"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这台 iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这台 iPhone"
+                }
+              }
+            }
           }
         }
       }
@@ -2254,6 +2618,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开另一个版本"
+          }
+        }
+      }
+    },
+    "Opens in your browser" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浏览器中打开"
           }
         }
       }
@@ -2690,6 +3064,26 @@
         }
       }
     },
+    "Sensitive" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "敏感内容"
+          }
+        }
+      }
+    },
+    "Sensitive content" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "敏感内容"
+          }
+        }
+      }
+    },
     "Server" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2824,30 +3218,120 @@
     },
     "Sign in again to keep syncing. Nothing on this iPhone was lost." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign in again to keep syncing. Nothing on this iPad was lost."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign in again to keep syncing. Nothing on this iPhone was lost."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重新登录以继续同步。这台 iPhone 上的内容均未丢失。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "重新登录以继续同步。这台 iPad 上的内容均未丢失。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "重新登录以继续同步。这台 iPhone 上的内容均未丢失。"
+                }
+              }
+            }
           }
         }
       }
     },
     "Sign in to your own Memos server to sync. The memos here stay on this iPhone, apart from the server’s." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign in to your own Memos server to sync. The memos here stay on this iPad, apart from the server’s."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign in to your own Memos server to sync. The memos here stay on this iPhone, apart from the server’s."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "登录你自己的 Memos 服务器即可同步。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "登录你自己的 Memos 服务器即可同步。这里的 Memo 保留在这台 iPad 上，与服务器上的 Memo 分开保存。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "登录你自己的 Memos 服务器即可同步。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
+                }
+              }
+            }
           }
         }
       }
     },
     "Sign in to your own Memos server. Your notes stay there, and on this iPhone." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign in to your own Memos server. Your notes stay there, and on this iPad."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sign in to your own Memos server. Your notes stay there, and on this iPhone."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "登录你自己的 Memos 服务器。你的笔记保存在服务器和这台 iPhone 上。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "登录你自己的 Memos 服务器。你的笔记保存在服务器和这台 iPad 上。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "登录你自己的 Memos 服务器。你的笔记保存在服务器和这台 iPhone 上。"
+                }
+              }
+            }
           }
         }
       }
@@ -2962,6 +3446,16 @@
         }
       }
     },
+    "Swipe left on a memo to archive it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Memo 上向左轻扫即可归档。"
+          }
+        }
+      }
+    },
     "Switch to %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2974,10 +3468,40 @@
     },
     "Switch to Memos on This iPhone" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Switch to Memos on This iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Switch to Memos on This iPhone"
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "切换到这台 iPhone 上的 Memo"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "切换到这台 iPad 上的 Memo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "切换到这台 iPhone 上的 Memo"
+                }
+              }
+            }
           }
         }
       }
@@ -3198,10 +3722,40 @@
     },
     "This removes your memos from this iPhone. They stay on your server." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This removes your memos from this iPad. They stay on your server."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This removes your memos from this iPhone. They stay on your server."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这会从这台 iPhone 上移除你的 Memo，服务器上的 Memo 不受影响。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这会从这台 iPad 上移除你的 Memo，服务器上的 Memo 不受影响。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "这会从这台 iPhone 上移除你的 Memo，服务器上的 Memo 不受影响。"
+                }
+              }
+            }
           }
         }
       }
@@ -3694,10 +4248,40 @@
     },
     "You’re still signed in as @%@. The memos here stay on this iPhone, apart from the server’s." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You’re still signed in as @%@. The memos here stay on this iPad, apart from the server’s."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You’re still signed in as @%@. The memos here stay on this iPhone, apart from the server’s."
+                }
+              }
+            }
+          }
+        },
         "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你仍以 @%@ 的身份登录。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "你仍以 @%@ 的身份登录。这里的 Memo 保留在这台 iPad 上，与服务器上的 Memo 分开保存。"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "你仍以 @%@ 的身份登录。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
+                }
+              }
+            }
           }
         }
       }

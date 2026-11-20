@@ -211,7 +211,8 @@ final class AudioPlayback: NSObject, AVAudioPlayerDelegate {
     func toggle(url: () async throws -> URL) async {
         if let player, player.isPlaying {
             player.pause()
-            isPlaying = false
+            // The play/pause symbol replace only plays inside an animation.
+            withAnimation(.memosSpring) { isPlaying = false }
             ticker?.cancel()
             return
         }
@@ -223,7 +224,7 @@ final class AudioPlayback: NSObject, AVAudioPlayerDelegate {
         }
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         player?.play()
-        isPlaying = true
+        withAnimation(.memosSpring) { isPlaying = true }
         ticker?.cancel()
         // Stops on pause and at the end, and on its own once the view that owned the player is gone.
         ticker = Task { [weak self] in
@@ -237,7 +238,7 @@ final class AudioPlayback: NSObject, AVAudioPlayerDelegate {
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
-            self.isPlaying = false
+            withAnimation(.memosSpring) { self.isPlaying = false }
             self.progress = 0
             self.ticker?.cancel()
         }

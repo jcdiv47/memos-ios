@@ -8,6 +8,8 @@ struct SearchContent: View {
 
     @Environment(AccountSession.self) private var session
     @State private var isSavingView = false
+    /// The save sheet grows out of Save as view.
+    @Namespace private var saveButton
 
     var body: some View {
         Group {
@@ -26,6 +28,7 @@ struct SearchContent: View {
         .sheet(isPresented: $isSavingView) {
             SaveViewSheet(query: search.query)
                 .presentationDetents([.height(300)])
+                .zoomTransition(from: "search.saveView", in: saveButton)
         }
     }
 
@@ -41,8 +44,13 @@ struct SearchContent: View {
                         .foregroundStyle(.ink2)
                     Spacer()
                     Button("Save as view", systemImage: "bookmark") { isSavingView = true }
+                        .labelStyle(.compact)
                         .font(.action)
+                        // One color for the symbol and its words, like any tinted text button,
+                        // and greyed with them when it can't save.
+                        .foregroundStyle(session.isOnDevice || session.isOnline ? Color.memosBlue : Color.ink3)
                         .disabled(!session.isOnDevice && !session.isOnline)
+                        .matchedTransitionSource(id: "search.saveView", in: saveButton)
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -54,7 +62,7 @@ struct SearchContent: View {
 
             if !search.photos.isEmpty {
                 Section("Photos") {
-                    PhotoMatchStrip(matches: search.photos)
+                    PhotoMatchStrip(matches: search.photos, zoom: zoom)
                 }
             }
 
@@ -101,6 +109,8 @@ struct SearchContent: View {
                         }
                     }
                 }
+                // The status lines sit on paper like the results, not on a white band.
+                .listRowBackground(Color.clear)
             }
         }
         .listStyle(.plain)
@@ -148,6 +158,7 @@ struct SearchContent: View {
 /// the memo the photo is in.
 private struct PhotoMatchStrip: View {
     let matches: [PhotoSearchModel.Match]
+    let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
 
@@ -155,15 +166,21 @@ private struct PhotoMatchStrip: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: Spacing.s) {
                 ForEach(matches) { match in
+                    let source = "photo.\(match.attachment.name)"
                     Button {
-                        session.path.append(.memo(match.memo.name))
+                        // The memo grows out of the photo you tapped.
+                        session.path.append(.memo(match.memo.name, source: source))
                     } label: {
                         AttachmentImage(attachment: match.attachment)
                             .frame(width: 104, height: 104)
+                            // A photo in a memo your tags blur stays blurred here too, inside its
+                            // own frame rather than bleeding into the next one.
+                            .blur(radius: session.isHidden(match.memo) ? 16 : 0, opaque: true)
                             .clipShape(.rect(cornerRadius: Radius.tight))
+                            .matchedTransitionSource(id: source, in: zoom)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(match.memo.displayTitle)
+                    .accessibilityLabel(session.redactedTitle(of: match.memo))
                     .accessibilityHint("Opens the memo with this photo")
                 }
             }
@@ -186,13 +203,23 @@ private struct SearchRow: View {
 
     var body: some View {
         Button {
-            session.path.append(.memo(memo.name))
+            session.path.append(.memo(memo.name, source: memo.name))
         } label: {
             VStack(alignment: .leading, spacing: Spacing.xs) {
+                let hidden = session.isHidden(memo)
                 Text(MarkdownCache.inline(excerpt, highlights: highlights))
                     .font(.supporting)
                     .foregroundStyle(.ink)
                     .lineLimit(2)
+                    // Blurred as on its card until you show it there; the memo opens as usual.
+                    .blur(radius: hidden ? 6 : 0)
+                    .accessibilityRepresentation {
+                        if hidden {
+                            Text("Sensitive content")
+                        } else {
+                            Text(MarkdownCache.inline(excerpt, highlights: highlights))
+                        }
+                    }
                 Text(metadata)
                     .font(.metadata)
                     .foregroundStyle(.ink2)
@@ -210,8 +237,13 @@ private struct SearchRow: View {
     private var excerpt: String {
         let flat = MarkdownCache.plainText(of: memo)
         guard let word = highlights.first, let range = flat.range(of: word, options: .caseInsensitive) else { return flat }
-        let start = flat.index(range.lowerBound, offsetBy: -40, limitedBy: flat.startIndex) ?? flat.startIndex
-        return (start == flat.startIndex ? "" : "…") + flat[start...]
+        var start = flat.index(range.lowerBound, offsetBy: -40, limitedBy: flat.startIndex) ?? flat.startIndex
+        guard start != flat.startIndex else { return flat }
+        // Begin on a whole word, “…the collection”, never “…ets #quote”.
+        if let space = flat[start..<range.lowerBound].firstIndex(where: \.isWhitespace) {
+            start = flat.index(after: space)
+        }
+        return "…" + flat[start...]
     }
 
     private var metadata: String {

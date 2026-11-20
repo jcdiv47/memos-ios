@@ -30,6 +30,9 @@ struct MemoLinks: View {
     /// Says which way each row runs in words, not just with its symbol. For the detail, which
     /// has the room.
     var showsDirection = false
+    /// Where the opened memo zooms out of its row. The timeline card leaves it nil: the whole
+    /// card is already the way into its own memo.
+    var zoom: Namespace.ID?
 
     @Environment(AccountSession.self) private var session
 
@@ -39,15 +42,17 @@ struct MemoLinks: View {
             + memo.referencedBy.map { (id: "in-\($0)", name: $0, direction: LinkDirection.referencedBy) }
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                ForEach(rows, id: \.id) { _, name, direction in
+                ForEach(rows, id: \.id) { id, name, direction in
+                    let source = "link.\(memo.name).\(id)"
                     Button {
-                        session.show(memo: name)
+                        session.show(memo: name, from: zoom == nil ? nil : source)
                     } label: {
                         LinkedMemoRow(
                             snippet: session.linkSnippet(name, from: memo),
                             direction: direction,
                             showsDirection: showsDirection
                         )
+                        .matchedTransitionSource(id: source, in: zoom)
                     }
                     .buttonStyle(.plain)
                 }
@@ -117,6 +122,8 @@ extension AccountSession {
     func linkSnippet(_ name: String, from memo: Memo?) -> String? {
         let snippet: String?
         if let linked = store.memo(named: name) {
+            // A linked memo blurred by one of your tags reads as it does on its card.
+            if isHidden(linked) { return String(localized: "Sensitive content") }
             snippet = linked.snippet.isEmpty ? String(linked.content.prefix(120)) : linked.snippet
         } else {
             snippet = memo?.relationSnippet(for: name)
