@@ -105,10 +105,12 @@ struct ComposerView: View {
                 Text(error)
                     .font(.metadata)
                     .foregroundStyle(.danger)
+                    .transition(.opacity)
             } else if let notice = model.notice {
                 Text(notice)
                     .font(.metadata)
                     .foregroundStyle(.ink2)
+                    .transition(.opacity)
             }
         }
         .padding(.horizontal, Metrics.screenInset)
@@ -117,6 +119,9 @@ struct ComposerView: View {
         // shoving it.
         .animation(.memosSpring, value: session.voice.phase)
         .animation(.memosSpring, value: model.preparing > 0 || model.isLocating)
+        // A message fades in under the text rather than appearing between frames.
+        .animation(.memosFade, value: model.error)
+        .animation(.memosFade, value: model.notice)
         // In the sheet's own layout rather than a keyboard toolbar: the input accessory attaches
         // after the keyboard lands, so the bar popped in and the editor shrank a second time.
         .safeAreaBar(edge: .bottom) {
