@@ -13,6 +13,8 @@ struct MemoContentView: View {
     var highlights: [String] = []
     /// Shows the opening heading as the memo's title, in New York.
     var showsTitle = true
+    /// The title's font: `.memoTitle` on a card, `.largeTitleSerif` on the memo's own page.
+    var titleFont: Font = .memoTitle
 
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -32,7 +34,7 @@ struct MemoContentView: View {
         switch block {
         case .heading(let level, let text):
             inline(text, style: isFirst && showsTitle ? .title3 : headingStyle(level))
-                .font(isFirst && showsTitle ? .memoTitle : headingFont(level))
+                .font(isFirst && showsTitle ? titleFont : headingFont(level))
                 .foregroundStyle(.ink)
                 .accessibilityAddTraits(.isHeader)
 
@@ -51,8 +53,9 @@ struct MemoContentView: View {
 
         case .quote(let text):
             HStack(alignment: .top, spacing: Spacing.l) {
+                // Hairline is only for card edges and dividers, and nearly vanishes on paper.
                 Capsule()
-                    .fill(.hairline)
+                    .fill(Color.ink3.opacity(0.45))
                     .frame(width: 3)
                 inline(text)
                     .font(.memoBody)
@@ -116,7 +119,7 @@ struct MemoContentView: View {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
                 let box = Image(systemName: checked ? "checkmark.square.fill" : "square")
                     .foregroundStyle(checked ? Color.memosBlue : Color.ink2)
-                    .contentTransition(.symbolEffect(.replace))
+                    .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
                 Group {
                     if let onToggleTask {
                         Button {
@@ -125,7 +128,7 @@ struct MemoContentView: View {
                         } label: {
                             box
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.glyphPress)
                     } else {
                         // Someone else's list reads at full strength; a disabled button would dim it.
                         box
@@ -134,10 +137,18 @@ struct MemoContentView: View {
                 .sensoryFeedback(.selection, trigger: checked)
                 .accessibilityLabel(checked ? Text("Completed") : Text("Not completed"))
 
-                inline(item.text)
-                    .font(.memoBody)
-                    .strikethrough(checked, color: .ink2)
-                    .foregroundStyle(checked ? Color.ink2 : Color.ink)
+                // Tags keep their Memos Blue in a done task; only the words around them dim.
+                if let strike = strikeOnly(item.text) {
+                    inline(item.text)
+                        .font(.memoBody)
+                        .foregroundStyle(checked ? Color.ink2 : Color.ink)
+                        .modifier(TaskStrike(checked: checked, strike: strike.font(.memoBody)))
+                } else {
+                    inline(item.text)
+                        .font(.memoBody)
+                        .strikethrough(checked, color: .ink2)
+                        .foregroundStyle(checked ? Color.ink2 : Color.ink)
+                }
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(onToggleTask == nil ? [] : .isButton)
@@ -188,6 +199,20 @@ struct MemoContentView: View {
     private func pointSize(_ style: UIFont.TextStyle) -> CGFloat {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(dynamicTypeSize))
         return UIFont.preferredFont(forTextStyle: style, compatibleWith: traits).pointSize
+    }
+
+    /// Only the strike through a task's text, laid out exactly like the text so it can be drawn
+    /// over it: every glyph clear, the line in Ink 2. Nil when the text has inline math, whose
+    /// typeset pieces can't be copied without their glyphs; that text keeps a plain strikethrough.
+    private func strikeOnly(_ text: String) -> Text? {
+        var attributed = MarkdownCache.inline(text, highlights: highlights, underlineTags: contrast == .increased)
+        guard !attributed.runs[InlineMathAttribute.self].contains(where: { $0.0 != nil }) else { return nil }
+        attributed.foregroundColor = .clear
+        attributed.backgroundColor = nil
+        attributed.link = nil
+        attributed.underlineStyle = nil
+        attributed.strikethroughStyle = Text.LineStyle(pattern: .solid, color: .ink2)
+        return Text(attributed)
     }
 
     /// A block's inline Markdown, with each `$math$` run typeset in place. `style` is the text
@@ -249,5 +274,54 @@ enum InlineMarkdown {
         let start = characters.index(characters.startIndex, offsetBy: lower)
         let end = characters.index(start, offsetBy: length)
         return start..<end
+    }
+}
+
+/// Draws a done task's strike from the leading edge, as if crossed out with a pen, a beat after
+/// the box fills. Unchecking fades it rather than drawing it back. Reduce Motion fades both ways.
+/// `.strikethrough` can't animate, so the strike is a clear copy of the text laid over it.
+private struct TaskStrike: ViewModifier {
+    let checked: Bool
+    let strike: Text
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var reveal: CGFloat
+    @State private var visible: Double
+
+    init(checked: Bool, strike: Text) {
+        self.checked = checked
+        self.strike = strike
+        _reveal = State(initialValue: checked ? 1 : 0)
+        _visible = State(initialValue: checked ? 1 : 0)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .topLeading) {
+                strike
+                    .mask(alignment: .leading) {
+                        Rectangle().scaleEffect(x: reveal, anchor: .leading)
+                    }
+                    .opacity(visible)
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+            }
+            .onChange(of: checked) { _, isChecked in
+                var instant = Transaction()
+                instant.disablesAnimations = true
+                if isChecked {
+                    withTransaction(instant) {
+                        reveal = reduceMotion ? 1 : 0
+                        visible = reduceMotion ? 0 : 1
+                    }
+                    // A beat after the box, so the eye goes from the box to the words.
+                    withAnimation(.memosFade.delay(0.06)) {
+                        if reduceMotion { visible = 1 } else { reveal = 1 }
+                    }
+                } else {
+                    withTransaction(instant) { reveal = 1 }
+                    withAnimation(.memosFade) { visible = 0 }
+                }
+            }
     }
 }

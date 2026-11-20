@@ -258,7 +258,7 @@ struct ActivityHeatmap: View {
                 .overlay {
                     if day == today {
                         RoundedRectangle(cornerRadius: cell * Self.cornerFraction + 2)
-                            .strokeBorder(.ink, lineWidth: 1.25)
+                            .strokeBorder(.ink, lineWidth: Stroke.emphasized)
                             .padding(-2.5)
                     }
                 }

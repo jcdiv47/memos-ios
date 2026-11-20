@@ -139,7 +139,7 @@ struct UserAvatar: View {
                     .clipShape(.circle)
                     .accessibilityHidden(true)
             } else {
-                Avatar(name: people.name(for: user), size: size)
+                Avatar(name: people.name(for: user), size: size, seed: user, isMe: user == session.user)
             }
         }
         .task(id: people.avatarKey(for: user)) {

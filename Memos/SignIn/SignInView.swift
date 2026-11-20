@@ -20,6 +20,7 @@ struct SignInView: View {
     @State private var isChecking = false
     @State private var isOpeningOnDevice = false
     @State private var error: String?
+    @FocusState private var isEditingServer: Bool
 
     struct InstanceInfo {
         var url: URL
@@ -72,6 +73,8 @@ struct SignInView: View {
         Form {
             Section {
                 VStack(alignment: .leading, spacing: Spacing.m) {
+                    AppMark()
+                        .padding(.bottom, Spacing.m)
                     Text("Memos")
                         .font(.largeTitleSerif)
                         .foregroundStyle(.ink)
@@ -96,9 +99,14 @@ struct SignInView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.continue)
+                    .focused($isEditingServer)
                     .onSubmit { Task { await check() } }
             } header: {
+                // A section heading like the rest of the app's, not the system's small caps.
                 Text("Server address")
+                    .font(.sectionTitle)
+                    .foregroundStyle(.ink2)
+                    .textCase(nil)
             } footer: {
                 if let error {
                     Text(error).foregroundStyle(.danger)
@@ -119,16 +127,22 @@ struct SignInView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
-
-            if resuming == nil && !connecting {
+        }
+        // The other way in waits at the bottom, so the server reads first and this as the
+        // alternative. It steps aside while you type an address rather than riding up on the
+        // keyboard over the field.
+        .safeAreaInset(edge: .bottom) {
+            if resuming == nil && !connecting && !isEditingServer {
                 onDeviceChoice
+                    .transition(.opacity)
             }
         }
+        .animation(.memosFade, value: isEditingServer)
     }
 
     /// The other way in: no server, no account, memos kept on this iPhone only.
     private var onDeviceChoice: some View {
-        Section {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             Button {
                 isOpeningOnDevice = true
                 Task { await model.openOnDevice() }
@@ -140,11 +154,15 @@ struct SignInView: View {
             }
             .buttonStyle(.glass)
             .disabled(isOpeningOnDevice || isChecking)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
-        } footer: {
             Text("No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart.")
+                .font(.metadata)
+                .foregroundStyle(.ink2)
+                // On the text lane of the form's rows above.
+                .padding(.horizontal, Spacing.xl + Spacing.xs)
         }
+        .padding(.horizontal, Metrics.screenInset)
+        .padding(.bottom, Spacing.m)
+        .readableWidth()
     }
 
     private func check() async {
@@ -465,5 +483,24 @@ enum WebAuthentication {
             let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
             return scene?.keyWindow ?? ASPresentationAnchor(windowScene: scene!)
         }
+    }
+}
+
+/// The app's icon, small, at the top of sign-in. The icon is paper on paper, so a hairline keeps
+/// its edge.
+private struct AppMark: View {
+    private static let side: CGFloat = 72
+    /// The icon's corner at this size, in the system's proportion.
+    private static let corner: CGFloat = 16
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
+        Image("AppMark")
+            .resizable()
+            .frame(width: Self.side, height: Self.side)
+            .clipShape(shape)
+            .overlay { shape.strokeBorder(.hairline, lineWidth: Stroke.hairline) }
+            .shadow(color: Color.ink.opacity(0.08), radius: 8, y: 4)
+            .accessibilityHidden(true)
     }
 }

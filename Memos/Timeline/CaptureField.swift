@@ -7,6 +7,9 @@ struct CaptureField: View {
     /// What the composer grows out of: this field's ``SheetSource``. Mark the toolbar item
     /// holding the field with the same id.
     var source = SheetSource.captureField
+    /// The width the bar has for the field, from ``width(in:)``. The bottom bar sizes its items
+    /// to their ideal width, so without one the field stays a short pill in the middle.
+    var idealWidth: CGFloat?
 
     @Environment(AccountSession.self) private var session
     @Namespace private var glass
@@ -67,11 +70,14 @@ struct CaptureField: View {
                     .accessibilityHidden(true)
                     .glassEffectID("field", in: glass)
 
+                    // A full tap target, without making the field taller: the extra height hangs
+                    // over the field's edges, and the trailing inset shrinks so the symbol stays put.
                     Image(systemName: "mic")
                         .foregroundStyle(isHoldingMic ? Color.memosBlue : Color.ink2)
-                        .frame(width: 30, height: 30)
+                        .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
                         .scaleEffect(isHoldingMic && !reduceMotion ? 1.2 : 1)
                         .contentShape(.rect)
+                        .padding(.vertical, -Spacing.xxs)
                         .onLongPressGesture(minimumDuration: Self.holdDuration) {
                             Task { await voice.start() }
                         } onPressingChanged: { pressing in
@@ -87,8 +93,8 @@ struct CaptureField: View {
                 }
             }
             .padding(.leading, Spacing.xl)
-            .padding(.trailing, Spacing.m)
-            .frame(minWidth: 170, idealWidth: 230, maxWidth: .infinity, minHeight: 40)
+            .padding(.trailing, voice.isRecording ? Spacing.m : Spacing.xxs)
+            .frame(minWidth: 170, idealWidth: idealWidth ?? 230, maxWidth: .infinity, minHeight: 40)
         }
         .contentShape(.capsule)
         .onTapGesture {
@@ -105,6 +111,13 @@ struct CaptureField: View {
         .accessibilityAddTraits(.isButton)
     }
 
+    /// The field's width on a screen `width` wide: the bar's margins and the round Search button
+    /// beside it taken away, and no wider than a readable column on an iPad.
+    static func width(in width: CGFloat) -> CGFloat {
+        let besideField = 2 * Metrics.screenInset + FloatingBar.height + Spacing.l
+        return min(width, Metrics.readableWidth) - besideField
+    }
+
     private func stopRecording() {
         // The composer opens right away; the transcript streams into it.
         session.composer = ComposerRequest(mode: .new(origin: .timeline(space: session.selectedSpace), text: "", record: false, voiceMemo: true), source: source)
@@ -116,7 +129,7 @@ struct CaptureField: View {
 private struct PromptPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.45 : 1)
+            .opacity(configuration.isPressed ? Press.labelOpacity : 1)
             .animation(.memosPress, value: configuration.isPressed)
     }
 }

@@ -34,7 +34,7 @@ against something outside our control, such as UIKit's 5-point text inset, and e
 | Paper 2 | Code blocks |
 | Hairline | Card edges and the lines between rows. Nothing else |
 | Ink / Ink 2 / Ink 3 | Text: primary / metadata and descriptions / disabled and chevrons |
-| Memos Blue | The tint: tags, links, selected state, Save. `accentWash` behind selected or tappable things |
+| Memos Blue | The tint: tags, links, selected state, Save. `accentWash` behind selected or tappable things. A tag in a done task stays Memos Blue under the strike; only its words go grey |
 | Danger | Errors and destructive actions. Never `.red` |
 
 Use the asset colours, never `.secondary`, `.gray` or `Color(.systemX)`: system grays are cool,
@@ -116,8 +116,10 @@ Chips, pills and the floating bars are capsules. Avatars are circles.
 | A row that opens a page | `Chevron()` at the trailing edge |
 | A symbol leading a tile or row | `IconTile(systemImage:isEmpty:)` |
 | A count under a memo | `Pill(isSelected:)` |
+| A card that opens something (a memo, a Library tile) | `.buttonStyle(.cardPress)`: settles to 0.98 without dimming, so the paper stays white |
 | Audience or Space choice | `.buttonStyle(.chip)` / `.prominentChip` |
-| Something unread | `UnreadDot(ringed:)`, a dot rather than a count |
+| Something unread | `UnreadDot(ringed:ring:)`, a dot rather than a count. The ring is the surface beneath: `.paper` on a screen, `.card` in a card |
+| A person | `UserAvatar(user:size:)`: their picture, or their initial in white on their own colour from `PersonPalette` (stable per person, every colour 4.5:1 or better). You are always Memos Blue |
 | A full-width primary button | `.buttonStyle(.glassProminent)` with `WideButtonLabel(title:isWorking:)` |
 | A passing message | `Toast(message:)` |
 | Nothing to show | `ContentUnavailableView`, with an action when there's an obvious next step |
@@ -137,9 +139,24 @@ Chips, pills and the floating bars are capsules. Avatars are circles.
 ## Motion
 
 `.memosSpring` (0.35 s, no bounce) for layout. `.reactionPop` only where something lands on
-purpose. `.memosFade` for things arriving in place, and `.memosPress` with `Press.opacity` and
-`Press.scale` for custom buttons. Everything can be interrupted. Reduce Motion turns zooms into
-cross-fades and removes the bounce.
+purpose. `.memosFade` for things arriving in place, and `.memosPress` with the `Press` values for
+custom buttons. Everything can be interrupted. Reduce Motion turns zooms into cross-fades and
+removes the bounce.
+
+**Bounce only on arrival.** Leaving is quieter than arriving: a removed reaction, a read dot, a
+dismissed toast use an asymmetric transition whose removal is `.opacity` on `.memosFade`.
+
+| `Press` | Value | For |
+| --- | --- | --- |
+| `opacity` | 0.7 | Chips and bar buttons; matches the design file's `--opacity-press`. Dimmer reads as disabled |
+| `scale` | 0.97 | Chips and controls |
+| `glyphScale` | 0.85 | A lone emoji or symbol (`.glyphPress`) |
+| `cardScale` | 0.98 | Whole cards (`.cardPress`), with no dimming |
+| `labelOpacity` | 0.45 | A prompt that acts as a button, such as “Capture a thought…”, which already starts in Ink 2 |
+
+**Zoom sources carry the card's shape.** A card that a page zooms out of passes its background
+and corner to `matchedTransitionSource(id:in:) { $0.background(.card).clipShape(.rect(cornerRadius: Radius.card)) }`,
+so the zoom grows from paper, not a square.
 
 ## Devices
 
