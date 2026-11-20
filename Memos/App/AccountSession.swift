@@ -324,6 +324,9 @@ enum Route: Hashable {
     case archived
     case view(String)
     case filtered(title: String, tokens: [SearchToken])
+    /// Another page, zooming out of the card that opened it and back into it, such as a Library
+    /// tile. Pages reached any other way push from the edge.
+    indirect case zoomed(Route, from: String)
 }
 
 /// What the composer opens for.

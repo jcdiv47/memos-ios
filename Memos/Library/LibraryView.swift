@@ -5,6 +5,9 @@ import SwiftUI
 /// different ways: the activity grid first, then attachments, the map, tags, the archive and
 /// saved views.
 struct LibraryView: View {
+    /// The cards zoom into their pages, and the capture field into the composer.
+    let zoom: Namespace.ID
+
     @Environment(AccountSession.self) private var session
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .subheadline) private var symbolScale = SymbolScale.base
@@ -15,7 +18,7 @@ struct LibraryView: View {
         let stats = self.stats
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.cardGap) {
-                ActivityCard(stats: stats)
+                ActivityCard(stats: stats, zoom: zoom)
 
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.cardGap), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: Metrics.cardGap) {
                     tile(.attachments, title: "Attachments", detail: stats.attachmentCount.formatted(), systemImage: "paperclip", isEmpty: stats.attachmentCount == 0)
@@ -70,8 +73,9 @@ struct LibraryView: View {
         .toolbar {
             // The timeline's bottom row: capture, then Search.
             ToolbarItem(placement: .bottomBar) {
-                CaptureField()
+                CaptureField(source: SheetSource.libraryCaptureField)
             }
+            .matchedTransitionSource(id: SheetSource.libraryCaptureField, in: zoom)
             ToolbarSpacer(.fixed, placement: .bottomBar)
             ToolbarItem(placement: .bottomBar) {
                 Button(action: openSearch) {
@@ -90,8 +94,9 @@ struct LibraryView: View {
     }
 
     private func tile(_ route: Route, title: LocalizedStringKey, detail: String, systemImage: String, isEmpty: Bool) -> some View {
-        Button {
-            session.path.append(route)
+        let source = "library.\(route)"
+        return Button {
+            session.path.append(.zoomed(route, from: source))
         } label: {
             // A tight gap: on the narrowest phones, such as iPhone Duo, two tiles share about 340
             // points and “Attachments” needs every one.
@@ -114,6 +119,7 @@ struct LibraryView: View {
             .padding(Spacing.l)
             .cardBackground()
             .contentShape(.rect)
+            .matchedTransitionSource(id: source, in: zoom)
         }
         .buttonStyle(.plain)
     }
@@ -123,6 +129,7 @@ struct LibraryView: View {
 /// Opens Activity.
 private struct ActivityCard: View {
     let stats: LibraryStats
+    let zoom: Namespace.ID
     @Environment(AccountSession.self) private var session
 
     var body: some View {
@@ -131,7 +138,7 @@ private struct ActivityCard: View {
         let today = calendar.startOfDay(for: .now)
         let summary = [String(localized: "\(stats.memoCount) memos"), String(localized: "\(stats.dayCount) days")].joined(separator: " · ")
         Button {
-            session.path.append(.activity)
+            session.path.append(.zoomed(.activity, from: "library.activity"))
         } label: {
             VStack(alignment: .leading, spacing: Metrics.blockGap) {
                 HStack(alignment: .firstTextBaseline) {
@@ -173,6 +180,7 @@ private struct ActivityCard: View {
             .padding(Metrics.cardPadding)
             .cardBackground()
             .contentShape(.rect)
+            .matchedTransitionSource(id: "library.activity", in: zoom)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)

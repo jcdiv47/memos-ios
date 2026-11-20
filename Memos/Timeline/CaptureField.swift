@@ -4,6 +4,10 @@ import SwiftUI
 /// The middle of the bottom bar. Tap to write; long-press the mic to dictate, and the field
 /// stretches into a live waveform while recording.
 struct CaptureField: View {
+    /// What the composer grows out of: this field's ``SheetSource``. Mark the toolbar item
+    /// holding the field with the same id.
+    var source = SheetSource.captureField
+
     @Environment(AccountSession.self) private var session
     @Namespace private var glass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -39,7 +43,7 @@ struct CaptureField: View {
                 } else {
                     // A button, so the prompt answers the finger before the sheet rises.
                     Button {
-                        session.capture(from: SheetSource.captureField)
+                        session.capture(from: source)
                     } label: {
                         // Grows taller at large text sizes instead of truncating.
                         Group {
@@ -88,7 +92,7 @@ struct CaptureField: View {
         }
         .contentShape(.capsule)
         .onTapGesture {
-            if !voice.isRecording { session.capture(from: SheetSource.captureField) }
+            if !voice.isRecording { session.capture(from: source) }
         }
         .animation(.memosSpring, value: voice.isRecording)
         .animation(.memosFade, value: session.drafts.hasNewMemoDraft)
@@ -103,7 +107,7 @@ struct CaptureField: View {
 
     private func stopRecording() {
         // The composer opens right away; the transcript streams into it.
-        session.composer = ComposerRequest(mode: .new(origin: .timeline(space: session.selectedSpace), text: "", record: false, voiceMemo: true), source: SheetSource.captureField)
+        session.composer = ComposerRequest(mode: .new(origin: .timeline(space: session.selectedSpace), text: "", record: false, voiceMemo: true), source: source)
         Task { _ = await session.voice.stop(client: session.client, online: session.isOnline) }
     }
 }

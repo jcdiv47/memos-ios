@@ -78,6 +78,8 @@ extension View {
 enum SheetSource {
     /// The capture field in the bottom bar: the composer.
     static let captureField = "sheet.captureField"
+    /// The capture field in Library's bottom bar, which sits over the timeline's.
+    static let libraryCaptureField = "sheet.libraryCaptureField"
     /// “Capture a Thought” on an empty timeline.
     static let emptyTimeline = "sheet.emptyTimeline"
     /// The “…” menu in the timeline's title row: Inbox and Settings.

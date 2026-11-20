@@ -15,7 +15,7 @@ struct RouteDestination: View {
         case .sharedMemo(let token):
             SharedMemoView(token: token)
         case .library:
-            LibraryView()
+            LibraryView(zoom: zoom)
         case .activity:
             ActivityView()
         case .attachments:
@@ -34,6 +34,9 @@ struct RouteDestination: View {
             }
         case .filtered(let title, let tokens):
             FilteredTimelineView(title: title, filter: SearchQuery(tokens: tokens).filter(), zoom: zoom)
+        case .zoomed(let page, let source):
+            RouteDestination(route: page, zoom: zoom)
+                .zoomTransition(from: source, in: zoom)
         }
     }
 }
