@@ -702,6 +702,7 @@ private struct DetailBar: View {
                                 }
                                 .frame(width: 28, height: 28)
                             }
+                            .buttonStyle(.glyphPress)
                             .disabled(sending)
                             .accessibilityLabel("Send comment")
                             // Grows in under the thumb as you start typing, instead of popping.

@@ -457,8 +457,11 @@ private struct AccountMenu: View {
                     if unread > 0 {
                         UnreadDot(ringed: true)
                             .offset(x: 5, y: -11)
+                            // Pops in when a sync brings something new, rather than appearing.
+                            .transition(.scale(scale: 0.5).combined(with: .opacity))
                     }
                 }
+                .animation(.reactionPop, value: unread > 0)
         }
         .accessibilityLabel("Account")
         .accessibilityValue(unread > 0 ? Text("\(unread) unread") : Text(verbatim: ""))
