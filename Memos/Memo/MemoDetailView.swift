@@ -68,7 +68,8 @@ struct MemoDetailView: View {
 
                         MemoContentView(
                             content: memo.content,
-                            onToggleTask: isMine ? { line in session.store.toggleTask(memo.name, line: line) } : nil
+                            onToggleTask: isMine ? { line in session.store.toggleTask(memo.name, line: line) } : nil,
+                            titleFont: .largeTitleSerif
                         )
                         .textSelection(.enabled)
 
@@ -100,7 +101,11 @@ struct MemoDetailView: View {
                         Task { await toggleReaction(emoji, on: memo) }
                     }
                     .sensoryFeedback(.impact(weight: .light), trigger: chipTaps)
-                    .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
+                    // Bounces in because you put it there; leaves quieter than it came.
+                    .transition(reduceMotion ? .opacity : .asymmetric(
+                        insertion: .scale(scale: 0.6, anchor: .leading).combined(with: .opacity).animation(.reactionPop),
+                        removal: .opacity.animation(.memosFade)
+                    ))
                 }
 
                 // Comments live on the server; the on-device library has none.
@@ -123,15 +128,17 @@ struct MemoDetailView: View {
             if let notice {
                 Toast(message: notice)
                     .padding(.top, Spacing.m)
-                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    .transition(toastTransition)
                     // Each new message gets its full time on screen.
                     .task(id: notice) {
                         // Cancelled by the next message, which mustn't be cleared early.
                         guard (try? await Task.sleep(for: .seconds(2.5))) != nil else { return }
-                        withAnimation(.memosSpring) { self.notice = nil }
+                        withAnimation(.memosFade) { self.notice = nil }
                     }
             }
         }
+        // Every message here is a refusal, mostly being offline: a warning, felt once per message.
+        .sensoryFeedback(.warning, trigger: notice) { _, new in new != nil }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -157,7 +164,9 @@ struct MemoDetailView: View {
                         Button("Delete", systemImage: "trash", role: .destructive) { confirmDelete = true }
                     }
                 } label: {
+                    // Ink, like the back chevron beside it: Memos Blue is for what you chose.
                     Image(systemName: "ellipsis")
+                        .foregroundStyle(.ink)
                 }
                 .accessibilityLabel("More")
                 // Anchored to the menu Delete is in, so the question points at what asked it.
@@ -402,6 +411,16 @@ struct MemoDetailView: View {
         }
     }
 
+    /// Drops a few points into place and settles; leaves by fading up a little, shorter than it
+    /// came. Reduce Motion only fades.
+    private var toastTransition: AnyTransition {
+        if reduceMotion { return .opacity }
+        return .asymmetric(
+            insertion: .offset(y: -10).combined(with: .scale(scale: 0.96, anchor: .top)).combined(with: .opacity),
+            removal: .offset(y: -6).combined(with: .opacity)
+        )
+    }
+
     /// The chosen emoji pops in; Reduce Motion keeps the change without the bounce.
     private var reactionAnimation: Animation {
         reduceMotion ? .memosFade : .reactionPop
@@ -464,23 +483,57 @@ private struct LinkPreviewCard: View {
             if let url = URL(string: metadata.url) { openURL(url) }
         } label: {
             HStack(spacing: Spacing.l) {
+                SiteTile(imageURL: URL(string: metadata.image), host: host)
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(metadata.title)
                         .font(.emphasis)
                         .foregroundStyle(.ink)
                         .lineLimit(2)
-                    Text(URL(string: metadata.url)?.host() ?? metadata.url)
+                    Text(host)
                         .font(.metadata)
                         .foregroundStyle(.ink2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.up.right")
+                    .font(.rowSymbol)
                     .foregroundStyle(.ink2)
+                    .accessibilityHidden(true)
             }
             .padding(Spacing.l)
             .cardBackground()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardPress)
+    }
+
+    private var host: String {
+        let host = URL(string: metadata.url)?.host() ?? metadata.url
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+}
+
+/// The site's picture beside a link preview, on a well tile like an ``IconTile``; the first
+/// letter of the site's address while it loads, or if the site has none.
+private struct SiteTile: View {
+    let imageURL: URL?
+    let host: String
+
+    @ScaledMetric(relativeTo: .subheadline) private var scale = SymbolScale.base
+
+    var body: some View {
+        let side = Metrics.scaled(Metrics.iconTile, by: scale)
+        AsyncImage(url: imageURL) { phase in
+            if let image = phase.image {
+                image.resizable().scaledToFill()
+            } else {
+                Text(host.first.map { String($0).uppercased() } ?? "")
+                    .font(.system(.headline, design: .serif))
+                    .foregroundStyle(.ink2)
+            }
+        }
+        .frame(width: side, height: side)
+        .background(.well)
+        .clipShape(.rect(cornerRadius: Radius.inner))
+        .accessibilityHidden(true)
     }
 }
 
@@ -504,50 +557,18 @@ private struct CommentsSection: View {
     /// A comment is a memo, so its name gets a prefix to keep it apart from a memo card's.
     static func sourceID(_ comment: Memo) -> String { "comment.\(comment.name)" }
 
+    /// Hairlines between comments start under the text, past the avatar.
+    private static var dividerInset: CGFloat { AvatarSize.small + Spacing.m }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.l) {
             if !comments.isEmpty {
-                Text("\(comments.count) comments")
+                SectionHeader(title: Text("\(comments.count) comments")) { EmptyView() }
                     .contentTransition(.numericText(value: Double(comments.count)))
-                    .font(.headline)
-                    .foregroundStyle(.ink)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.top, Spacing.m)
-            }
-            ForEach(comments, id: \.name) { comment in
-                HStack(alignment: .top, spacing: Spacing.m) {
-                    UserAvatar(user: comment.creator, size: AvatarSize.small)
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        HStack(spacing: Spacing.s) {
-                            Text(session.people.name(for: comment.creator))
-                                .font(.emphasis)
-                                .foregroundStyle(.ink)
-                            Text(MemoDate.short(comment.createdAt))
-                                .font(.metadata)
-                                .foregroundStyle(.ink2)
-                            Spacer(minLength: 0)
-                            RevealToggle(memo: comment)
-                        }
-                        SensitiveContent(memo: comment) {
-                            MemoContentView(content: comment.content, showsTitle: false)
-                        }
+                CardList(dividerInset: Self.dividerInset) {
+                    ForEach(comments, id: \.name) { comment in
+                        row(comment)
                     }
-                }
-                .accessibilityElement(children: .combine)
-                .contentShape(.contextMenuPreview, .rect(cornerRadius: Radius.inner))
-                .matchedTransitionSource(id: Self.sourceID(comment), in: zoom)
-                .transition(arrival)
-                .contextMenu { actions(for: comment) }
-                .accessibilityActions { actions(for: comment) }
-                // Anchored to the comment it's about, not the whole list.
-                .confirmationDialog(
-                    "Delete this comment?",
-                    isPresented: Binding(get: { toDelete?.name == comment.name }, set: { if !$0 { toDelete = nil } }),
-                    titleVisibility: .visible
-                ) {
-                    Button("Delete", role: .destructive) { onConfirmDelete(comment) }
-                } message: {
-                    Text("It’s removed for everyone who can read this memo.")
                 }
             }
             if loaded && !online && comments.isEmpty {
@@ -555,6 +576,44 @@ private struct CommentsSection: View {
                     .font(.metadata)
                     .foregroundStyle(.ink2)
             }
+        }
+    }
+
+    private func row(_ comment: Memo) -> some View {
+        HStack(alignment: .top, spacing: Spacing.m) {
+            UserAvatar(user: comment.creator, size: AvatarSize.small)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
+                    Text(session.people.name(for: comment.creator))
+                        .font(.emphasis)
+                        .foregroundStyle(.ink)
+                    Text(MemoDate.short(comment.createdAt))
+                        .font(.metadata)
+                        .foregroundStyle(.ink2)
+                    Spacer(minLength: 0)
+                    RevealToggle(memo: comment)
+                }
+                SensitiveContent(memo: comment) {
+                    MemoContentView(content: comment.content, showsTitle: false)
+                }
+            }
+        }
+        .padding(.vertical, Metrics.rowPadding)
+        .accessibilityElement(children: .combine)
+        .contentShape(.contextMenuPreview, .rect(cornerRadius: Radius.inner))
+        .matchedTransitionSource(id: Self.sourceID(comment), in: zoom)
+        .transition(arrival)
+        .contextMenu { actions(for: comment) }
+        .accessibilityActions { actions(for: comment) }
+        // Anchored to the comment it's about, not the whole list.
+        .confirmationDialog(
+            "Delete this comment?",
+            isPresented: Binding(get: { toDelete?.name == comment.name }, set: { if !$0 { toDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { onConfirmDelete(comment) }
+        } message: {
+            Text("It’s removed for everyone who can read this memo.")
         }
     }
 

@@ -16,10 +16,34 @@ extension Animation {
 /// How far a pressed control dims and shrinks. Shared so every custom button feels the same
 /// under the finger.
 enum Press {
-    static let opacity = 0.6
+    /// Matches the design file's `--opacity-press`. With the 0.97 scale, anything dimmer reads as
+    /// disabled.
+    static let opacity = 0.7
     static let scale = 0.97
     /// A single emoji or symbol is small enough that 0.97 reads as nothing.
     static let glyphScale = 0.85
+    /// A whole card: memos, Library tiles. Big enough that a smaller scale already reads, and
+    /// dimming would turn the white paper grey.
+    static let cardScale = 0.98
+    /// A prompt or placeholder that acts as a button, like “Capture a thought…”. It starts in
+    /// Ink 2, so it dims further than a control does.
+    static let labelOpacity = 0.45
+}
+
+/// A card that opens something: it settles a little under the finger without dimming, so the
+/// paper stays white. Reduce Motion keeps it still.
+struct CardPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? Press.cardScale : 1)
+            .animation(configuration.isPressed ? .memosPress : .memosSpring, value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == CardPressStyle {
+    static var cardPress: CardPressStyle { CardPressStyle() }
 }
 
 /// A lone emoji or symbol that shrinks under the finger, such as a reaction in the picker, and

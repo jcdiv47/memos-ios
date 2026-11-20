@@ -20,6 +20,8 @@ struct SearchContent: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
+        // A tag or Space turning into a token, or a token removed, ticks under the thumb.
+        .sensoryFeedback(.selection, trigger: search.tokens.count)
         // Photos indexed while the search is open can match it too.
         .onChange(of: session.photoSearch.indexedCount) { search.schedulePhotos() }
         // The search field floats over the bottom of the list, and without the software
@@ -36,12 +38,15 @@ struct SearchContent: View {
         let own = search.ownResults(in: session)
         let others = search.otherResults(in: session)
         let highlights = search.query.words
+        let count = own.count + others.count + photoOnly(beyond: own).count
         return List {
             Section {
                 HStack {
-                    Text(countLabel(own.count + others.count + photoOnly(beyond: own).count))
+                    Text(countLabel(count))
                         .font(.metadata)
                         .foregroundStyle(.ink2)
+                        .contentTransition(.numericText(value: Double(count)))
+                        .animation(.memosFade, value: count)
                     Spacer()
                     Button("Save as view", systemImage: "bookmark") { isSavingView = true }
                         .labelStyle(.compact)
@@ -115,6 +120,8 @@ struct SearchContent: View {
         }
         .listStyle(.plain)
         .paperBackground()
+        // Results cross-fade as you type instead of jumping row by row.
+        .animation(.memosFade, value: own.map(\.name) + others.map(\.name))
     }
 
     /// Memos found only by a photo, so the count includes them once.
@@ -227,9 +234,13 @@ private struct SearchRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, Spacing.xs)
             .contentShape(.rect)
-            .matchedTransitionSource(id: memo.name, in: zoom)
+            // Results sit on paper, so the zoom grows out of a paper shape rather than a white
+            // card, into the memo's paper page.
+            .matchedTransitionSource(id: memo.name, in: zoom) { source in
+                source.background(.paper).clipShape(.rect(cornerRadius: Radius.inner))
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardPress)
         .listRowBackground(Color.clear)
     }
 

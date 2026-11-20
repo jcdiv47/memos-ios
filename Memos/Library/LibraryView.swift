@@ -11,6 +11,7 @@ struct LibraryView: View {
     @Environment(AccountSession.self) private var session
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .subheadline) private var symbolScale = SymbolScale.base
+    @State private var screenWidth: CGFloat?
 
     private var stats: LibraryStats { LibraryStats(memos: Array(session.store.own.values)) }
 
@@ -68,12 +69,13 @@ struct LibraryView: View {
             .readableWidth()
         }
         .background(.paper)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { screenWidth = $0 }
         .navigationTitle("Library")
         .toolbarTitleDisplayMode(.inlineLarge)
         .toolbar {
             // The timeline's bottom row: capture, then Search.
             ToolbarItem(placement: .bottomBar) {
-                CaptureField(source: SheetSource.libraryCaptureField)
+                CaptureField(source: SheetSource.libraryCaptureField, idealWidth: screenWidth.map(CaptureField.width(in:)))
             }
             .matchedTransitionSource(id: SheetSource.libraryCaptureField, in: zoom)
             ToolbarSpacer(.fixed, placement: .bottomBar)
@@ -119,9 +121,11 @@ struct LibraryView: View {
             .padding(Spacing.l)
             .cardBackground()
             .contentShape(.rect)
-            .matchedTransitionSource(id: source, in: zoom)
+            .matchedTransitionSource(id: source, in: zoom) { source in
+                source.background(.card).clipShape(.rect(cornerRadius: Radius.card))
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardPress)
     }
 }
 
@@ -180,9 +184,11 @@ private struct ActivityCard: View {
             .padding(Metrics.cardPadding)
             .cardBackground()
             .contentShape(.rect)
-            .matchedTransitionSource(id: "library.activity", in: zoom)
+            .matchedTransitionSource(id: "library.activity", in: zoom) { source in
+                source.background(.card).clipShape(.rect(cornerRadius: Radius.card))
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardPress)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Activity")
         .accessibilityValue(summary)

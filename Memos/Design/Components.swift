@@ -114,13 +114,15 @@ struct Chevron: View {
 
 /// Something unread. Rarely urgent in a notes app, so a dot rather than a count.
 struct UnreadDot: View {
-    /// Rings the dot in Paper so it separates from a symbol or avatar it overlaps.
+    /// Rings the dot so it separates from a symbol or avatar it overlaps.
     var ringed = false
+    /// What the ring is cut from: the surface under the dot. Paper on a screen, Card in a card.
+    var ring: Color = .paper
 
     var body: some View {
         Circle()
             .fill(.memosBlue)
-            .stroke(.paper, lineWidth: ringed ? 2 : 0)
+            .stroke(ring, lineWidth: ringed ? 2 : 0)
             .frame(width: 9, height: 9)
             .accessibilityHidden(true)
     }
@@ -185,19 +187,45 @@ extension View {
 
 // MARK: People
 
-/// A letter avatar. `size` is the diameter at the default text size; pass the result of
-/// ``Metrics/scaled(_:by:)`` if it should grow with Dynamic Type, as ``UserAvatar`` does.
+/// A letter avatar on the person's own colour. `size` is the diameter at the default text size;
+/// pass the result of ``Metrics/scaled(_:by:)`` if it should grow with Dynamic Type, as
+/// ``UserAvatar`` does.
 struct Avatar: View {
     let name: String
     var size: CGFloat = AvatarSize.small
+    /// What picks the colour, so a person keeps theirs when they rename: their resource name.
+    /// Falls back to `name`.
+    var seed: String?
+    /// You are always Memos Blue.
+    var isMe = false
 
     var body: some View {
         Text(name.first.map { String($0).uppercased() } ?? "?")
             .font(.system(size: size * 0.45, weight: .semibold, design: .rounded))
-            .foregroundStyle(.ink)
+            .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(.well, in: .circle)
+            .background(isMe ? Color.memosBlue : PersonPalette.color(for: seed ?? name), in: .circle)
             .accessibilityHidden(true)
+    }
+}
+
+/// The colours people's initials sit on. Muted, from the same paper-and-ink scene as the rest of
+/// the palette, with Memos Blue kept for you. Each holds white initials at 4.5:1 or better.
+enum PersonPalette {
+    static let colors: [Color] = [
+        Color(red: 0.384, green: 0.478, blue: 0.345), // sage
+        Color(red: 0.588, green: 0.408, blue: 0.267), // clay
+        Color(red: 0.459, green: 0.365, blue: 0.494), // plum
+        Color(red: 0.282, green: 0.447, blue: 0.471), // lagoon
+        Color(red: 0.533, green: 0.420, blue: 0.157), // ochre
+        Color(red: 0.592, green: 0.341, blue: 0.341), // rosewood
+    ]
+
+    /// The same person gets the same colour on every launch and device: a stable sum of the
+    /// seed's scalars, not `hashValue`, which is salted per process.
+    static func color(for seed: String) -> Color {
+        let sum = seed.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0x7fff_ffff }
+        return colors[sum % colors.count]
     }
 }
 

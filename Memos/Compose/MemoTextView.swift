@@ -114,31 +114,118 @@ struct MemoTextView: UIViewRepresentable {
             return UIMenu(children: suggested + [menu])
         }
 
-        /// Tags turn Memos Blue. Only colour changes, so the selection, the undo stack and any
-        /// marked text are untouched; while an input method is composing it waits.
+        /// Tags turn Memos Blue, Markdown's syntax (list and quote markers, `**`, `_`, `~~`,
+        /// backticks, a link's brackets and address) recedes to Ink 3, and list items hang their
+        /// wrapped lines under the text after the marker. Only colour and paragraph indents
+        /// change, so the selection, the undo stack and any marked text are untouched; while an
+        /// input method is composing it waits.
         func highlight(_ textView: UITextView) {
             guard textView.markedTextRange == nil else { return }
             let text: String = textView.text
-            let ranges = TagScanner.matches(in: text, excluding: TagScanner.literalSpans(in: text)).map { NSRange($0.range, in: text) }
-            let storage = textView.textStorage
-            let whole = NSRange(location: 0, length: storage.length)
-            var current: [NSRange] = []
-            storage.enumerateAttribute(Self.tagKey, in: whole) { value, range, _ in
-                if value != nil { current.append(range) }
-            }
-            if current != ranges {
+            let font = textView.font ?? .preferredFont(forTextStyle: .body)
+            let styling = EditorStyling(text: text, font: font)
+            if styling != applied {
+                applied = styling
+                let storage = textView.textStorage
+                let whole = NSRange(location: 0, length: storage.length)
                 storage.beginEditing()
                 storage.removeAttribute(Self.tagKey, range: whole)
+                storage.removeAttribute(.paragraphStyle, range: whole)
                 storage.addAttribute(.foregroundColor, value: UIColor.ink, range: whole)
-                for range in ranges {
+                for range in styling.syntax {
+                    storage.addAttribute(.foregroundColor, value: UIColor.ink3, range: range)
+                }
+                for range in styling.tags {
                     storage.addAttributes([.foregroundColor: UIColor.memosBlue, Self.tagKey: true], range: range)
+                }
+                for indent in styling.indents {
+                    let paragraph = NSMutableParagraphStyle()
+                    paragraph.headIndent = indent.width
+                    storage.addAttribute(.paragraphStyle, value: paragraph, range: indent.range)
                 }
                 storage.endEditing()
             }
             textView.typingAttributes[.foregroundColor] = UIColor.ink
             textView.typingAttributes[Self.tagKey] = nil
         }
+
+        /// What the text was last styled with, so a keystroke that moves nothing restyles nothing.
+        private var applied: EditorStyling?
     }
+}
+
+/// Where the editor's colours and indents go, worked out from the text alone.
+struct EditorStyling: Equatable {
+    struct Indent: Equatable {
+        /// The whole paragraph.
+        var range: NSRange
+        /// How far wrapped lines start in: the width of the indent and marker.
+        var width: CGFloat
+    }
+
+    var tags: [NSRange] = []
+    var syntax: [NSRange] = []
+    var indents: [Indent] = []
+
+    init(text: String, font: UIFont) {
+        let string = text as NSString
+        let whole = NSRange(location: 0, length: string.length)
+        tags = TagScanner.matches(in: text, excluding: TagScanner.literalSpans(in: text)).map { NSRange($0.range, in: text) }
+
+        // Block markers at the start of a line: a list item, a task, a quote, a heading's #s.
+        Self.blockMarker.enumerateMatches(in: text, range: whole) { match, _, _ in
+            guard let match else { return }
+            let leading = match.range(at: 1)
+            let marker = match.range(at: 2)
+            syntax.append(marker)
+            // Headings don't wrap under their #s; lists and quotes hang.
+            guard string.character(at: marker.location) != UInt16(UInt8(ascii: "#")) else { return }
+            let prefix = string.substring(with: NSRange(location: leading.location, length: NSMaxRange(marker) - leading.location))
+            let width = (prefix as NSString).size(withAttributes: [.font: font]).width
+            indents.append(Indent(range: string.paragraphRange(for: marker), width: width.rounded(.up)))
+        }
+
+        // Inline code first: what's inside it is literal, so nothing in it counts as syntax.
+        var code: [NSRange] = []
+        Self.codeSpan.enumerateMatches(in: text, range: whole) { match, _, _ in
+            guard let match else { return }
+            code.append(match.range)
+            syntax += Self.delimiters(of: match)
+        }
+        func isInCode(_ range: NSRange) -> Bool {
+            code.contains { NSIntersectionRange($0, range).length > 0 }
+        }
+        for pattern in [Self.strong, Self.strike, Self.emphasis] {
+            pattern.enumerateMatches(in: text, range: whole) { match, _, _ in
+                guard let match, !isInCode(match.range) else { return }
+                syntax += Self.delimiters(of: match)
+            }
+        }
+        Self.link.enumerateMatches(in: text, range: whole) { match, _, _ in
+            guard let match, !isInCode(match.range) else { return }
+            // The opening bracket, then the closing bracket and the address.
+            syntax.append(NSRange(location: match.range.location, length: 1))
+            let address = match.range(at: 1)
+            syntax.append(NSRange(location: address.location - 1, length: address.length + 1))
+        }
+    }
+
+    /// A paired span's opening and closing delimiters, from its first capture group.
+    private static func delimiters(of match: NSTextCheckingResult) -> [NSRange] {
+        let opening = match.range(at: 1)
+        return [opening, NSRange(location: NSMaxRange(match.range) - opening.length, length: opening.length)]
+    }
+
+    // The patterns are fixed, so compiling them can't fail.
+    private static let blockMarker = try! NSRegularExpression(
+        pattern: #"^([ \t]*)((?:[-*+] \[[ xX]\]|[-*+]|\d+[.)])[ \t]+|>[ \t]?|#{1,6}[ \t]+)"#,
+        options: .anchorsMatchLines
+    )
+    private static let codeSpan = try! NSRegularExpression(pattern: #"(`+)(?!`)(.+?)(?<!`)\1(?!`)"#)
+    private static let strong = try! NSRegularExpression(pattern: #"(\*\*|__)(?=\S)(.+?)(?<=\S)\1"#)
+    private static let strike = try! NSRegularExpression(pattern: #"(~~)(?=\S)(.+?)(?<=\S)\1"#)
+    private static let emphasis = try! NSRegularExpression(pattern: #"(?<![*\w])([*_])(?=[^\s*_])(.+?)(?<=[^\s*_])\1(?![*\w])"#)
+    private static let link = try! NSRegularExpression(pattern: #"\[[^\]\n]+\](\([^)\n]+\))"#)
 }
 
 final class EditorTextView: UITextView {

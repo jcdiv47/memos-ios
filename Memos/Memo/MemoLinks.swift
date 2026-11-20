@@ -52,11 +52,25 @@ struct MemoLinks: View {
                             direction: direction,
                             showsDirection: showsDirection
                         )
-                        .matchedTransitionSource(id: source, in: zoom)
+                        .linkZoomSource(id: source, in: zoom)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.cardPress)
                 }
             }
+        }
+    }
+}
+
+private extension View {
+    /// The memo zooms out of the row's own well, corners and all, instead of a bare rectangle.
+    @ViewBuilder
+    func linkZoomSource(id: String, in namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            matchedTransitionSource(id: id, in: namespace) { source in
+                source.background(.well).clipShape(.rect(cornerRadius: Radius.inner))
+            }
+        } else {
+            self
         }
     }
 }

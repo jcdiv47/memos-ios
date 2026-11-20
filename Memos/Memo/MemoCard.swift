@@ -257,8 +257,14 @@ struct ReactionSummary: View {
                         chip
                     }
                 }
-                // A new emoji pops in beside the others rather than fading up from nothing.
-                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                // A new emoji pops in beside the others rather than fading up from nothing; one
+                // taken back leaves quietly. Bounce only on arrival.
+                .transition(.asymmetric(
+                    insertion: reduceMotion
+                        ? AnyTransition.opacity.animation(.memosFade)
+                        : AnyTransition.scale(scale: 0.6).combined(with: .opacity).animation(.reactionPop),
+                    removal: AnyTransition.opacity.animation(.memosFade)
+                ))
             }
         }
         // Reactions land from a refresh after the request, outside any animation of their own.

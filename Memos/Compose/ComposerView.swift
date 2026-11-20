@@ -486,9 +486,10 @@ private struct AudienceChips: View {
                     Button {
                         withAnimation(.memosSpring) { model.applySuggestion() }
                     } label: {
-                        Label(suggestionLabel(suggestion), systemImage: suggestion.systemImage)
+                        Label(suggestionTitle(suggestion), systemImage: suggestion.systemImage)
                     }
                     .buttonStyle(.prominentChip)
+                    .accessibilityLabel(suggestionLabel(suggestion))
                     // Grows out of the chips beside it, never from nothing.
                     .transition(.scale(scale: 0.9, anchor: .leading).combined(with: .opacity))
                 }
@@ -505,6 +506,13 @@ private struct AudienceChips: View {
             return String(localized: "\(title) members", comment: "The Space visibility chip in the composer: only members of the named Space can read the memo.")
         }
         return visibility.label
+    }
+
+    /// What the suggestion chip shows. Sharing with the Space is just “Share”: the Space chip
+    /// beside it already names the Space, and the full phrase overflows the sheet on a phone.
+    /// VoiceOver reads ``suggestionLabel(_:)``.
+    private func suggestionTitle(_ visibility: MemoVisibility) -> String {
+        visibility == .space ? String(localized: "Share") : suggestionLabel(visibility)
     }
 
     private func suggestionLabel(_ visibility: MemoVisibility) -> String {

@@ -67,6 +67,8 @@ private struct TimelineRoot: View {
     @State private var feed = OthersFeed()
     @State private var isSearching = false
     @State private var newSpace: String?
+    @State private var screenWidth: CGFloat?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var query: MemoQuery {
         let filter = session.quickFilter.flatMap { try? MemoFilter($0.filterClause) }
@@ -87,6 +89,7 @@ private struct TimelineRoot: View {
             }
         }
         .background(.paper)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { screenWidth = $0 }
         .navigationTitle("Memos")
         .navigationSubtitle(subtitle)
         // The Space menu grows out of the title. `.inlineLarge` drops the title menu, so the
@@ -159,6 +162,8 @@ private struct TimelineRoot: View {
             ForEach(memos, id: \.name) { memo in
                 TimelineRow(memo: memo, zoom: zoom, showsSpace: session.selectedSpace == nil, namesEveryAuthor: session.effectiveScope == .everyone)
                     .id(memo.name)
+                    // A memo you just saved settles in from the top of its slot.
+                    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
 
             if session.effectiveScope == .everyone, feed.hasMore, session.isOnline {
@@ -240,12 +245,13 @@ private struct TimelineRoot: View {
                 session.path.append(.library)
             } label: {
                 Image(systemName: "books.vertical")
+                    .foregroundStyle(.ink)
             }
             .accessibilityLabel("Library")
         }
 
         ToolbarItem(placement: .bottomBar) {
-            CaptureField()
+            CaptureField(idealWidth: screenWidth.map(CaptureField.width(in:)))
         }
         // The field opens into the composer.
         .matchedTransitionSource(id: SheetSource.captureField, in: zoom)
@@ -288,9 +294,15 @@ struct TimelineRow: View {
             session.path.append(.memo(memo.name, source: memo.name))
         } label: {
             MemoCard(memo: memo, highlights: highlights, showsSpace: showsSpace, showsAuthor: namesEveryAuthor || !isMine)
-                .matchedTransitionSource(id: memo.name, in: zoom)
+                // The zoom grows out of the card's own paper and corners, not a bare snapshot.
+                .matchedTransitionSource(id: memo.name, in: zoom) { source in
+                    source
+                        .background(.card)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.card))
+                }
         }
-        .buttonStyle(.plain)
+        // Settles under the finger without dimming the white card grey.
+        .buttonStyle(.cardPress)
         // Half the gap above and half below, so neighbouring cards sit one gap apart.
         .listRowInsets(EdgeInsets(top: Metrics.cardGap / 2, leading: Metrics.screenInset, bottom: Metrics.cardGap / 2, trailing: Metrics.screenInset))
         .listRowSeparator(.hidden)
@@ -432,6 +444,7 @@ private struct TitleMenu: View {
 /// notifications show as a dot rather than a count.
 private struct AccountMenu: View {
     @Environment(AccountSession.self) private var session
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let unread = session.store.profile.unreadNotifications
@@ -452,16 +465,24 @@ private struct AccountMenu: View {
                 session.isSettingsPresented = true
             }
         } label: {
+            // The bar's symbols are Ink: Memos Blue is for tags, links and what's selected.
             Image(systemName: "ellipsis")
+                .foregroundStyle(.ink)
                 .overlay(alignment: .topTrailing) {
                     if unread > 0 {
                         UnreadDot(ringed: true)
                             .offset(x: 5, y: -11)
-                            // Pops in when a sync brings something new, rather than appearing.
-                            .transition(.scale(scale: 0.5).combined(with: .opacity))
+                            // Pops in when a sync brings something new, rather than appearing, and
+                            // fades once read: bounce only on arrival.
+                            .transition(.asymmetric(
+                                insertion: reduceMotion
+                                    ? AnyTransition.opacity.animation(.memosFade)
+                                    : AnyTransition.scale(scale: 0.5).combined(with: .opacity).animation(.reactionPop),
+                                removal: AnyTransition.opacity.animation(.memosFade)
+                            ))
                     }
                 }
-                .animation(.reactionPop, value: unread > 0)
+                .animation(reduceMotion ? .memosFade : .reactionPop, value: unread > 0)
         }
         .accessibilityLabel("Account")
         .accessibilityValue(unread > 0 ? Text("\(unread) unread") : Text(verbatim: ""))
@@ -498,7 +519,9 @@ private struct FilterMenu: View {
                 Button("Clear Filter", systemImage: "xmark", role: .destructive) { withAnimation(.memosSpring) { session.quickFilter = nil } }
             }
         } label: {
+            // Ink at rest; Memos Blue once a filter is on, since that's a selection.
             Image(systemName: session.quickFilter == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+                .foregroundStyle(session.quickFilter == nil ? Color.ink : Color.memosBlue)
                 .contentTransition(.symbolEffect(.replace))
         }
         .accessibilityLabel("Filter")
