@@ -147,6 +147,17 @@ struct WideButtonLabel: View {
     }
 }
 
+// MARK: The device in hand
+
+/// The on-device library lives on an iPhone or an iPad. Its words say which through the string
+/// catalog's device variations; its symbol through this.
+@MainActor
+enum ThisDevice {
+    static var symbol: String {
+        UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+    }
+}
+
 // MARK: Conditional modifiers
 
 extension View {

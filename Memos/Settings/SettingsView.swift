@@ -120,7 +120,7 @@ private struct ServerSettings: View {
         }
 
         Section {
-            Button(model.hasOnDeviceLibrary ? "Switch to Memos on This iPhone" : "Use Memos Without a Server" as LocalizedStringKey, systemImage: "iphone") {
+            Button(model.hasOnDeviceLibrary ? "Switch to Memos on This iPhone" : "Use Memos Without a Server" as LocalizedStringKey, systemImage: ThisDevice.symbol) {
                 dismiss()
                 Task { await model.openOnDevice() }
             }
@@ -209,7 +209,7 @@ private struct OnDeviceSettings: View {
         let count = session.store.own.count
         Section {
             HStack(spacing: Spacing.l) {
-                Image(systemName: "iphone")
+                Image(systemName: ThisDevice.symbol)
                     .font(.title2)
                     .foregroundStyle(.ink)
                     .frame(width: AvatarSize.large, height: AvatarSize.large)
