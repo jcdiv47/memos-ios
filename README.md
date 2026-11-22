@@ -34,7 +34,11 @@
 ## Features
 
 - **Offline-first sync & standalone on-device mode** — Full local archive with an outbox queue, chunked attachment uploads, and content-based conflict detection. Also works completely without a server via an independent on-device library.
-- **Native authoring & rendering** — Markdown with syntax-highlighted code blocks, native CoreText LaTeX math (`$…$` and `$$…$$` via [SwiftMath](https://github.com/mgriebling/SwiftMath)), memo-to-memo references, natural-language date suggestions (e.g. `"tomorrow 8pm"`), clipboard image pasting, camera & document scanning, location tagging, and voice memos with live waveform recording and transcription.
+- **Native authoring & rendering**
+  - Markdown with syntax-highlighted code blocks and native CoreText LaTeX math (`$…$` and `$$…$$` via [SwiftMath](https://github.com/mgriebling/SwiftMath)).
+  - Memo-to-memo references and natural-language date suggestions (e.g. `"tomorrow 8pm"`).
+  - Clipboard image pasting, camera capture, document scanning, and location tagging.
+  - Voice memos with live waveform recording and on-device transcription.
 - **Powerful search & on-device photo search** — Local CEL-backed memo filtering, saved views, attachment and tag filters, Spotlight indexing, and optional on-device semantic photo search powered by Apple's Core ML **MobileCLIP** (`S0` / `S2`, downloaded on demand with SHA-256 verification).
 - **Spaces, Library & Privacy** — Full support for Spaces, Inbox, comments, reactions, and a Library hub (activity heatmap, attachments browser, places map, tags, and archive). Tag blur rules keep sensitive memos redacted across the timeline, widgets, Spotlight, and Shortcuts.
 - **Deep Apple platform integration** — Adaptive iPad split view, Home & Lock Screen widgets (**Quick Capture**, **Pinned**, **Memory**, **On This Day**, **Activity**), Control Center controls (**New Memo**, **Voice Memo**), Share Extension, App Intents / Shortcuts, Home Screen quick actions, and URL schemes.
