@@ -76,8 +76,9 @@ enum SymbolScale {
     static let base: CGFloat = 1
 }
 
-/// The glass bars we place by hand: the memo's react, comment and share bar, and the composer's
-/// formatting bar. The system draws the navigation and bottom toolbars itself.
+/// The glass bars we place by hand: the capture bar on the timeline and Library, the memo's react,
+/// comment and share bar, and the composer's formatting bar. The system draws the navigation and
+/// search toolbars itself.
 enum FloatingBar {
     /// A round button's diameter, and the height of a capsule beside it.
     static let height: CGFloat = 48

@@ -90,8 +90,9 @@ extension View {
         }
     }
 
-    /// Pushes and sheets grow out of the control that opened them, never from the middle of the
-    /// screen: pair with `matchedTransitionSource(id:in:)` on the trigger.
+    /// Sheets grow out of the control that opened them, never from the middle of the screen: pair
+    /// with `matchedTransitionSource(id:in:)` on the trigger. Navigation pushes stay on the
+    /// standard slide transition so back navigation doesn't hit iOS's ~0.9 s zoom settling tail.
     func zoomTransition(from sourceID: String?, in namespace: Namespace.ID) -> some View {
         modifier(ZoomTransition(sourceID: sourceID, namespace: namespace))
     }

@@ -9,9 +9,8 @@ struct RouteDestination: View {
 
     var body: some View {
         switch route {
-        case .memo(let name, let source):
+        case .memo(let name):
             MemoDetailView(name: name, zoom: zoom)
-                .zoomTransition(from: source, in: zoom)
         case .sharedMemo(let token):
             SharedMemoView(token: token)
         case .library:
@@ -19,9 +18,9 @@ struct RouteDestination: View {
         case .activity:
             ActivityView()
         case .attachments:
-            AttachmentsLibraryView(zoom: zoom)
+            AttachmentsLibraryView()
         case .map:
-            PlacesMapView(zoom: zoom)
+            PlacesMapView()
         case .tags:
             TagsView()
         case .archived:
@@ -34,9 +33,6 @@ struct RouteDestination: View {
             }
         case .filtered(let title, let tokens):
             FilteredTimelineView(title: title, filter: SearchQuery(tokens: tokens).filter(), zoom: zoom)
-        case .zoomed(let page, let source):
-            RouteDestination(route: page, zoom: zoom)
-                .zoomTransition(from: source, in: zoom)
         }
     }
 }

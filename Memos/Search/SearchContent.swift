@@ -4,7 +4,6 @@ import SwiftUI
 /// What shows under the search field: suggestions before you type, results after.
 struct SearchContent: View {
     @Bindable var search: SearchModel
-    let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
     @State private var isSavingView = false
@@ -67,7 +66,7 @@ struct SearchContent: View {
 
             if !search.photos.isEmpty {
                 Section("Photos") {
-                    PhotoMatchStrip(matches: search.photos, zoom: zoom)
+                    PhotoMatchStrip(matches: search.photos)
                 }
             }
 
@@ -76,13 +75,13 @@ struct SearchContent: View {
                 if session.showsScopeToggle && search.scope == .everyone {
                     Section("Yours") {
                         ForEach(own, id: \.name) { memo in
-                            SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                            SearchRow(memo: memo, highlights: highlights)
                         }
                     }
                 } else {
                     Section {
                         ForEach(own, id: \.name) { memo in
-                            SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                            SearchRow(memo: memo, highlights: highlights)
                         }
                     }
                 }
@@ -102,7 +101,7 @@ struct SearchContent: View {
                             .foregroundStyle(.ink2)
                     } else {
                         ForEach(others, id: \.name) { memo in
-                            SearchRow(memo: memo, highlights: highlights, zoom: zoom)
+                            SearchRow(memo: memo, highlights: highlights)
                         }
                         if !search.remoteNextPageToken.isEmpty {
                             ProgressView()
@@ -165,7 +164,6 @@ struct SearchContent: View {
 /// the memo the photo is in.
 private struct PhotoMatchStrip: View {
     let matches: [PhotoSearchModel.Match]
-    let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
 
@@ -173,10 +171,8 @@ private struct PhotoMatchStrip: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: Spacing.s) {
                 ForEach(matches) { match in
-                    let source = "photo.\(match.attachment.name)"
                     Button {
-                        // The memo grows out of the photo you tapped.
-                        session.path.append(.memo(match.memo.name, source: source))
+                        session.path.append(.memo(match.memo.name))
                     } label: {
                         AttachmentImage(attachment: match.attachment)
                             .frame(width: 104, height: 104)
@@ -184,7 +180,6 @@ private struct PhotoMatchStrip: View {
                             // own frame rather than bleeding into the next one.
                             .blur(radius: session.isHidden(match.memo) ? 16 : 0, opaque: true)
                             .clipShape(.rect(cornerRadius: Radius.tight))
-                            .matchedTransitionSource(id: source, in: zoom)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(session.redactedTitle(of: match.memo))
@@ -200,17 +195,16 @@ private struct PhotoMatchStrip: View {
     }
 }
 
-/// A two-line result with the matches highlighted. Opens the memo with a zoom.
+/// A two-line result with the matches highlighted.
 private struct SearchRow: View {
     let memo: Memo
     let highlights: [String]
-    let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
 
     var body: some View {
         Button {
-            session.path.append(.memo(memo.name, source: memo.name))
+            session.path.append(.memo(memo.name))
         } label: {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 let hidden = session.isHidden(memo)
@@ -234,11 +228,6 @@ private struct SearchRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, Spacing.xs)
             .contentShape(.rect)
-            // Results sit on paper, so the zoom grows out of a paper shape rather than a white
-            // card, into the memo's paper page.
-            .matchedTransitionSource(id: memo.name, in: zoom) { source in
-                source.background(.paper).clipShape(.rect(cornerRadius: Radius.inner))
-            }
         }
         .buttonStyle(.cardPress)
         .listRowBackground(Color.clear)
