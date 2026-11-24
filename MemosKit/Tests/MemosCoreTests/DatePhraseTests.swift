@@ -77,6 +77,7 @@ private func day(_ days: Int, hour: Int = 12, minute: Int = 0) -> Date {
         "tomorrow|land",
         "`tomorrow 8pm`|",
         "```\ntomorrow 8pm|",
+        "$$\ntomorrow 8pm|",
     ])
     func `nothing to offer`(marked: String) {
         #expect(phrase(marked) == nil)

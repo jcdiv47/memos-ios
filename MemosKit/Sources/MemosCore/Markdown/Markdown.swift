@@ -70,11 +70,11 @@ struct BlockParser {
                 continue
             }
 
-            if let fence = Self.fence(trimmed) {
+            if let fence = Self.fence(line) {
                 flushParagraph()
                 var code: [String] = []
                 index += 1
-                while index < lines.count, !lines[index].trimmingCharacters(in: .whitespaces).hasPrefix(fence.marker) {
+                while index < lines.count, !Self.closesCode(lines[index], marker: fence.marker) {
                     code.append(lines[index])
                     index += 1
                 }
@@ -83,7 +83,7 @@ struct BlockParser {
                 continue
             }
 
-            if let fence = Self.mathFence(trimmed) {
+            if let fence = Self.mathFence(line) {
                 flushParagraph()
                 var tex: [String] = []
                 index += 1
@@ -162,26 +162,92 @@ struct BlockParser {
         return blocks
     }
 
-    static func fence(_ line: String) -> (marker: String, language: String?)? {
-        for marker in ["```", "~~~"] where line.hasPrefix(marker) {
-            let language = line.dropFirst(marker.count).trimmingCharacters(in: .whitespaces)
-            return (marker, language.isEmpty ? nil : language)
+    /// Strips up to three leading spaces, as CommonMark allows before a fence. Four spaces or a
+    /// tab indents too far and returns nil.
+    static func unindented(_ line: String) -> Substring? {
+        var index = line.startIndex
+        var spaces = 0
+        while index < line.endIndex, line[index] == " " {
+            spaces += 1
+            if spaces == 4 { return nil }
+            index = line.index(after: index)
         }
-        return nil
+        if index < line.endIndex, line[index] == "\t" { return nil }
+        return line[index...]
     }
 
-    /// The length of a `$$` fence opening display math. A line with another `$` after the
-    /// fence is inline math or text instead.
+    static func fence(_ line: String) -> (marker: String, language: String?)? {
+        guard let body = unindented(line), let char = body.first, char == "`" || char == "~" else { return nil }
+        let length = body.prefix { $0 == char }.count
+        guard length >= 3 else { return nil }
+        let rest = body.dropFirst(length)
+        if char == "`", rest.contains("`") { return nil }
+        let language = rest.trimmingCharacters(in: .whitespaces)
+        return (String(repeating: char, count: length), language.isEmpty ? nil : language)
+    }
+
+    static func closesCode(_ line: String, marker: String) -> Bool {
+        guard let body = unindented(line), let char = marker.first else { return false }
+        let length = body.prefix { $0 == char }.count
+        return length >= marker.count && body.dropFirst(length).allSatisfy(\.isWhitespace)
+    }
+
+    /// The length of a `$$` fence opening display math. A line indented four spaces (or a tab),
+    /// or with another `$` after the fence, is inline math or text instead.
     static func mathFence(_ line: String) -> Int? {
-        let length = line.prefix { $0 == "$" }.count
-        guard length >= 2, !line.dropFirst(length).contains("$") else { return nil }
+        guard let body = unindented(line) else { return nil }
+        let length = body.prefix { $0 == "$" }.count
+        guard length >= 2, !body.dropFirst(length).contains("$") else { return nil }
         return length
     }
 
     static func closesMath(_ line: String, fence: Int) -> Bool {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        let length = trimmed.prefix { $0 == "$" }.count
-        return length >= fence && trimmed.dropFirst(length).allSatisfy(\.isWhitespace)
+        guard let body = unindented(line) else { return false }
+        let length = body.prefix { $0 == "$" }.count
+        return length >= fence && body.dropFirst(length).allSatisfy(\.isWhitespace)
+    }
+
+    /// Ranges of fenced code and display-math blocks in `text`, including their fence lines. An
+    /// unclosed fence runs to the end of `text`, matching ``parse()``.
+    static func fencedRanges(in text: String) -> [Range<String.Index>] {
+        enum Open {
+            case code(marker: String, start: String.Index)
+            case math(fence: Int, start: String.Index)
+        }
+        var ranges: [Range<String.Index>] = []
+        var open: Open?
+        var lineStart = text.startIndex
+        while lineStart <= text.endIndex {
+            let lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
+            let line = String(text[lineStart..<lineEnd])
+            switch open {
+            case .code(let marker, let start):
+                if closesCode(line, marker: marker) {
+                    ranges.append(start..<lineEnd)
+                    open = nil
+                }
+            case .math(let fence, let start):
+                if closesMath(line, fence: fence) {
+                    ranges.append(start..<lineEnd)
+                    open = nil
+                }
+            case nil:
+                if let fence = fence(line) {
+                    open = .code(marker: fence.marker, start: lineStart)
+                } else if let fence = mathFence(line) {
+                    open = .math(fence: fence, start: lineStart)
+                }
+            }
+            if lineEnd == text.endIndex { break }
+            lineStart = text.index(after: lineEnd)
+        }
+        switch open {
+        case .code(_, let start), .math(_, let start):
+            ranges.append(start..<text.endIndex)
+        case nil:
+            break
+        }
+        return ranges
     }
 
     static func heading(_ line: String) -> (Int, String)? {
@@ -311,6 +377,10 @@ public enum TagScanner {
     }
 
     public static func matches(in text: String, excluding excluded: [Range<String.Index>] = []) -> [Match] {
+        matches(in: text[...], excluding: excluded)
+    }
+
+    static func matches(in text: Substring, excluding excluded: [Range<String.Index>] = []) -> [Match] {
         var matches: [Match] = []
         var index = text.startIndex
         var previous: Character?
@@ -379,9 +449,24 @@ public enum TagScanner {
         !(character.isLetter || character.isNumber || character == "_" || character == "#" || character == "&" || character == "/")
     }
 
-    /// Ranges of inline `code` spans and `$math$`, where `#` never starts a tag.
+    /// Ranges of fenced code and display-math blocks, plus inline `code` spans and `$math$`
+    /// outside them, where `#` never starts a tag.
     public static func literalSpans(in text: String) -> [Range<String.Index>] {
-        InlineSpans.scan(text).map(\.range)
+        let fenced = BlockParser.fencedRanges(in: text)
+        if fenced.isEmpty { return InlineSpans.scan(text).map(\.range) }
+        var spans: [Range<String.Index>] = []
+        var cursor = text.startIndex
+        for block in fenced {
+            if cursor < block.lowerBound {
+                spans.append(contentsOf: InlineSpans.scan(text[cursor..<block.lowerBound]).map(\.range))
+            }
+            spans.append(block)
+            cursor = block.upperBound
+        }
+        if cursor < text.endIndex {
+            spans.append(contentsOf: InlineSpans.scan(text[cursor..<text.endIndex]).map(\.range))
+        }
+        return spans
     }
 
     static func containsLink(_ text: String) -> Bool {

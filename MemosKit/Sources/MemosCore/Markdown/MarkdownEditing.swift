@@ -62,7 +62,7 @@ public enum MarkdownEditing {
         let ns = text as NSString
         guard isValid(selection, in: ns) else { return nil }
         let line = lineContent(at: selection.location, in: ns)
-        guard !isInCodeBlock(ns, lineStart: line.location) else { return nil }
+        guard !isInFencedBlock(ns, lineStart: line.location) else { return nil }
         let head = ns.substring(with: NSRange(location: line.location, length: selection.location - line.location))
         let prefix = LinePrefix(parsing: head)
         let isHeading = if case .heading = prefix.marker { true } else { false }
@@ -138,43 +138,41 @@ public enum MarkdownEditing {
         let ns = text as NSString
         guard cursor > 0, cursor <= ns.length else { return nil }
         let lineRange = lineContent(at: cursor, in: ns)
-        guard !isInCodeBlock(ns, lineStart: lineRange.location) else { return nil }
-        let line = ns.substring(with: lineRange)
-        let lineNS = line as NSString
+        guard let lineSliceRange = Range(lineRange, in: text) else { return nil }
         let local = cursor - lineRange.location
         guard local > 0 else { return nil }
-        let spans = TagScanner.literalSpans(in: line)
+        let spans = TagScanner.literalSpans(in: text)
 
         func token(_ range: NSRange) -> TagToken {
             TagToken(
-                range: NSRange(location: lineRange.location + range.location, length: range.length),
-                prefix: lineNS.substring(with: NSRange(location: range.location + 1, length: local - range.location - 1))
+                range: range,
+                prefix: ns.substring(with: NSRange(location: range.location + 1, length: cursor - range.location - 1))
             )
         }
 
-        for match in TagScanner.matches(in: line, excluding: spans) {
-            let range = NSRange(match.range, in: line)
-            if range.location < local && local <= NSMaxRange(range) { return token(range) }
-            if NSMaxRange(range) == local - 1, lineNS.character(at: local - 1) == slash {
+        for match in TagScanner.matches(in: text[lineSliceRange], excluding: spans) {
+            let range = NSRange(match.range, in: text)
+            if range.location < cursor && cursor <= NSMaxRange(range) { return token(range) }
+            if NSMaxRange(range) == cursor - 1, ns.character(at: cursor - 1) == slash {
                 return token(NSRange(location: range.location, length: range.length + 1))
             }
         }
 
         // A `#` with nothing after it yet.
-        guard lineNS.character(at: local - 1) == hash else { return nil }
+        guard ns.character(at: cursor - 1) == hash else { return nil }
         if local > 1 {
-            let previous = lineNS.substring(with: lineNS.rangeOfComposedCharacterSequence(at: local - 2))
+            let previous = ns.substring(with: ns.rangeOfComposedCharacterSequence(at: cursor - 2))
             guard let character = previous.first, TagScanner.isBoundary(character), character != "\\" else { return nil }
         }
-        if local < lineNS.length {
-            let next = lineNS.substring(with: lineNS.rangeOfComposedCharacterSequence(at: local))
+        if cursor < NSMaxRange(lineRange) {
+            let next = ns.substring(with: ns.rangeOfComposedCharacterSequence(at: cursor))
             if let character = next.first, TagScanner.isTagCharacter(character) { return nil }
         }
-        if let index = Range(NSRange(location: local - 1, length: 1), in: line)?.lowerBound,
+        if let index = Range(NSRange(location: cursor - 1, length: 1), in: text)?.lowerBound,
            spans.contains(where: { $0.contains(index) }) {
             return nil
         }
-        return token(NSRange(location: local - 1, length: 1))
+        return token(NSRange(location: cursor - 1, length: 1))
     }
 
     /// Replaces the token with `#tag` and a space, leaving the cursor after the space.
@@ -414,8 +412,8 @@ public enum MarkdownEditing {
         let block = lineBlock(of: selection, in: ns)
         let body = ns.substring(with: block)
         let lines = body.components(separatedBy: "\n")
-        if lines.count >= 2, let fence = BlockParser.fence(lines[0].trimmingCharacters(in: .whitespaces)),
-           lines[lines.count - 1].trimmingCharacters(in: .whitespaces) == fence.marker {
+        if lines.count >= 2, let fence = BlockParser.fence(lines[0]),
+           BlockParser.closesCode(lines[lines.count - 1], marker: fence.marker) {
             let inner = lines.dropFirst().dropLast().joined(separator: "\n")
             return TextEdit(range: block, replacement: inner, selection: NSRange(location: block.location, length: inner.utf16.count))
         }
@@ -470,16 +468,23 @@ public enum MarkdownEditing {
         return NSRange(location: start, length: end - start)
     }
 
-    /// Whether the line starting at `lineStart` is inside a fenced code block, going by the
-    /// fences above it the way the renderer reads them.
-    static func isInCodeBlock(_ ns: NSString, lineStart: Int) -> Bool {
-        var open: String?
+    /// Whether the line starting at `lineStart` is inside a fenced code or display-math block,
+    /// going by the fences above it the way the renderer reads them.
+    static func isInFencedBlock(_ ns: NSString, lineStart: Int) -> Bool {
+        enum Open { case code(String), math(Int) }
+        var open: Open?
         for line in ns.substring(to: lineStart).components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if let marker = open {
-                if trimmed.hasPrefix(marker) { open = nil }
-            } else if let fence = BlockParser.fence(trimmed) {
-                open = fence.marker
+            switch open {
+            case .code(let marker):
+                if BlockParser.closesCode(line, marker: marker) { open = nil }
+            case .math(let fence):
+                if BlockParser.closesMath(line, fence: fence) { open = nil }
+            case nil:
+                if let fence = BlockParser.fence(line) {
+                    open = .code(fence.marker)
+                } else if let fence = BlockParser.mathFence(line) {
+                    open = .math(fence)
+                }
             }
         }
         return open != nil

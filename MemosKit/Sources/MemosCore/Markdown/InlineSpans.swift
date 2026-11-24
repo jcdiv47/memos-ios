@@ -20,6 +20,10 @@ public enum InlineSpans {
     }
 
     public static func scan(_ text: String) -> [Span] {
+        scan(text[...])
+    }
+
+    static func scan(_ text: Substring) -> [Span] {
         var spans: [Span] = []
         var index = text.startIndex
         // Backslashes just before the current character; an odd count escapes it.
@@ -75,7 +79,7 @@ public enum InlineSpans {
 
     /// The end of the next run of exactly as many backticks on the same line, so ``` ``a`b`` ```
     /// is one code span.
-    private static func closingRun(in text: String, opening: Range<String.Index>) -> String.Index? {
+    private static func closingRun(in text: Substring, opening: Range<String.Index>) -> String.Index? {
         let length = text.distance(from: opening.lowerBound, to: opening.upperBound)
         var index = opening.upperBound
         while index < text.endIndex, text[index] != "\n" {
@@ -93,7 +97,7 @@ public enum InlineSpans {
     /// The end of a `(…)` link destination right after the `]` at `bracket`, on the same line:
     /// parentheses balance, `\)` is escaped, and a space ends the URL, so only a title or the
     /// closing `)` may follow it. `[0,1](with $x$)` isn't a link.
-    private static func destinationEnd(in text: String, after bracket: String.Index) -> String.Index? {
+    private static func destinationEnd(in text: Substring, after bracket: String.Index) -> String.Index? {
         let open = text.index(after: bracket)
         guard open < text.endIndex, text[open] == "(" else { return nil }
         var depth = 0
@@ -120,17 +124,17 @@ public enum InlineSpans {
         return nil
     }
 
-    private static func runEnd(of character: Character, in text: String, from start: String.Index) -> String.Index {
+    private static func runEnd(of character: Character, in text: Substring, from start: String.Index) -> String.Index {
         var end = start
         while end < text.endIndex, text[end] == character { end = text.index(after: end) }
         return end
     }
 
-    private static func dollarRunEnd(in text: String, from start: String.Index) -> String.Index {
+    private static func dollarRunEnd(in text: Substring, from start: String.Index) -> String.Index {
         runEnd(of: "$", in: text, from: start)
     }
 
-    private static func mathEnd(in text: String, opening: Range<String.Index>) -> String.Index? {
+    private static func mathEnd(in text: Substring, opening: Range<String.Index>) -> String.Index? {
         let length = text.distance(from: opening.lowerBound, to: opening.upperBound)
         if length == 1 {
             guard opening.upperBound < text.endIndex, !text[opening.upperBound].isWhitespace else { return nil }
@@ -165,7 +169,7 @@ public enum InlineSpans {
 
     /// Whether the line after the newline at `newline` is empty or only whitespace: the end of
     /// a paragraph, which inline math doesn't cross.
-    private static func startsBlankLine(in text: String, after newline: String.Index) -> Bool {
+    private static func startsBlankLine(in text: Substring, after newline: String.Index) -> Bool {
         var index = text.index(after: newline)
         while index < text.endIndex, text[index] != "\n" {
             guard text[index].isWhitespace else { return false }
@@ -209,8 +213,12 @@ public enum InlineParsing {
             guard let range = attributed.range(of: String(Character(placeholder(offset)))) else { continue }
             var piece = AttributedString(String(tex), attributes: attributed[range].runs.first?.attributes ?? AttributeContainer())
             piece.inlinePresentationIntent = (piece.inlinePresentationIntent ?? []).union(.code)
-            let fence = tex.prefix { $0 == "$" }.count
-            piece[InlineMathAttribute.self] = String(tex.dropFirst(fence).dropLast(fence))
+            // A typeset formula is an image inside Text and can't carry a link, so linked math
+            // stays as code-styled source and remains tappable.
+            if piece.link == nil {
+                let fence = tex.prefix { $0 == "$" }.count
+                piece[InlineMathAttribute.self] = String(tex.dropFirst(fence).dropLast(fence))
+            }
             attributed.replaceSubrange(range, with: piece)
         }
         return attributed

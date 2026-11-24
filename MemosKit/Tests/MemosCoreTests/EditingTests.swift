@@ -69,6 +69,7 @@ private func returnKey(_ marked: String) -> String? {
         "|- milk",
         "```\n- code|",
         "~~~swift\n> code|",
+        "$$\n- math|",
     ])
     func `other lines and code blocks get a plain line break`(before: String) {
         #expect(returnKey(before) == nil)
@@ -76,6 +77,7 @@ private func returnKey(_ marked: String) -> String? {
 
     @Test func `a closed code block doesn't stop lists after it`() {
         #expect(returnKey("```\n- a\n```\n- b|") == "```\n- a\n```\n- b\n- |")
+        #expect(returnKey("    ```\n- b|") == "    ```\n- b\n- |")
     }
 }
 
@@ -187,9 +189,31 @@ private func returnKey(_ marked: String) -> String? {
         #expect(token("one\n#读|书") == TagToken(range: NSRange(location: 4, length: 3), prefix: "读"))
     }
 
-    @Test(arguments: ["a#|", "#tag |", "`#co|`", "```\n#tag|", "\\#|", "|#tag", "##|"])
+    @Test(arguments: [
+        "a#|",
+        "#tag |",
+        "`#co|`",
+        "```\n#tag|",
+        "$$\n#tag|",
+        "$$\n#|",
+        "$$\na #x|\n\nb\n$$",
+        "$$\na #|\n\nb\n$$",
+        "$$ #meta|",
+        "$$\na\n    $$\n#still|",
+        "$a +\n#x|$",
+        "$a +\n#|$",
+        "\\#|",
+        "|#tag",
+        "##|",
+    ])
     func `ignores what isn't a tag`(marked: String) {
         #expect(token(marked) == nil)
+    }
+
+    @Test func `still finds tags outside display math and four-space fences`() {
+        #expect(token("$$\na\n\nb\n$$\n#wo|") == TagToken(range: NSRange(location: 11, length: 3), prefix: "wo"))
+        #expect(token("    $$\n#wo|") == TagToken(range: NSRange(location: 7, length: 3), prefix: "wo"))
+        #expect(token("```\n$$\n```\n#wo|") == TagToken(range: NSRange(location: 11, length: 3), prefix: "wo"))
     }
 
     @Test func `completing replaces the whole token and adds one space`() {
