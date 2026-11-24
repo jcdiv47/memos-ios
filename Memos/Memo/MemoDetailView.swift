@@ -1,8 +1,8 @@
 import MemosCore
 import SwiftUI
 
-/// One memo, opened from its card with a zoom. Reactions, comments and sharing sit in a
-/// floating glass bar; anything that reaches another person needs a connection.
+/// One memo's detail view. Reactions, comments and sharing sit in a floating glass bar; anything
+/// that reaches another person needs a connection.
 struct MemoDetailView: View {
     let name: String
     /// The presenter's namespace: the composer, the share link and the comment editor grow out of
@@ -86,7 +86,7 @@ struct MemoDetailView: View {
                                 .accessibilityLabel(location.placeholder.isEmpty ? Text("Location") : Text("Location, \(location.placeholder)"))
                         }
 
-                        MemoLinks(memo: memo, showsDirection: true, zoom: zoom)
+                        MemoLinks(memo: memo, showsDirection: true)
 
                         if let linkPreview {
                             LinkPreviewCard(metadata: linkPreview)

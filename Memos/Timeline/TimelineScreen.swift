@@ -15,7 +15,7 @@ struct TimelineScreen: View {
     @Namespace private var ownZoom
     @State private var search = SearchModel()
 
-    /// Cards zoom into their detail, and the composer, Inbox and Settings out of what opened them.
+    /// Sheets (the composer, Inbox and Settings) grow out of the control or card that opened them.
     private var zoom: Namespace.ID { sharedZoom ?? ownZoom }
 
     var body: some View {
@@ -66,8 +66,11 @@ private struct TimelineRoot: View {
     @Environment(AccountSession.self) private var session
     @State private var feed = OthersFeed()
     @State private var isSearching = false
+    /// Drives `.searchable`'s presentation separately from ``isSearching`` so the search modifier
+    /// is only attached while searching (keeping `UINavigationController`'s bottom toolbar unused
+    /// on the timeline) and still transitions `false -> true` once mounted to focus the field.
+    @State private var isSearchBarPresented = false
     @State private var newSpace: String?
-    @State private var screenWidth: CGFloat?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var query: MemoQuery {
@@ -83,13 +86,40 @@ private struct TimelineRoot: View {
     var body: some View {
         Group {
             if isSearching {
-                SearchContent(search: search, zoom: zoom)
+                SearchContent(search: search)
+                    .searchable(text: $search.text, tokens: $search.tokens, isPresented: $isSearchBarPresented, prompt: "Memos, #tags, filters") { token in
+                        // A tag's “#” already says what it is.
+                        if case .tag = token {
+                            Text(token.label)
+                        } else {
+                            Label(token.label, systemImage: token.systemImage)
+                        }
+                    }
+                    .textInputAutocapitalization(.never)
+                    .searchScopes($search.scope, activation: .onSearchPresentation) {
+                        if session.showsScopeToggle {
+                            Text("Mine").tag(MemoQuery.Scope.mine)
+                            Text("Everyone").tag(MemoQuery.Scope.everyone)
+                        }
+                    }
+                    .toolbar {
+                        DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                    }
+                    .task {
+                        // Flip after mount so SwiftUI's search controller sees the edge and
+                        // raises the keyboard.
+                        guard !isSearchBarPresented else { return }
+                        await Task.yield()
+                        if isSearching { isSearchBarPresented = true }
+                    }
             } else {
                 timeline
+                    .safeAreaInset(edge: .bottom) {
+                        CaptureBar(zoom: zoom) { isSearching = true }
+                    }
             }
         }
         .background(.paper)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { screenWidth = $0 }
         .navigationTitle("Memos")
         .navigationSubtitle(subtitle)
         // The Space menu grows out of the title. `.inlineLarge` drops the title menu, so the
@@ -98,24 +128,16 @@ private struct TimelineRoot: View {
         // The on-device library has no Spaces, and nobody else's memos, to choose from.
         .toolbarTitleMenu(if: !session.isOnDevice) { TitleMenu(newSpace: $newSpace) }
         .toolbar { toolbar }
-        .searchable(text: $search.text, tokens: $search.tokens, isPresented: $isSearching, prompt: "Memos, #tags, filters") { token in
-            // A tag's “#” already says what it is.
-            if case .tag = token {
-                Text(token.label)
-            } else {
-                Label(token.label, systemImage: token.systemImage)
-            }
-        }
-        .textInputAutocapitalization(.never)
-        .searchToolbarBehavior(.minimize)
-        .searchScopes($search.scope, activation: .onSearchPresentation) {
-            if session.showsScopeToggle {
-                Text("Mine").tag(MemoQuery.Scope.mine)
-                Text("Everyone").tag(MemoQuery.Scope.everyone)
-            }
-        }
         .onChange(of: isSearching) { _, searching in
-            if searching { search.begin(in: session) } else { search.end() }
+            if searching {
+                search.begin(in: session)
+            } else {
+                isSearchBarPresented = false
+                search.end()
+            }
+        }
+        .onChange(of: isSearchBarPresented) { wasPresented, presented in
+            if wasPresented && !presented { isSearching = false }
         }
         .onChange(of: session.pendingSearch, initial: true) { _, pending in
             guard let pending else { return }
@@ -249,14 +271,6 @@ private struct TimelineRoot: View {
             }
             .accessibilityLabel("Library")
         }
-
-        ToolbarItem(placement: .bottomBar) {
-            CaptureField(idealWidth: screenWidth.map(CaptureField.width(in:)))
-        }
-        // The field opens into the composer.
-        .matchedTransitionSource(id: SheetSource.captureField, in: zoom)
-        ToolbarSpacer(.fixed, placement: .bottomBar)
-        DefaultToolbarItem(kind: .search, placement: .bottomBar)
     }
 
     private func createSpace() {
@@ -291,10 +305,10 @@ struct TimelineRow: View {
 
     var body: some View {
         Button {
-            session.path.append(.memo(memo.name, source: memo.name))
+            session.path.append(.memo(memo.name))
         } label: {
             MemoCard(memo: memo, highlights: highlights, showsSpace: showsSpace, showsAuthor: namesEveryAuthor || !isMine)
-                // The zoom grows out of the card's own paper and corners, not a bare snapshot.
+                // Editing from swipe or context menu grows the composer sheet out of the card.
                 .matchedTransitionSource(id: memo.name, in: zoom) { source in
                     source
                         .background(.card)
@@ -387,7 +401,7 @@ struct MemoActions: View {
         }
         if !session.isOnDevice {
             Button("React", systemImage: "face.smiling") {
-                if let onReact { onReact() } else { session.path.append(.memo(memo.name, source: memo.name)) }
+                if let onReact { onReact() } else { session.path.append(.memo(memo.name)) }
             }
         }
         if let link = session.webURL(for: memo) {

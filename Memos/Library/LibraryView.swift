@@ -5,13 +5,12 @@ import SwiftUI
 /// different ways: the activity grid first, then attachments, the map, tags, the archive and
 /// saved views.
 struct LibraryView: View {
-    /// The cards zoom into their pages, and the capture field into the composer.
+    /// The capture field zooms into the composer sheet.
     let zoom: Namespace.ID
 
     @Environment(AccountSession.self) private var session
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .subheadline) private var symbolScale = SymbolScale.base
-    @State private var screenWidth: CGFloat?
 
     private var stats: LibraryStats { LibraryStats(memos: Array(session.store.own.values)) }
 
@@ -19,7 +18,7 @@ struct LibraryView: View {
         let stats = self.stats
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.cardGap) {
-                ActivityCard(stats: stats, zoom: zoom)
+                ActivityCard(stats: stats)
 
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.cardGap), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: Metrics.cardGap) {
                     tile(.attachments, title: "Attachments", detail: stats.attachmentCount.formatted(), systemImage: "paperclip", isEmpty: stats.attachmentCount == 0)
@@ -69,24 +68,11 @@ struct LibraryView: View {
             .readableWidth()
         }
         .background(.paper)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { screenWidth = $0 }
+        .safeAreaInset(edge: .bottom) {
+            CaptureBar(source: SheetSource.libraryCaptureField, zoom: zoom, onSearch: openSearch)
+        }
         .navigationTitle("Library")
         .toolbarTitleDisplayMode(.inlineLarge)
-        .toolbar {
-            // The timeline's bottom row: capture, then Search.
-            ToolbarItem(placement: .bottomBar) {
-                CaptureField(source: SheetSource.libraryCaptureField, idealWidth: screenWidth.map(CaptureField.width(in:)))
-            }
-            .matchedTransitionSource(id: SheetSource.libraryCaptureField, in: zoom)
-            ToolbarSpacer(.fixed, placement: .bottomBar)
-            ToolbarItem(placement: .bottomBar) {
-                Button(action: openSearch) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.ink)
-                }
-                .accessibilityLabel("Search")
-            }
-        }
     }
 
     /// Search lives on the timeline, so go back to it and open search there.
@@ -96,9 +82,8 @@ struct LibraryView: View {
     }
 
     private func tile(_ route: Route, title: LocalizedStringKey, detail: String, systemImage: String, isEmpty: Bool) -> some View {
-        let source = "library.\(route)"
-        return Button {
-            session.path.append(.zoomed(route, from: source))
+        Button {
+            session.path.append(route)
         } label: {
             // A tight gap: on the narrowest phones, such as iPhone Duo, two tiles share about 340
             // points and “Attachments” needs every one.
@@ -121,9 +106,6 @@ struct LibraryView: View {
             .padding(Spacing.l)
             .cardBackground()
             .contentShape(.rect)
-            .matchedTransitionSource(id: source, in: zoom) { source in
-                source.background(.card).clipShape(.rect(cornerRadius: Radius.card))
-            }
         }
         .buttonStyle(.cardPress)
     }
@@ -133,7 +115,6 @@ struct LibraryView: View {
 /// Opens Activity.
 private struct ActivityCard: View {
     let stats: LibraryStats
-    let zoom: Namespace.ID
     @Environment(AccountSession.self) private var session
 
     var body: some View {
@@ -142,7 +123,7 @@ private struct ActivityCard: View {
         let today = calendar.startOfDay(for: .now)
         let summary = [String(localized: "\(stats.memoCount) memos"), String(localized: "\(stats.dayCount) days")].joined(separator: " · ")
         Button {
-            session.path.append(.zoomed(.activity, from: "library.activity"))
+            session.path.append(.activity)
         } label: {
             VStack(alignment: .leading, spacing: Metrics.blockGap) {
                 HStack(alignment: .firstTextBaseline) {
@@ -184,9 +165,6 @@ private struct ActivityCard: View {
             .padding(Metrics.cardPadding)
             .cardBackground()
             .contentShape(.rect)
-            .matchedTransitionSource(id: "library.activity", in: zoom) { source in
-                source.background(.card).clipShape(.rect(cornerRadius: Radius.card))
-            }
         }
         .buttonStyle(.cardPress)
         .accessibilityElement(children: .ignore)

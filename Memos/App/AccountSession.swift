@@ -297,10 +297,10 @@ final class AccountSession {
         }
     }
 
-    func show(memo name: String, from source: String? = nil) {
+    func show(memo name: String) {
         composer = nil
         isInboxPresented = false
-        path.append(.memo(name, source: source))
+        path.append(.memo(name))
     }
 
     /// The web address of a memo on this instance. Nil in the on-device library, where a memo has
@@ -312,9 +312,7 @@ final class AccountSession {
 
 /// Screens pushed onto the timeline's stack.
 enum Route: Hashable {
-    /// A memo, zooming out of `source` and back into it: its card, a photo, a pin. Nil when
-    /// nothing on screen opened it (a link, an intent), which pushes from the edge instead.
-    case memo(String, source: String? = nil)
+    case memo(String)
     case sharedMemo(token: String)
     case library
     case activity
@@ -324,9 +322,6 @@ enum Route: Hashable {
     case archived
     case view(String)
     case filtered(title: String, tokens: [SearchToken])
-    /// Another page, zooming out of the card that opened it and back into it, such as a Library
-    /// tile. Pages reached any other way push from the edge.
-    indirect case zoomed(Route, from: String)
 }
 
 /// What the composer opens for.

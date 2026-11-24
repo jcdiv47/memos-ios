@@ -30,9 +30,6 @@ struct MemoLinks: View {
     /// Says which way each row runs in words, not just with its symbol. For the detail, which
     /// has the room.
     var showsDirection = false
-    /// Where the opened memo zooms out of its row. The timeline card leaves it nil: the whole
-    /// card is already the way into its own memo.
-    var zoom: Namespace.ID?
 
     @Environment(AccountSession.self) private var session
 
@@ -42,35 +39,19 @@ struct MemoLinks: View {
             + memo.referencedBy.map { (id: "in-\($0)", name: $0, direction: LinkDirection.referencedBy) }
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                ForEach(rows, id: \.id) { id, name, direction in
-                    let source = "link.\(memo.name).\(id)"
+                ForEach(rows, id: \.id) { _, name, direction in
                     Button {
-                        session.show(memo: name, from: zoom == nil ? nil : source)
+                        session.show(memo: name)
                     } label: {
                         LinkedMemoRow(
                             snippet: session.linkSnippet(name, from: memo),
                             direction: direction,
                             showsDirection: showsDirection
                         )
-                        .linkZoomSource(id: source, in: zoom)
                     }
                     .buttonStyle(.cardPress)
                 }
             }
-        }
-    }
-}
-
-private extension View {
-    /// The memo zooms out of the row's own well, corners and all, instead of a bare rectangle.
-    @ViewBuilder
-    func linkZoomSource(id: String, in namespace: Namespace.ID?) -> some View {
-        if let namespace {
-            matchedTransitionSource(id: id, in: namespace) { source in
-                source.background(.well).clipShape(.rect(cornerRadius: Radius.inner))
-            }
-        } else {
-            self
         }
     }
 }
