@@ -16,6 +16,8 @@ struct CaptureField: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHoldingMic = false
+    /// The width the bar actually gave the field, when that's less than ``idealWidth``.
+    @State private var fittedWidth: CGFloat?
 
     private static let holdDuration = 0.25
 
@@ -94,8 +96,17 @@ struct CaptureField: View {
             }
             .padding(.leading, Spacing.xl)
             .padding(.trailing, voice.isRecording ? Spacing.m : Spacing.xxs)
-            .frame(minWidth: 170, idealWidth: idealWidth ?? 230, maxWidth: .infinity, minHeight: 40)
+            // The bar fits the field in beside Search, usually narrower than `idealWidth`, which
+            // can't know the bar's margins. Coming back from a pushed page, though, the bar lays the
+            // field out at its ideal width and keeps the glass it measured before, so the mic would
+            // hang off the end. Asking for no more than the bar gave keeps the two the same width.
+            .frame(minWidth: 170, idealWidth: min(requestedWidth, fittedWidth ?? .infinity), maxWidth: .infinity, minHeight: 40)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+                if width < requestedWidth { fittedWidth = width }
+            }
         }
+        // A new width to ask for (another size of window) is fitted afresh.
+        .onChange(of: idealWidth) { fittedWidth = nil }
         .contentShape(.capsule)
         .onTapGesture {
             if !voice.isRecording { session.capture(from: source) }
@@ -110,6 +121,8 @@ struct CaptureField: View {
         .accessibilityIdentifier("captureField")
         .accessibilityAddTraits(.isButton)
     }
+
+    private var requestedWidth: CGFloat { idealWidth ?? 230 }
 
     /// The field's width on a screen `width` wide: the bar's margins and the round Search button
     /// beside it taken away, and no wider than a readable column on an iPad.
