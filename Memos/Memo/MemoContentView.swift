@@ -219,14 +219,14 @@ struct MemoContentView: View {
     /// style of the font the block is set in, so formulas match its size.
     private func inline(_ text: String, style: UIFont.TextStyle = .body) -> Text {
         let attributed = MarkdownCache.inline(text, highlights: highlights, underlineTags: contrast == .increased)
-        let runs = attributed.runs[InlineMathAttribute.self]
-        guard runs.contains(where: { $0.0 != nil }) else { return Text(attributed) }
+        let runs = attributed.runs[InlineMathAttribute.self, AttributeScopes.FoundationAttributes.LinkAttribute.self]
+        guard runs.contains(where: { $0.0 != nil && $0.1 == nil }) else { return Text(attributed) }
         let size = pointSize(style)
         // One Text from all the pieces. Built at run time, the key is never looked up in or added
         // to the string catalog, and the memo's text stays in its own pieces, never in the format.
         var pieces = LocalizedStringKey.StringInterpolation(literalCapacity: 0, interpolationCount: runs.count)
-        for (tex, range) in runs {
-            if let tex, let math = MarkdownCache.math(tex, fontSize: size, display: false) {
+        for (tex, link, range) in runs {
+            if let tex, link == nil, let math = MarkdownCache.math(tex, fontSize: size, display: false) {
                 pieces.appendInterpolation(math.inlineText)
             } else {
                 pieces.appendInterpolation(Text(AttributedString(attributed[range])))

@@ -30,7 +30,7 @@ public enum DatePhrases {
         let ns = text as NSString
         guard cursor > 0, cursor <= ns.length, let detector else { return nil }
         let lineRange = MarkdownEditing.lineContent(at: cursor, in: ns)
-        guard !MarkdownEditing.isInCodeBlock(ns, lineStart: lineRange.location) else { return nil }
+        guard !MarkdownEditing.isInFencedBlock(ns, lineStart: lineRange.location) else { return nil }
         let local = cursor - lineRange.location
         guard local > 0 else { return nil }
         let line = ns.substring(with: NSRange(location: lineRange.location, length: local))

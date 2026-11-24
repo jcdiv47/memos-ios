@@ -64,6 +64,39 @@ import Testing
         ])
     }
 
+    @Test func `fences indented four spaces or a tab don't open or close blocks`() {
+        #expect(MarkdownDocument(parsing: "   $$\nx\n   $$").blocks == [.math("x")])
+        #expect(MarkdownDocument(parsing: "    $$\nx\n    $$").blocks == [.paragraph("    $$\nx\n    $$")])
+        #expect(MarkdownDocument(parsing: "\t$$\nx\n\t$$").blocks == [.paragraph("\t$$\nx\n\t$$")])
+        #expect(MarkdownDocument(parsing: "  \t$$\nx\n  \t$$").blocks == [.paragraph("  \t$$\nx\n  \t$$")])
+        #expect(MarkdownDocument(parsing: "$$\nx\n    $$\ny\n$$").blocks == [.math("x\n    $$\ny")])
+        #expect(MarkdownDocument(parsing: "$$\nx\n\t$$\ny\n$$").blocks == [.math("x\n\t$$\ny")])
+        #expect(ContentAnalysis("    $$\n#plain").tags == ["plain"])
+
+        #expect(MarkdownDocument(parsing: "   ```swift\nlet x = 1\n   ```").blocks == [.code(language: "swift", code: "let x = 1")])
+        #expect(MarkdownDocument(parsing: "    ```\ncode\n    ```").blocks == [.paragraph("    ```\ncode\n    ```")])
+        #expect(MarkdownDocument(parsing: "\t```\ncode\n\t```").blocks == [.paragraph("\t```\ncode\n\t```")])
+        #expect(MarkdownDocument(parsing: "```\ncode\n    ```\nmore\n```").blocks == [.code(language: nil, code: "code\n    ```\nmore")])
+        #expect(MarkdownDocument(parsing: "```\ncode\n\t```\nmore\n```").blocks == [.code(language: nil, code: "code\n\t```\nmore")])
+        #expect(MarkdownDocument(parsing: "````\n```\n````").blocks == [.code(language: nil, code: "```")])
+    }
+
+    @Test func `editor tag spans exclude display math and fenced code`() {
+        func editorTags(_ text: String) -> [String] {
+            TagScanner.matches(in: text, excluding: TagScanner.literalSpans(in: text)).map(\.tag)
+        }
+        #expect(editorTags("$$\na #x\n\nb\n$$") == [], "display math with a blank line")
+        #expect(editorTags("$$\n#tag") == [], "unclosed display math")
+        #expect(editorTags("$$ #meta\nx\n$$") == [], "text on the opening fence")
+        #expect(editorTags("$$\na\n\nb\n$$\n#real\n$$\nc\n$$") == ["real"], "closing fence doesn't pair with the next opening fence")
+        #expect(editorTags("```\n#code\n```\n#real") == ["real"])
+        #expect(editorTags("```text\n$$\n```\n#real") == ["real"])
+        #expect(editorTags("$$\n```\n$$\n#real") == ["real"])
+        #expect(editorTags("    $$\n#real") == ["real"], "four-space fence doesn't open math")
+        #expect(editorTags("$$\na\n    $$\n#still") == [], "four-space fence doesn't close math")
+        #expect(editorTags("$a +\n#x$") == [], "multi-line inline math")
+    }
+
     @Test func `inline Markdown keeps math as written`() {
         let parsed = InlineParsing.attributed("*see* $a*b*c$ and $\\{x\\}$ or **$x_1$**")
         #expect(String(parsed.characters) == "see $a*b*c$ and $\\{x\\}$ or $x_1$")
@@ -79,5 +112,20 @@ import Testing
         let link = InlineParsing.attributed("[link](https://x.com/$a$)")
         #expect(link.runs.first?.link == URL(string: "https://x.com/$a$"), "a URL keeps its dollars")
         #expect(String(InlineParsing.attributed(##"Unit \#13 $\#x$"##).characters) == "Unit #\u{2060}13 $\\#x$")
+    }
+
+    @Test func `math inside a link stays tappable source rather than a typeset image`() throws {
+        let url = URL(string: "https://example.com")!
+
+        let formulaOnly = InlineParsing.attributed("[$x^2$](https://example.com)")
+        #expect(String(formulaOnly.characters) == "$x^2$")
+        #expect(formulaOnly.runs.allSatisfy { $0.link == url })
+        #expect(formulaOnly.runs[InlineMathAttribute.self].compactMap(\.0).isEmpty)
+
+        let mixed = InlineParsing.attributed("[see $a*b*c$](https://example.com) and $y$")
+        #expect(String(mixed.characters) == "see $a*b*c$ and $y$")
+        let linkedRange = try #require(mixed.range(of: "see $a*b*c$"))
+        #expect(mixed[linkedRange].runs.allSatisfy { $0.link == url })
+        #expect(mixed.runs[InlineMathAttribute.self].compactMap(\.0) == ["y"], "unlinked math on the same line still typesets")
     }
 }
