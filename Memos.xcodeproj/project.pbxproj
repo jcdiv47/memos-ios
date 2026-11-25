@@ -11,6 +11,8 @@
 		078181BEE43756255EF4C281 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABA77E554FCFE4365557CF2C /* Components.swift */; };
 		0A14AC4B1BB578459238CEF3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9CC260ECAB37954122291C6F /* PrivacyInfo.xcprivacy */; };
 		0B0F8F1096F7B6213E7595FE /* LibraryPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D89EB85F73F75BC5B2F649F /* LibraryPages.swift */; };
+		0D748788A99E99C966837315 /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 117EC214328C12EF3CE3ACDB /* Icons.swift */; };
+		0E055FC71136A6E2D7B74457 /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 117EC214328C12EF3CE3ACDB /* Icons.swift */; };
 		0EEFE6C04E0663DDD70FA03E /* SearchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B0B19C772BC2B1E65D36326 /* SearchModel.swift */; };
 		13B19451DA75BB47A0CF3337 /* AccountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE58210C50483B27C776BBC /* AccountSession.swift */; };
 		178EE8CF36C2ED7EA184F072 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B595ADC62DEF53FE82CB23E /* SignInView.swift */; };
@@ -86,6 +88,7 @@
 		F73FBA5EB0A7CA4BD65252F8 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FDD0C0D63F5D76D3E798799 /* Surfaces.swift */; };
 		F79B9D414BAAAC055C5D9FB3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 91813E204D2E745C05D17A3B /* PrivacyInfo.xcprivacy */; };
 		F816B0CBF14706D93233CA95 /* MemoryWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E3570C8CAB5FA15453C801 /* MemoryWidget.swift */; };
+		FB092AE4FC5132E122FF8522 /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 117EC214328C12EF3CE3ACDB /* Icons.swift */; };
 		FEE6607525AEF4D739570AF7 /* HomeScreenActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB21044C55D96E4C444F257F /* HomeScreenActions.swift */; };
 /* End PBXBuildFile section */
 
@@ -135,6 +138,7 @@
 		0709406D30DC70E55DAC09C6 /* MemosUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemosUITests.swift; sourceTree = "<group>"; };
 		0B595ADC62DEF53FE82CB23E /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		0DA250A334A3F4EC65190ECC /* MemosWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemosWidgets.swift; sourceTree = "<group>"; };
+		117EC214328C12EF3CE3ACDB /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Icons.swift; sourceTree = "<group>"; };
 		141F420F6287FB036F6B8E2E /* MemoContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoContentView.swift; sourceTree = "<group>"; };
 		15578EF4C82994D7CE1727F2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		15AC8FE556D4AD926EE1567B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -266,6 +270,7 @@
 				C906B04CEC6DD7845429042B /* ActivityPalette.swift */,
 				D12D025D878A6D3C721ADA04 /* CodePalette.swift */,
 				ABA77E554FCFE4365557CF2C /* Components.swift */,
+				117EC214328C12EF3CE3ACDB /* Icons.swift */,
 				D98C88E21BBA97A5D4E97C39 /* Motion.swift */,
 				6FDD0C0D63F5D76D3E798799 /* Surfaces.swift */,
 				0320A25936D1343AB0FEE903 /* Tokens.swift */,
@@ -643,6 +648,7 @@
 				5B610BF9B549A40C98E1E154 /* ActivityPalette.swift in Sources */,
 				C81E57AB5CC8B14390C8EDA5 /* ActivityWidget.swift in Sources */,
 				40C8466C8E92980B272BD52B /* ControlIntents.swift in Sources */,
+				0E055FC71136A6E2D7B74457 /* Icons.swift in Sources */,
 				F816B0CBF14706D93233CA95 /* MemoryWidget.swift in Sources */,
 				A1CE8C98F6C5030C95C3DDDA /* MemosWidgets.swift in Sources */,
 				A8EC7B94C542ECCF563512AC /* PinnedWidget.swift in Sources */,
@@ -665,6 +671,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				078181BEE43756255EF4C281 /* Components.swift in Sources */,
+				FB092AE4FC5132E122FF8522 /* Icons.swift in Sources */,
 				8E5BF1C1CAB3121C67A52914 /* Motion.swift in Sources */,
 				68A294B024CDFBF16DEC5A58 /* ShareViewController.swift in Sources */,
 				F73FBA5EB0A7CA4BD65252F8 /* Surfaces.swift in Sources */,
@@ -691,6 +698,7 @@
 				6949C6B7EBC58C60F7BA6A2E /* Connectivity.swift in Sources */,
 				77E2CCEFA76A3C8231F633E5 /* ControlIntents.swift in Sources */,
 				FEE6607525AEF4D739570AF7 /* HomeScreenActions.swift in Sources */,
+				0D748788A99E99C966837315 /* Icons.swift in Sources */,
 				205AEBB6B78F4E5D88763558 /* InboxView.swift in Sources */,
 				0B0F8F1096F7B6213E7595FE /* LibraryPages.swift in Sources */,
 				773069CB3F047FF4BEECEDA4 /* LibraryView.swift in Sources */,
@@ -910,7 +918,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MEMOS_APP_GROUP = "group.$(MEMOS_BUNDLE_PREFIX)";
-				MEMOS_BUNDLE_PREFIX = dev.jcdiv47.memos;
+				MEMOS_BUNDLE_PREFIX = dev.jcdiv47.memos.app;
 				MOBILECLIP_APP_GROUP = group.dev.jcdiv47.mobileclip;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -1016,7 +1024,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MEMOS_APP_GROUP = "group.$(MEMOS_BUNDLE_PREFIX)";
-				MEMOS_BUNDLE_PREFIX = dev.jcdiv47.memos;
+				MEMOS_BUNDLE_PREFIX = dev.jcdiv47.memos.app;
 				MOBILECLIP_APP_GROUP = group.dev.jcdiv47.mobileclip;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;

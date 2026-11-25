@@ -13,7 +13,7 @@ settings:
   base:
     # Change these two to build under your own team.
     DEVELOPMENT_TEAM: 98BH74J5NQ
-    MEMOS_BUNDLE_PREFIX: dev.jcdiv47.memos
+    MEMOS_BUNDLE_PREFIX: dev.jcdiv47.memos.app
     MEMOS_APP_GROUP: group.$(MEMOS_BUNDLE_PREFIX)
     # Where the photo search model is downloaded. Not tied to Memos, so your other apps can add
     # the same group and use the one copy.
