@@ -44,8 +44,14 @@ import Testing
         #expect(DraftStore(directory: directory).draft(for: .newMemo) == nil)
         #expect(store.hasNewMemoDraft)
 
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(DraftStore(directory: directory).draft(for: .newMemo)?.text == "ab")
+        // A busy simulator may not schedule the delayed write within a fixed sleep.
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(5)
+        let relaunched = DraftStore(directory: directory)
+        while relaunched.draft(for: .newMemo) == nil, clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(relaunched.draft(for: .newMemo)?.text == "ab")
     }
 
     @Test func `edits are kept apart from the new memo and from each other`() {
