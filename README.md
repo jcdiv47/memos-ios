@@ -64,7 +64,7 @@
 
 ## On-Device Mode (Without a Server)
 
-Choose **Use Without a Server** on the sign-in screen to use Memos as a standalone local notebook.
+Choose **Use on this iPhone** on the first screen to use Memos as a standalone local notebook.
 
 - Memos and attachments stay strictly inside `<app group>/OnDevice/` and never upload.
 - Local capabilities—search, tags, saved views, Library, widgets, Share Extension, Spotlight, and Shortcuts—work identically; server-only features (comments, reactions, Spaces, Inbox, share links, and visibility) are hidden.
