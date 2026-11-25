@@ -577,6 +577,17 @@
         }
       }
     },
+    "Add a server later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍后添加服务器"
+          }
+        }
+      }
+    },
     "Add tag %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1017,6 +1028,17 @@
         }
       }
     },
+    "Continue Writing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续写"
+          }
+        }
+      }
+    },
     "Copy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1203,6 +1225,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "创建"
+          }
+        }
+      }
+    },
+    "Create a token, copy it, and paste it above." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建一个令牌，复制后粘贴到上方。"
           }
         }
       }
@@ -1604,6 +1637,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用英文描述来查找照片。"
+          }
+        }
+      }
+    },
+    "Go to Settings → My Account → Access Tokens." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前往“设置”→“我的账号”→“访问令牌”。"
+          }
+        }
+      }
+    },
+    "Have a server?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有服务器？"
           }
         }
       }
@@ -2201,6 +2256,17 @@
         }
       }
     },
+    "No account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无需账号"
+          }
+        }
+      }
+    },
     "No attachments" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2417,6 +2483,47 @@
         }
       }
     },
+    "On this iPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "On this iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "On this iPhone"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "在这台 iPad 上"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "在这台 iPhone 上"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "On This iPhone" : {
       "localizations" : {
         "en" : {
@@ -2457,6 +2564,28 @@
         }
       }
     },
+    "On your Memos server" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在你的 Memos 服务器上"
+          }
+        }
+      }
+    },
+    "Open %@ in a browser and sign in." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浏览器中打开 %@ 并登录。"
+          }
+        }
+      }
+    },
     "Open Memo" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2483,6 +2612,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开另一个版本"
+          }
+        }
+      }
+    },
+    "Open your Memos server in a browser and sign in." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浏览器中打开你的 Memos 服务器并登录。"
           }
         }
       }
@@ -3051,6 +3191,17 @@
         }
       }
     },
+    "Sign in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录"
+          }
+        }
+      }
+    },
     "Sign In" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3067,6 +3218,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新登录以继续同步。"
+          }
+        }
+      }
+    },
+    "Sign in instead" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改为登录"
           }
         }
       }
@@ -3127,6 +3289,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "空间"
+          }
+        }
+      }
+    },
+    "Start Writing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始写"
+          }
+        }
+      }
+    },
+    "Stays on this iPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stays on this iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stays on this iPhone"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "只保存在这台 iPad 上"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "只保存在这台 iPhone 上"
+                }
+              }
+            }
           }
         }
       }
@@ -3247,6 +3461,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "立即同步"
+          }
+        }
+      }
+    },
+    "Syncs everywhere" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多设备同步"
           }
         }
       }
@@ -3465,6 +3690,17 @@
         }
       }
     },
+    "This server has passwords turned off." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器已关闭密码登录。"
+          }
+        }
+      }
+    },
     "This server hasn’t been set up yet. Create the first account on the web, then come back." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3632,6 +3868,17 @@
         }
       }
     },
+    "Use a token" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用令牌"
+          }
+        }
+      }
+    },
     "Use an Access Token" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3648,6 +3895,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不使用服务器记录 Memo"
+          }
+        }
+      }
+    },
+    "Use on this iPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Use on this iPad"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Use on this iPhone"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "device" : {
+              "ipad" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "在这台 iPad 上使用"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "在这台 iPhone 上使用"
+                }
+              }
+            }
           }
         }
       }
@@ -3679,6 +3967,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用户名"
+          }
+        }
+      }
+    },
+    "Username & password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户名和密码"
           }
         }
       }
@@ -3759,6 +4058,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Webhook"
+          }
+        }
+      }
+    },
+    "Where to find one" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在哪里获取"
+          }
+        }
+      }
+    },
+    "Without a server" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不使用服务器"
           }
         }
       }

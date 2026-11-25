@@ -30,11 +30,13 @@ final class MemosUITests: XCTestCase {
     @MainActor
     func testSignInWithPassword() throws {
         let app = launch(signedIn: false)
+        let method = app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Username & password'")).firstMatch
+        XCTAssertTrue(method.waitForExistence(timeout: 10))
+        method.tap()
         let address = app.textFields["memos.example.com"]
         XCTAssertTrue(address.waitForExistence(timeout: 10))
         address.tap()
         address.typeText(server)
-        app.buttons["Continue"].tap()
 
         let username = app.textFields["Username"]
         XCTAssertTrue(username.waitForExistence(timeout: 10))
@@ -52,11 +54,13 @@ final class MemosUITests: XCTestCase {
     @MainActor
     func testWrongPasswordIsExplained() throws {
         let app = launch(signedIn: false)
+        let method = app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'Username & password'")).firstMatch
+        XCTAssertTrue(method.waitForExistence(timeout: 10))
+        method.tap()
         let address = app.textFields["memos.example.com"]
         XCTAssertTrue(address.waitForExistence(timeout: 10))
         address.tap()
         address.typeText(server)
-        app.buttons["Continue"].tap()
         let username = app.textFields["Username"]
         XCTAssertTrue(username.waitForExistence(timeout: 10))
         username.tap()
