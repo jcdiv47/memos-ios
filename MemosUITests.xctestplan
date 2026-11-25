@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "9A8B7C6D-5E4F-4321-8765-43210FEDCBA9",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Memos.xcodeproj",
+        "identifier" : "BD69C27DE2F6CBE94C2CA75F",
+        "name" : "MemosUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

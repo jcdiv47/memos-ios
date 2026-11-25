@@ -1,0 +1,31 @@
+{
+  "configurations" : [
+    {
+      "id" : "6E4F7D8A-2B9C-4A1E-9C3D-1F2E3D4C5B6A",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:MemosKit",
+        "identifier" : "MemosCoreTests",
+        "name" : "MemosCoreTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:MemosKit",
+        "identifier" : "PhotoSearchTests",
+        "name" : "PhotoSearchTests"
+      }
+    }
+  ],
+  "version" : 1
+}

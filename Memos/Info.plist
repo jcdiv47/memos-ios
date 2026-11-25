@@ -51,7 +51,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Memos records voice memos and transcribes them.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Memos transcribes voice memos on this device when your server can’t.</string>
+	<string>Memos transcribes voice memos on this iPhone when your server can’t.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>CreateMemoIntent</string>
