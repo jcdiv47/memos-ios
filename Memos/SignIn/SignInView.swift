@@ -28,6 +28,9 @@ struct SignInView: View {
                     MethodChooser(showsOnDevice: !connecting)
                 }
             }
+            // The navigation container's own view is the system background, black in dark mode,
+            // and shows wherever a screen is shortened for the keyboard mid-transition.
+            .background(NavigationBackdrop().frame(width: 0, height: 0).accessibilityHidden(true))
             .navigationDestination(for: SignInRoute.self) { route in
                 switch route {
                 case .password: PasswordForm()
@@ -43,9 +46,6 @@ struct SignInView: View {
                 }
             }
         }
-        // Paper behind the stack too, so the space the keyboard leaves during a push or pop
-        // isn't the bare window.
-        .background(Color.paper.ignoresSafeArea())
         .environment(lookup)
         .task {
             lookup.model = model
@@ -383,6 +383,24 @@ extension View {
     }
 }
 
+/// Paints the screen's hosting view and the navigation controller around it in Paper.
+private struct NavigationBackdrop: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) {}
+
+    final class Controller: UIViewController {
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            paint()
+        }
+
+        private func paint() {
+            parent?.view.backgroundColor = .paper
+            navigationController?.view.backgroundColor = .paper
+        }
+    }
+}
+
 /// Calls back from `viewDidAppear`, which SwiftUI's `onAppear` fires well before, and ends
 /// editing from `viewWillDisappear`.
 private struct DidAppear: UIViewControllerRepresentable {
@@ -400,6 +418,13 @@ private struct DidAppear: UIViewControllerRepresentable {
         }
 
         required init?(coder: NSCoder) { fatalError() }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            // The screen's hosting view is the system background, black in dark mode, and shows
+            // below the content while the keyboard animates.
+            parent?.view.backgroundColor = .paper
+        }
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
