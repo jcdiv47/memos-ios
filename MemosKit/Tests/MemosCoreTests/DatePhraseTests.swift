@@ -55,7 +55,10 @@ private func day(_ days: Int, hour: Int = 12, minute: Int = 0) -> Date {
         #expect(try #require(phrase(marked)).typed == typed)
     }
 
-    @Test func `Chinese`() throws {
+    // NSDataDetector only loads Chinese date grammars when Chinese is in preferred languages
+    // (English-only CI simulators such as Xcode Cloud don't have it enabled).
+    @Test(.enabled(if: Locale.preferredLanguages.contains { $0.hasPrefix("zh") }))
+    func `Chinese`() throws {
         let found = try #require(phrase("明天晚上8点|"))
         #expect(found.phrase.date == day(1, hour: 20))
     }

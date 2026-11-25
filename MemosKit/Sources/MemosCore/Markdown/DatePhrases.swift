@@ -21,7 +21,7 @@ public struct DatePhrase: Equatable, Sendable {
 public enum DatePhrases {
     /// The system's detector reads relative dates against now, in the device's time zone. It's
     /// immutable once made, so sharing it across threads is safe.
-    nonisolated(unsafe) private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
+    private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
 
     /// The date phrase that ends at `cursor`, or with only spaces between it and the cursor.
     /// Phrases inside code, and ones that already name a year, are left alone: they're either not
@@ -97,9 +97,9 @@ public enum DatePhrases {
 
     private static let meal = "(?:breakfast|brunch|lunchtime|lunch|dinnertime|dinner|supper|早饭|早餐|午饭|午餐|晚饭|晚餐|夜宵)"
     /// “Dinner ” or “brunch on ” before the date. Not “dinner at ”, whose “at” the time takes.
-    nonisolated(unsafe) private static let leadingMeal = try? NSRegularExpression(pattern: "^\(meal)(?:\\s+on)?\\s*", options: .caseInsensitive)
+    private static let leadingMeal = try? NSRegularExpression(pattern: "^\(meal)(?:\\s+on)?\\s*", options: .caseInsensitive)
     /// “ lunch”, “ for dinner” or “ at lunch” after it.
-    nonisolated(unsafe) private static let trailingMeal = try? NSRegularExpression(pattern: "\\s*(?:(?:for|at)\\s+)?\(meal)$", options: .caseInsensitive)
+    private static let trailingMeal = try? NSRegularExpression(pattern: "\\s*(?:(?:for|at)\\s+)?\(meal)$", options: .caseInsensitive)
 
     /// The part of `typed` that says when, without the meals around it.
     private static func withoutMeals(_ typed: String) -> NSRange {
