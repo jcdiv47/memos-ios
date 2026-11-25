@@ -795,6 +795,7 @@ private struct OnDeviceIntro: View {
                 Fact(systemImage: "lock", isNeutral: true, title: "Stays on this iPhone")
                 Fact(systemImage: "icloud.and.arrow.up", title: "Add a server later")
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.xl + Spacing.xs + Metrics.screenInset)
             .padding(.top, Spacing.l)
             .readableWidth()

@@ -1260,16 +1260,6 @@
         }
       }
     },
-    "Create one on the web under Settings › Access Tokens." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请在网页版的“设置”>“访问令牌”中创建。"
-          }
-        }
-      }
-    },
     "Create Share Link" : {
       "localizations" : {
         "zh-Hans" : {
