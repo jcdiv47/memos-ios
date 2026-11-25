@@ -1,5 +1,6 @@
 #!/usr/bin/env swift
-// Renders the app icon's default, dark and tinted PNGs into the asset catalog:
+// Renders the app icon's default, dark and tinted PNGs into the asset catalog, and the same mark at
+// sign-in size into the AppMark image set beside it:
 //   swift scripts/render-app-icon.swift
 // The mark is 犬, "dog", as oracle-bone script wrote it: stood on end, head at the top and barking,
 // back arched, two legs reaching left and the tail curled up. Each stroke is a brush line whose width
@@ -11,6 +12,9 @@ import CoreGraphics
 
 let size = 1024
 let output = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Memos/Resources/Assets.xcassets/AppIcon.appiconset")
+let markOutput = output.deletingLastPathComponent().appendingPathComponent("AppMark.imageset")
+/// Sign-in shows the mark at 72 pt.
+let markPoints = 72
 
 typealias RGB = (CGFloat, CGFloat, CGFloat)
 
@@ -132,7 +136,8 @@ struct Palette {
     var eye: RGB
 }
 
-func render(_ palette: Palette, to name: String) throws {
+@discardableResult
+func render(_ palette: Palette, to name: String) throws -> CGImage {
     let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
                             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
     let s = CGFloat(size)
@@ -162,14 +167,33 @@ func render(_ palette: Palette, to name: String) throws {
     context.fillEllipse(in: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
 
     let image = context.makeImage()!
+    try write(image, to: output.appendingPathComponent(name))
+    return image
+}
+
+func write(_ image: CGImage, to url: URL) throws {
     let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])!
-    try data.write(to: output.appendingPathComponent(name))
+    try data.write(to: url)
+}
+
+/// The icon scaled down for sign-in, at each screen scale. SwiftUI rounds its corners.
+func writeMark(_ icon: CGImage, named name: String) throws {
+    for scale in [2, 3] {
+        let side = markPoints * scale
+        let context = CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+        context.interpolationQuality = .high
+        context.draw(icon, in: CGRect(x: 0, y: 0, width: side, height: side))
+        try write(context.makeImage()!, to: markOutput.appendingPathComponent("\(name)@\(scale)x.png"))
+    }
 }
 
 // Paper on Memos Blue, with a pale blue eye.
-try render(Palette(background: (hex(0x3D6B96), hex(0x305880), hex(0x1B3352)), glyph: hex(0xFAF9F5), eye: hex(0x9BC3E5)), to: "AppIcon.png")
+let light = try render(Palette(background: (hex(0x3D6B96), hex(0x305880), hex(0x1B3352)), glyph: hex(0xFAF9F5), eye: hex(0x9BC3E5)), to: "AppIcon.png")
 // Dark: light ink on dark paper, the eye in Memos Blue's dark-mode tint.
-try render(Palette(background: (hex(0x24211E), hex(0x1B1917), hex(0x141210)), glyph: hex(0xE9E7E3), eye: hex(0x5B97CF)), to: "AppIcon-Dark.png")
+let dark = try render(Palette(background: (hex(0x24211E), hex(0x1B1917), hex(0x141210)), glyph: hex(0xE9E7E3), eye: hex(0x5B97CF)), to: "AppIcon-Dark.png")
 // Tinted: the system colours it by luminance, so a light glyph on black with the eye a step darker.
 try render(Palette(background: (hex(0x000000), hex(0x000000), hex(0x000000)), glyph: hex(0xF2F2F2), eye: hex(0x8C8C8C)), to: "AppIcon-Tinted.png")
-print("Rendered app icons into \(output.path)")
+try writeMark(light, named: "AppMark")
+try writeMark(dark, named: "AppMark-Dark")
+print("Rendered app icons into \(output.path) and the sign-in mark into \(markOutput.path)")

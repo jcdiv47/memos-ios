@@ -150,8 +150,6 @@ private struct TimelineRoot: View {
             TextField("Title", text: Binding(get: { newSpace ?? "" }, set: { newSpace = $0 }))
             Button("Create") { createSpace() }
             Button("Cancel", role: .cancel) { newSpace = nil }
-        } message: {
-            Text("Spaces are shared with the people you invite. Invite them on the web.")
         }
     }
 

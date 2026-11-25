@@ -103,18 +103,10 @@ private struct MethodChooser: View {
 
             Section {
                 NavigationLink(value: SignInRoute.password) {
-                    MethodRow(
-                        systemImage: "person",
-                        title: "Username & password",
-                        detail: "The account you use on the web. Single sign-on works here too."
-                    )
+                    MethodRow(systemImage: "person", title: "Username & password")
                 }
                 NavigationLink(value: SignInRoute.token) {
-                    MethodRow(
-                        systemImage: "key",
-                        title: "Access token",
-                        detail: "Paste a token from Settings on the web. Best when passwords are off."
-                    )
+                    MethodRow(systemImage: "key", title: "Access token")
                 }
             } header: {
                 GroupHeader(title: "On your Memos server", detail: "Syncs everywhere")
@@ -124,12 +116,7 @@ private struct MethodChooser: View {
             if showsOnDevice {
                 Section {
                     NavigationLink(value: SignInRoute.onDevice) {
-                        MethodRow(
-                            systemImage: ThisDevice.symbol,
-                            isNeutral: true,
-                            title: "Use on this iPhone",
-                            detail: "Start writing now. Memos never leave this device."
-                        )
+                        MethodRow(systemImage: ThisDevice.symbol, isNeutral: true, title: "Use on this iPhone")
                     }
                 } header: {
                     GroupHeader(title: "Without a server", detail: "No account")
@@ -164,24 +151,18 @@ private struct GroupHeader: View {
     }
 }
 
-/// One way in: a symbol, what it is, and when to pick it.
+/// One way in: a symbol and what it is.
 private struct MethodRow: View {
     let systemImage: String
     var isNeutral = false
     let title: LocalizedStringKey
-    let detail: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: Spacing.l) {
             IconTile(systemImage: systemImage, isNeutral: isNeutral)
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(title)
-                    .font(.rowTitle.weight(.semibold))
-                    .foregroundStyle(.ink)
-                Text(detail)
-                    .font(.metadata)
-                    .foregroundStyle(.ink2)
-            }
+            Text(title)
+                .font(.rowTitle.weight(.semibold))
+                .foregroundStyle(.ink)
         }
         .padding(.vertical, Spacing.xs)
     }
@@ -487,7 +468,7 @@ private struct PasswordForm: View {
                 if resuming {
                     ScreenTitle(
                         title: lookup.instance.map { Text(verbatim: $0.title) } ?? Text("Sign in"),
-                        message: "Sign in again to keep syncing. Nothing on this iPhone was lost."
+                        message: "Sign in again to keep syncing."
                     )
                 } else {
                     ScreenTitle(title: Text("Sign in"))
@@ -534,7 +515,7 @@ private struct PasswordForm: View {
                         Label("Use an Access Token", systemImage: "key")
                     }
                 } footer: {
-                    Text("This server has passwords turned off. Sign in with single sign-on or an access token.")
+                    Text("This server has passwords turned off.")
                 }
                 .cardRows()
             }
@@ -553,8 +534,6 @@ private struct PasswordForm: View {
                 } footer: {
                     if let error, !allowsPassword {
                         Text(error).foregroundStyle(.danger)
-                    } else {
-                        Text("Your server’s administrator needs to allow memos://auth/callback as a redirect address for single sign-on.")
                     }
                 }
                 .cardRows()
@@ -744,7 +723,7 @@ private struct TokenForm: View {
                 Step(number: 1, text: "Open your Memos server in a browser and sign in.")
             }
             Step(number: 2, text: "Go to Settings → My Account → Access Tokens.")
-            Step(number: 3, text: "Create a token, copy it, and paste it above. It works until it expires or you revoke it.")
+            Step(number: 3, text: "Create a token, copy it, and paste it above.")
         }
         .padding(.vertical, Spacing.xs)
     }
@@ -806,21 +785,17 @@ private struct OnDeviceIntro: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
-                VStack(alignment: .leading, spacing: Spacing.s) {
-                    Text("On this iPhone")
-                        .font(.largeTitleSerif)
-                        .foregroundStyle(.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("A private notebook, ready right away. Here’s what that means.")
-                        .font(.supporting)
-                        .foregroundStyle(.ink2)
-                }
-                .padding(.bottom, Spacing.xs)
+                Text("On this iPhone")
+                    .font(.largeTitleSerif)
+                    .foregroundStyle(.ink)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.bottom, Spacing.xs)
 
-                Fact(systemImage: "person.slash", isNeutral: true, title: "No account", detail: "Nothing to sign up for. Open the app and write.")
-                Fact(systemImage: "lock", isNeutral: true, title: "Stays on this iPhone", detail: "Memos never upload, and won’t appear on your other devices.")
-                Fact(systemImage: "icloud.and.arrow.up", title: "Add a server later", detail: "Connect one in Settings whenever you like. Its memos are kept apart from these.")
+                Fact(systemImage: "person.slash", isNeutral: true, title: "No account")
+                Fact(systemImage: "lock", isNeutral: true, title: "Stays on this iPhone")
+                Fact(systemImage: "icloud.and.arrow.up", title: "Add a server later")
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.xl + Spacing.xs + Metrics.screenInset)
             .padding(.top, Spacing.l)
             .readableWidth()
@@ -859,19 +834,13 @@ private struct OnDeviceIntro: View {
         let systemImage: String
         var isNeutral = false
         let title: LocalizedStringKey
-        let detail: LocalizedStringKey
 
         var body: some View {
-            HStack(alignment: .top, spacing: Spacing.xl) {
+            HStack(spacing: Spacing.xl) {
                 IconTile(systemImage: systemImage, isNeutral: isNeutral)
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(title)
-                        .font(.rowTitle.weight(.semibold))
-                        .foregroundStyle(.ink)
-                    Text(detail)
-                        .font(.supporting)
-                        .foregroundStyle(.ink2)
-                }
+                Text(title)
+                    .font(.rowTitle.weight(.semibold))
+                    .foregroundStyle(.ink)
             }
             .accessibilityElement(children: .combine)
         }
