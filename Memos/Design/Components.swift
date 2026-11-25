@@ -84,10 +84,12 @@ extension SectionHeader {
 }
 
 /// A symbol on a tinted square, leading a tile or a row. Dims to Ink 3 on a well when there's
-/// nothing behind it yet.
+/// nothing behind it yet. Neutral tiles sit in Ink on a well, for something that isn't Memos
+/// Blue's to claim, such as the device itself.
 struct IconTile: View {
     let systemImage: String
     var isEmpty = false
+    var isNeutral = false
 
     @ScaledMetric(relativeTo: .subheadline) private var scale = SymbolScale.base
 
@@ -95,9 +97,9 @@ struct IconTile: View {
         let side = Metrics.scaled(Metrics.iconTile, by: scale)
         Image(systemName: systemImage)
             .font(.rowSymbol)
-            .foregroundStyle(isEmpty ? Color.ink3 : Color.memosBlue)
+            .foregroundStyle(isEmpty ? Color.ink3 : isNeutral ? Color.ink : Color.memosBlue)
             .frame(width: side, height: side)
-            .background(isEmpty ? Color.well : Color.accentWash, in: .rect(cornerRadius: Radius.inner))
+            .background(isEmpty || isNeutral ? Color.well : Color.accentWash, in: .rect(cornerRadius: Radius.inner))
             .accessibilityHidden(true)
     }
 }
