@@ -30,13 +30,6 @@ struct LibraryView: View {
                 SectionHeader("Saved views")
 
                 CardList(dividerInset: Metrics.iconRowTextInset) {
-                    if session.store.profile.views.isEmpty {
-                        Text("Save a search as a view and it appears here and on the web.")
-                            .font(.supporting)
-                            .foregroundStyle(.ink2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, Metrics.rowPadding)
-                    }
                     ForEach(session.store.profile.views, id: \.name) { view in
                         Button {
                             session.path.append(.view(view.name))

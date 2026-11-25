@@ -335,7 +335,7 @@ struct AttachmentsLibraryView: View {
         }
         .overlay {
             if items.isEmpty {
-                ContentUnavailableView("No attachments", systemImage: "paperclip", description: Text("Photos and files you add to memos collect here."))
+                ContentUnavailableView("No attachments", systemImage: "paperclip")
             }
         }
         .background(.paper)
@@ -402,7 +402,7 @@ struct PlacesMapView: View {
         .mapScope(mapScope)
         .overlay {
             if places.isEmpty {
-                ContentUnavailableView("No places yet", systemImage: "map", description: Text("Add a location to a memo from the composer’s paperclip menu."))
+                ContentUnavailableView("No places yet", systemImage: "map")
                     .padding(Spacing.xl)
                     .background(.card, in: .rect(cornerRadius: Radius.panel))
                     .padding(Metrics.screenInset)

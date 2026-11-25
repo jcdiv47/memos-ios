@@ -78,9 +78,6 @@ struct SignInView: View {
                     Text("Memos")
                         .font(.largeTitleSerif)
                         .foregroundStyle(.ink)
-                    Text("Sign in to your own Memos server. Your notes stay there, and on this iPhone.")
-                        .font(.supporting)
-                        .foregroundStyle(.ink2)
                 }
                 // Padding rather than a row inset: the row clips at its inset, and the serif
                 // overhangs it. The row also keeps its rounded corners as a mask, which shaved
@@ -110,8 +107,6 @@ struct SignInView: View {
             } footer: {
                 if let error {
                     Text(error).foregroundStyle(.danger)
-                } else {
-                    Text("The address you open Memos at in a browser.")
                 }
             }
             .cardRows()
@@ -142,24 +137,17 @@ struct SignInView: View {
 
     /// The other way in: no server, no account, memos kept on this iPhone only.
     private var onDeviceChoice: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            Button {
-                isOpeningOnDevice = true
-                Task { await model.openOnDevice() }
-            } label: {
-                WideButtonLabel(
-                    title: model.hasOnDeviceLibrary ? "Continue with Memos on This iPhone" : "Use Without a Server",
-                    isWorking: isOpeningOnDevice
-                )
-            }
-            .buttonStyle(.glass)
-            .disabled(isOpeningOnDevice || isChecking)
-            Text("No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart.")
-                .font(.metadata)
-                .foregroundStyle(.ink2)
-                // On the text lane of the form's rows above.
-                .padding(.horizontal, Spacing.xl + Spacing.xs)
+        Button {
+            isOpeningOnDevice = true
+            Task { await model.openOnDevice() }
+        } label: {
+            WideButtonLabel(
+                title: model.hasOnDeviceLibrary ? "Continue with Memos on This iPhone" : "Use Without a Server",
+                isWorking: isOpeningOnDevice
+            )
         }
+        .buttonStyle(.glass)
+        .disabled(isOpeningOnDevice || isChecking)
         .padding(.horizontal, Metrics.screenInset)
         .padding(.bottom, Spacing.m)
         .readableWidth()
@@ -241,13 +229,8 @@ private struct CredentialsForm: View {
                     Text(instance.url.absoluteString)
                         .font(.metadata)
                         .foregroundStyle(.ink2)
-                    if !instance.profile.version.isEmpty {
-                        Text(verbatim: "Memos \(instance.profile.version)")
-                            .font(.metadata)
-                            .foregroundStyle(.ink2)
-                    }
                     if resuming {
-                        Text("Sign in again to keep syncing. Nothing on this iPhone was lost.")
+                        Text("Sign in again to keep syncing.")
                             .font(.supporting)
                             .foregroundStyle(.ink2)
                             .padding(.top, Spacing.m)
@@ -298,8 +281,6 @@ private struct CredentialsForm: View {
                             Label("Continue with \(provider.title)", systemImage: "person.badge.key")
                         }
                     }
-                } footer: {
-                    Text("Your server’s administrator needs to allow memos://auth/callback as a redirect address for single sign-on.")
                 }
                 .cardRows()
             }
@@ -350,7 +331,7 @@ private struct CredentialsForm: View {
             if let tokenError {
                 Text(tokenError).foregroundStyle(.danger)
             } else if usesToken {
-                Text("Create one on the web in Settings, under Access Tokens. The app stays signed in until the token expires or you revoke it.")
+                Text("Create one on the web under Settings › Access Tokens.")
             }
         }
         .cardRows()

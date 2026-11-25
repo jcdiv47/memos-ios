@@ -50,7 +50,7 @@ struct InboxView: View {
             .paperBackground()
             .overlay {
                 if loaded && notifications.isEmpty && session.isOnline {
-                    ContentUnavailableView("You’re all caught up", systemImage: "bell", description: Text("Comments, mentions and Space invitations show up here."))
+                    ContentUnavailableView("You’re all caught up", systemImage: "bell")
                 }
             }
             .navigationTitle("Inbox")

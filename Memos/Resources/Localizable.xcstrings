@@ -577,16 +577,6 @@
         }
       }
     },
-    "Add a location to a memo from the composer’s paperclip menu." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在编辑器的回形针菜单中为 Memo 添加位置。"
-          }
-        }
-      }
-    },
     "Add tag %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -843,16 +833,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "联网后会加载评论。"
-          }
-        }
-      }
-    },
-    "Comments, mentions and Space invitations show up here." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "评论、提及和空间邀请会显示在这里。"
           }
         }
       }
@@ -1247,12 +1227,12 @@
         }
       }
     },
-    "Create one on the web in Settings, under Access Tokens. The app stays signed in until the token expires or you revoke it." : {
+    "Create one on the web under Settings › Access Tokens." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请在网页版的“设置”>“访问令牌”中创建。在令牌过期或被撤销之前，App 会保持登录。"
+            "value" : "请在网页版的“设置”>“访问令牌”中创建。"
           }
         }
       }
@@ -1468,16 +1448,6 @@
         }
       }
     },
-    "Downloads every photo and file for reading offline. Otherwise full-size files are kept as you open them, up to 500 MB." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下载所有照片和文件，以便离线查看。关闭时，只保留你打开过的原始文件，最多 500 MB。"
-          }
-        }
-      }
-    },
     "Edit" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1628,6 +1598,16 @@
         }
       }
     },
+    "Find photos by describing them, in English." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用英文描述来查找照片。"
+          }
+        }
+      }
+    },
     "Join" : {
       "comment" : "Accepts a Space invitation in the Inbox.",
       "localizations" : {
@@ -1697,46 +1677,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "筛选条件"
-          }
-        }
-      }
-    },
-    "Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPhone, so your photos stay on it. Descriptions in English work best." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPad, so your photos stay on it. Descriptions in English work best."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPhone, so your photos stay on it. Descriptions in English work best."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "描述照片即可在 Memo 中找到它，比如“收据”或“海滩上的狗”。Apple 的 MobileCLIP 模型在这台 iPad 上运行，你的照片不会离开设备。使用英文描述效果最佳。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "描述照片即可在 Memo 中找到它，比如“收据”或“海滩上的狗”。Apple 的 MobileCLIP 模型在这台 iPhone 上运行，你的照片不会离开设备。使用英文描述效果最佳。"
-                }
-              }
-            }
           }
         }
       }
@@ -2091,86 +2031,6 @@
         }
       }
     },
-    "Memos and attachments are kept on this iPhone only. They don’t sync, and nobody else can see them." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Memos and attachments are kept on this iPad only. They don’t sync, and nobody else can see them."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Memos and attachments are kept on this iPhone only. They don’t sync, and nobody else can see them."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Memo 和附件仅保存在这台 iPad 上，不会同步，其他人也无法看到。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Memo 和附件仅保存在这台 iPhone 上，不会同步，其他人也无法看到。"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "Memos on this iPhone are kept apart from this server and never upload. You stay signed in, and can switch back at any time." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Memos on this iPad are kept apart from this server and never upload. You stay signed in, and can switch back at any time."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Memos on this iPhone are kept apart from this server and never upload. You stay signed in, and can switch back at any time."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "这台 iPad 上的 Memo 与此服务器分开保存，不会上传。你会保持登录状态，可随时切换回来。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "这台 iPhone 上的 Memo 与此服务器分开保存，不会上传。你会保持登录状态，可随时切换回来。"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "Memos, #tags, filters" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2337,46 +2197,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂无访问令牌"
-          }
-        }
-      }
-    },
-    "No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "No account needed. Memos stay on this iPad and never upload. You can add a server later; its memos are kept apart."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "No account needed. Memos stay on this iPhone and never upload. You can add a server later; its memos are kept apart."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "无需账号。Memo 只保存在这台 iPad 上，不会上传。你可以稍后添加服务器，服务器上的 Memo 会与之分开保存。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "无需账号。Memo 只保存在这台 iPhone 上，不会上传。你可以稍后添加服务器，服务器上的 Memo 会与之分开保存。"
-                }
-              }
-            }
           }
         }
       }
@@ -2727,16 +2547,6 @@
         }
       }
     },
-    "Photos and files you add to memos collect here." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你添加到 Memo 中的照片和文件会汇集在这里。"
-          }
-        }
-      }
-    },
     "Pin" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2985,16 +2795,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保存"
-          }
-        }
-      }
-    },
-    "Save a search as a view and it appears here and on the web." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "将搜索存为视图后，它会显示在这里和网页版中。"
           }
         }
       }
@@ -3261,122 +3061,12 @@
         }
       }
     },
-    "Sign in again to keep syncing. Nothing on this iPhone was lost." : {
+    "Sign in again to keep syncing." : {
       "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sign in again to keep syncing. Nothing on this iPad was lost."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sign in again to keep syncing. Nothing on this iPhone was lost."
-                }
-              }
-            }
-          }
-        },
         "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "重新登录以继续同步。这台 iPad 上的内容均未丢失。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "重新登录以继续同步。这台 iPhone 上的内容均未丢失。"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "Sign in to your own Memos server to sync. The memos here stay on this iPhone, apart from the server’s." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sign in to your own Memos server to sync. The memos here stay on this iPad, apart from the server’s."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sign in to your own Memos server to sync. The memos here stay on this iPhone, apart from the server’s."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "登录你自己的 Memos 服务器即可同步。这里的 Memo 保留在这台 iPad 上，与服务器上的 Memo 分开保存。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "登录你自己的 Memos 服务器即可同步。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "Sign in to your own Memos server. Your notes stay there, and on this iPhone." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sign in to your own Memos server. Your notes stay there, and on this iPad."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sign in to your own Memos server. Your notes stay there, and on this iPhone."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "登录你自己的 Memos 服务器。你的笔记保存在服务器和这台 iPad 上。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "登录你自己的 Memos 服务器。你的笔记保存在服务器和这台 iPhone 上。"
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新登录以继续同步。"
           }
         }
       }
@@ -3437,16 +3127,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "空间"
-          }
-        }
-      }
-    },
-    "Spaces are shared with the people you invite. Invite them on the web." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "空间会与你邀请的人共享。请在网页版中邀请成员。"
           }
         }
       }
@@ -3647,26 +3327,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用户名或密码不正确。"
-          }
-        }
-      }
-    },
-    "The address you open Memos at in a browser." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "即你在浏览器中打开 Memos 时使用的地址。"
-          }
-        }
-      }
-    },
-    "The same setting as on the web. Writing inside a Space narrows Protected and Public to the Space’s members." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "与网页版中的设置相同。在空间中写的 Memo，“受保护”和“公开”会收窄为仅空间成员可见。"
           }
         }
       }
@@ -3898,16 +3558,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "令牌"
-          }
-        }
-      }
-    },
-    "Tokens let scripts and other apps use your account through the API." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "令牌可让脚本和其他 App 通过 API 使用你的账号。"
           }
         }
       }
@@ -4154,16 +3804,6 @@
         }
       }
     },
-    "Your server’s administrator needs to allow memos://auth/callback as a redirect address for single sign-on." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "服务器管理员需要将 memos://auth/callback 添加为单点登录的重定向地址。"
-          }
-        }
-      }
-    },
     "Yours" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4287,46 +3927,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "多"
-          }
-        }
-      }
-    },
-    "You’re still signed in as @%@. The memos here stay on this iPhone, apart from the server’s." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "You’re still signed in as @%@. The memos here stay on this iPad, apart from the server’s."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "You’re still signed in as @%@. The memos here stay on this iPhone, apart from the server’s."
-                }
-              }
-            }
-          }
-        },
-        "zh-Hans" : {
-          "variations" : {
-            "device" : {
-              "ipad" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "你仍以 @%@ 的身份登录。这里的 Memo 保留在这台 iPad 上，与服务器上的 Memo 分开保存。"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "你仍以 @%@ 的身份登录。这里的 Memo 保留在这台 iPhone 上，与服务器上的 Memo 分开保存。"
-                }
-              }
-            }
           }
         }
       }

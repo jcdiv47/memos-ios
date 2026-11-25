@@ -81,8 +81,6 @@ private struct ServerSettings: View {
             .disabled(!session.isOnline)
         } header: {
             Text("New memos")
-        } footer: {
-            Text("The same setting as on the web. Writing inside a Space narrows Protected and Public to the Space’s members.")
         }
 
         Section {
@@ -93,8 +91,6 @@ private struct ServerSettings: View {
                     cacheSize == 0 ? Text("None") : Text(cacheSize.formatted(.byteCount(style: .file)))
                 }
             }
-        } footer: {
-            Text("Downloads every photo and file for reading offline. Otherwise full-size files are kept as you open them, up to 500 MB.")
         }
         .task {
             cacheSize = await session.files.cacheSize()
@@ -124,8 +120,6 @@ private struct ServerSettings: View {
                 dismiss()
                 Task { await model.openOnDevice() }
             }
-        } footer: {
-            Text("Memos on this iPhone are kept apart from this server and never upload. You stay signed in, and can switch back at any time.")
         }
 
         Section {
@@ -228,8 +222,6 @@ private struct OnDeviceSettings: View {
                     }
                 }
             }
-        } footer: {
-            Text("Memos and attachments are kept on this iPhone only. They don’t sync, and nobody else can see them.")
         }
         .task {
             storageSize = await session.files.librarySize()
@@ -251,12 +243,6 @@ private struct OnDeviceSettings: View {
             }
         } header: {
             Text("Server")
-        } footer: {
-            if let account = model.serverAccount {
-                Text("You’re still signed in as @\(ResourceName.lastSegment(account.user)). The memos here stay on this iPhone, apart from the server’s.")
-            } else {
-                Text("Sign in to your own Memos server to sync. The memos here stay on this iPhone, apart from the server’s.")
-            }
         }
 
         Section {
@@ -297,8 +283,6 @@ private struct PhotoSearchSection: View {
                 Button("Remove Model", role: .destructive) { confirmRemove = true }
                     .confirmationDialog("Remove the photo search model?", isPresented: $confirmRemove, titleVisibility: .visible) {
                         Button("Remove", role: .destructive) { photos.remove() }
-                    } message: {
-                        Text("Photo search turns off, here and in your other apps that share the model. You can download it again at any time.")
                     }
             } else if let progress = photos.downloadProgress {
                 ProgressView(value: progress) {
@@ -318,9 +302,10 @@ private struct PhotoSearchSection: View {
         } header: {
             Text("Photo search")
         } footer: {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("Find photos in your memos by describing them, like “receipt” or “dog on the beach”. Apple’s MobileCLIP model runs on this iPhone, so your photos stay on it. Descriptions in English work best.")
-                if let error = photos.error { Text(error).foregroundStyle(.danger) }
+            if let error = photos.error {
+                Text(error).foregroundStyle(.danger)
+            } else {
+                Text("Find photos by describing them, in English.")
             }
         }
         .onAppear {
@@ -431,11 +416,7 @@ private struct AccessTokensView: View {
         .paperBackground()
         .overlay {
             if loaded && tokens.isEmpty && created == nil && error == nil {
-                ContentUnavailableView(
-                    "No Access Tokens",
-                    systemImage: "key",
-                    description: Text("Tokens let scripts and other apps use your account through the API.")
-                )
+                ContentUnavailableView("No Access Tokens", systemImage: "key")
             }
         }
         .navigationTitle("Access Tokens")
