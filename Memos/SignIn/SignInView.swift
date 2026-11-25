@@ -43,6 +43,9 @@ struct SignInView: View {
                 }
             }
         }
+        // Paper behind the stack too, so the space the keyboard leaves during a push or pop
+        // isn't the bare window.
+        .background(Color.paper.ignoresSafeArea())
         .environment(lookup)
         .task {
             lookup.model = model
@@ -94,7 +97,7 @@ private struct MethodChooser: View {
                 // Padding rather than a row inset: the row clips at its inset, and the serif
                 // overhangs it. It lines up with the section headers below.
                 .padding(.horizontal, Spacing.xl + Spacing.xs)
-                .padding(.vertical, Spacing.l)
+                .padding(.bottom, Spacing.l)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
@@ -136,9 +139,9 @@ private struct MethodChooser: View {
             }
         }
         .paperBackground()
-        // The title is the app's name, drawn in the content. Keep the bar only for Cancel when
-        // adding a server from Settings.
-        .toolbar(showsOnDevice ? .hidden : .automatic, for: .navigationBar)
+        // The bar stays, empty, rather than hidden: hiding it here would make it slide in and out
+        // with every push and pop.
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -370,6 +373,46 @@ private struct ScreenTitle: View {
     }
 }
 
+extension View {
+    /// Raises the keyboard once a pushed screen has landed, and lowers it as soon as the screen
+    /// starts to leave. Otherwise the keyboard rides sideways with the screen through the
+    /// transition, over bare window, and the form resizes for it mid-flight. `viewDidAppear` fires
+    /// only after the push finishes; `viewWillDisappear` before the pop starts moving.
+    func focusAfterPush(_ focus: @escaping () -> Void) -> some View {
+        background(DidAppear(action: focus).frame(width: 0, height: 0).accessibilityHidden(true))
+    }
+}
+
+/// Calls back from `viewDidAppear`, which SwiftUI's `onAppear` fires well before, and ends
+/// editing from `viewWillDisappear`.
+private struct DidAppear: UIViewControllerRepresentable {
+    let action: () -> Void
+
+    func makeUIViewController(context: Context) -> Controller { Controller(action: action) }
+    func updateUIViewController(_ controller: Controller, context: Context) { controller.action = action }
+
+    final class Controller: UIViewController {
+        var action: () -> Void
+
+        init(action: @escaping () -> Void) {
+            self.action = action
+            super.init(nibName: nil, bundle: nil)
+        }
+
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            action()
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            view.window?.endEditing(true)
+        }
+    }
+}
+
 // MARK: Username and password
 
 private struct PasswordForm: View {
@@ -482,6 +525,8 @@ private struct PasswordForm: View {
         .animation(.memosSpring, value: allowsPassword)
         .onAppear {
             if let prefilledUser, username.isEmpty { username = prefilledUser }
+        }
+        .focusAfterPush {
             if lookup.text.isEmpty {
                 focus = .server
             } else {
@@ -630,7 +675,7 @@ private struct TokenForm: View {
         .listSectionSpacing(.compact)
         .paperBackground()
         .animation(.memosSpring, value: lookup.verified != nil)
-        .onAppear {
+        .focusAfterPush {
             focus = lookup.text.isEmpty ? .server : .token
         }
     }
