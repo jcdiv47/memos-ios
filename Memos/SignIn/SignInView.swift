@@ -486,8 +486,8 @@ enum WebAuthentication {
     }
 }
 
-/// The app's icon, small, at the top of sign-in. The icon is paper on paper, so a hairline keeps
-/// its edge.
+/// The app's icon, small, at the top of sign-in: the dog, 犬, drawn by scripts/render-app-icon.swift.
+/// A hairline keeps its edge on dark paper.
 private struct AppMark: View {
     private static let side: CGFloat = 72
     /// The icon's corner at this size, in the system's proportion.
