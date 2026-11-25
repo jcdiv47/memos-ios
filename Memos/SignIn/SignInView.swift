@@ -16,10 +16,9 @@ struct SignInView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var lookup = ServerLookup()
-    @State private var path: [SignInRoute] = []
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack {
             Group {
                 if resuming != nil {
                     // Signing back in stays on the same server and the same way in.
@@ -213,56 +212,80 @@ final class ServerLookup {
         MemosClient.normalizedServerURL(text)?.host()
     }
 
+    /// The lookup under way and the address it is for. Asking again for the same address joins it;
+    /// a new address replaces it.
+    @ObservationIgnored private var inFlight: (url: URL, task: Task<Outcome, Never>)?
+
+    private enum Outcome {
+        case found(SignInView.InstanceInfo)
+        case failed(String)
+    }
+
     /// Looks the address up, or returns the instance already found there.
     @discardableResult
     func check() async -> SignInView.InstanceInfo? {
         if let verified { return verified }
-        guard !isChecking, let model else { return nil }
+        guard let model else { return nil }
         guard let url = MemosClient.normalizedServerURL(text) else {
             error = String(localized: "That doesn’t look like a server address.")
             return nil
         }
+        let task: Task<Outcome, Never>
+        if let inFlight, inFlight.url == url {
+            task = inFlight.task
+        } else {
+            inFlight?.task.cancel()
+            let client = model.makeClient(for: url)
+            let typed = text
+            task = Task { await Self.lookUp(url, client: client, typed: typed) }
+            inFlight = (url, task)
+        }
         isChecking = true
         error = nil
-        defer { isChecking = false }
+        let outcome = await task.value
+        if inFlight?.url == url {
+            inFlight = nil
+            isChecking = false
+        }
+        // The address may have changed while it was being looked up; only its own result counts.
+        guard MemosClient.normalizedServerURL(text) == url else { return nil }
+        switch outcome {
+        case .found(let instance):
+            self.instance = instance
+            return instance
+        case .failed(let message):
+            error = message
+            return nil
+        }
+    }
 
-        let client = model.makeClient(for: url)
+    private static func lookUp(_ url: URL, client: MemosClient, typed: String) async -> Outcome {
         do {
             guard try await client.detectDialect() != nil else {
-                error = String(localized: "That address doesn’t answer like a Memos server. Check the address; the app needs Memos \(ServerDialect.oldestSupportedRelease) or later.")
-                return nil
+                return .failed(String(localized: "That address doesn’t answer like a Memos server. Check the address; the app needs Memos \(ServerDialect.oldestSupportedRelease) or later."))
             }
             let profile = try await client.callPublic(client.instance.getInstanceProfile(request:headers:), Memos_Api_GetInstanceProfileRequest())
             guard ServerDialect.supports(version: profile.version) else {
-                error = String(localized: "This server runs Memos \(profile.version). The app needs \(ServerDialect.oldestSupportedRelease) or later; update the server to the latest release.")
-                return nil
+                return .failed(String(localized: "This server runs Memos \(profile.version). The app needs \(ServerDialect.oldestSupportedRelease) or later; update the server to the latest release."))
             }
             if profile.needsSetup {
-                error = String(localized: "This server hasn’t been set up yet. Create the first account on the web, then come back.")
-                return nil
+                return .failed(String(localized: "This server hasn’t been set up yet. Create the first account on the web, then come back."))
             }
             var generalRequest = Memos_Api_GetInstanceSettingRequest()
             generalRequest.name = "instance/settings/GENERAL"
             let general = (try? await client.callPublic(client.instance.getInstanceSetting(request:headers:), generalRequest))?.generalSetting ?? .init()
             let providers = (try? await client.callPublic(client.identityProviders.listIdentityProviders(request:headers:), Memos_Api_ListIdentityProvidersRequest()))?.identityProviders ?? []
-            let instance = SignInView.InstanceInfo(url: url, client: client, profile: profile, general: general, providers: providers)
-            // The address may have changed while it was being looked up.
-            guard MemosClient.normalizedServerURL(text) == url else { return nil }
-            self.instance = instance
-            return instance
+            return .found(SignInView.InstanceInfo(url: url, client: client, profile: profile, general: general, providers: providers))
         } catch let apiError {
-            if url.scheme == "https", apiError.isConnectivity, !text.contains("://") {
+            if url.scheme == "https", apiError.isConnectivity, !typed.contains("://") {
                 if let host = url.host() {
-                    error = String(localized: "Couldn’t reach \(host) over HTTPS. If it uses plain HTTP, type http:// in front.")
-                } else {
-                    error = String(localized: "Couldn’t reach the server over HTTPS. If it uses plain HTTP, type http:// in front.")
+                    return .failed(String(localized: "Couldn’t reach \(host) over HTTPS. If it uses plain HTTP, type http:// in front."))
                 }
+                return .failed(String(localized: "Couldn’t reach the server over HTTPS. If it uses plain HTTP, type http:// in front."))
             } else if apiError.code == .unimplemented || apiError.code == .notFound {
-                error = String(localized: "This server runs a version of Memos the app doesn’t support. Update it to the latest release.")
-            } else {
-                error = String(localized: "Couldn’t reach that server. \(apiError.description)")
+                return .failed(String(localized: "This server runs a version of Memos the app doesn’t support. Update it to the latest release."))
             }
-            return nil
+            return .failed(String(localized: "Couldn’t reach that server. \(apiError.description)"))
         }
     }
 }
@@ -461,8 +484,11 @@ private struct PasswordForm: View {
         Form {
             Section {
             } header: {
-                if resuming, let instance = lookup.instance {
-                    ScreenTitle(title: Text(verbatim: instance.title), message: "Sign in again to keep syncing. Nothing on this iPhone was lost.")
+                if resuming {
+                    ScreenTitle(
+                        title: lookup.instance.map { Text(verbatim: $0.title) } ?? Text("Sign in"),
+                        message: "Sign in again to keep syncing. Nothing on this iPhone was lost."
+                    )
                 } else {
                     ScreenTitle(title: Text("Sign in"))
                 }
@@ -561,7 +587,7 @@ private struct PasswordForm: View {
     }
 
     private var canSignIn: Bool {
-        !lookup.text.trimmingCharacters(in: .whitespaces).isEmpty && !username.isEmpty && !password.isEmpty && !isSigningIn && !lookup.isChecking
+        !lookup.text.trimmingCharacters(in: .whitespaces).isEmpty && !username.isEmpty && !password.isEmpty && !isSigningIn
     }
 
     private func signIn() async {
@@ -589,6 +615,7 @@ private struct PasswordForm: View {
 
     private func signIn(with provider: Memos_Api_IdentityProvider) async {
         guard let instance = lookup.verified else { return }
+        error = nil
         let oauth = provider.config.oauth2Config
         let redirectURI = "memos://auth/callback"
         let verifier = PKCE.verifier()
@@ -745,7 +772,7 @@ private struct TokenForm: View {
     private var canSignIn: Bool {
         !lookup.text.trimmingCharacters(in: .whitespaces).isEmpty
             && !token.trimmingCharacters(in: .whitespaces).isEmpty
-            && !isSigningIn && !lookup.isChecking
+            && !isSigningIn
     }
 
     private func signIn() async {
