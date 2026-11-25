@@ -47,7 +47,7 @@ struct SearchContent: View {
                         .contentTransition(.numericText(value: Double(count)))
                         .animation(.memosFade, value: count)
                     Spacer()
-                    Button("Save as view", systemImage: "bookmark") { isSavingView = true }
+                    Button("Save as view", icon: .bookmarkPlus) { isSavingView = true }
                         .labelStyle(.compact)
                         .font(.action)
                         // One color for the symbol and its words, like any tinted text button,
@@ -270,7 +270,7 @@ private struct SearchSuggestions: View {
                         Button {
                             search.applyRecent(recent)
                         } label: {
-                            Label(recent, systemImage: "clock.arrow.circlepath")
+                            Label(recent, icon: .history)
                                 .foregroundStyle(.ink)
                         }
                     }
@@ -310,16 +310,16 @@ private struct SearchSuggestions: View {
                             Button {
                                 search.addToken(token)
                             } label: {
-                                Label(token.label, systemImage: token.systemImage)
+                                Label(token.label, icon: token.icon)
                                     .foregroundStyle(.ink)
                             }
                         }
                         Menu {
                             ForEach(MemoVisibility.choices, id: \.self) { visibility in
-                                Button(visibility.label, systemImage: visibility.systemImage) { search.addToken(.visibility(visibility)) }
+                                Button(visibility.label, icon: visibility.icon) { search.addToken(.visibility(visibility)) }
                             }
                         } label: {
-                            Label("Visibility", systemImage: "eye")
+                            Label("Visibility", icon: .eye)
                                 .foregroundStyle(.ink)
                         }
                         Menu {
@@ -327,7 +327,7 @@ private struct SearchSuggestions: View {
                             Button("This week") { search.addToken(.date(.thisWeek)) }
                             Button("This month") { search.addToken(.date(.thisMonth)) }
                         } label: {
-                            Label("Date", systemImage: "calendar")
+                            Label("Date", icon: .calendar)
                                 .foregroundStyle(.ink)
                         }
                     }

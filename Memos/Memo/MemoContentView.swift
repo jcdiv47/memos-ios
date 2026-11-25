@@ -117,7 +117,7 @@ struct MemoContentView: View {
         switch item.marker {
         case .task(let checked):
             HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
-                let box = Image(systemName: checked ? "checkmark.square.fill" : "square")
+                let box = Image(icon: checked ? .squareCheckFill : .square)
                     .foregroundStyle(checked ? Color.memosBlue : Color.ink2)
                     .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
                 Group {

@@ -64,19 +64,19 @@ public enum SearchToken: Hashable, Sendable {
         }
     }
 
-    public var systemImage: String {
+    public var icon: Lucide {
         switch self {
-        case .tag: "number"
-        case .openTasks: "circle"
-        case .tasks: "checklist"
-        case .links: "link"
-        case .code: "chevron.left.forwardslash.chevron.right"
-        case .places: "mappin.and.ellipse"
-        case .attachments: "paperclip"
-        case .pinned: "pin"
-        case .visibility(let visibility): visibility.systemImage
-        case .space: "square.stack"
-        case .date: "calendar"
+        case .tag: .hash
+        case .openTasks: .circle
+        case .tasks: .listChecks
+        case .links: .link
+        case .code: .code
+        case .places: .mapPin
+        case .attachments: .paperclip
+        case .pinned: .pin
+        case .visibility(let visibility): visibility.icon
+        case .space: .squareStack
+        case .date: .calendar
         }
     }
 
@@ -95,14 +95,14 @@ extension MemoVisibility {
         }
     }
 
-    public var systemImage: String {
+    public var icon: Lucide {
         switch self {
-        case .private: "lock"
-        case .protected: "person.2"
-        case .public: "globe"
-        // Only the Space's members: people with a key. The Space itself is `square.stack`.
-        case .space: "person.2.badge.key"
-        default: "lock"
+        case .private: .lock
+        case .protected: .users
+        case .public: .globe
+        // Only the Space's members: people with a key. The Space itself is `squareStack`.
+        case .space: .userLock
+        default: .lock
         }
     }
 }

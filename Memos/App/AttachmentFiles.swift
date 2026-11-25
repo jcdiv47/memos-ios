@@ -183,11 +183,11 @@ extension Attachment {
     var isAudio: Bool { type.hasPrefix("audio/") }
     var isVideo: Bool { type.hasPrefix("video/") }
 
-    var systemImage: String {
-        if isImage { return "photo" }
-        if isAudio { return "waveform" }
-        if isVideo { return "film" }
-        if type == "application/pdf" { return "doc.richtext" }
-        return "doc"
+    var icon: Lucide {
+        if isImage { return .image }
+        if isAudio { return .audioLines }
+        if isVideo { return .film }
+        if type == "application/pdf" { return .fileText }
+        return .file
     }
 }

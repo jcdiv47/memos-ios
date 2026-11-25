@@ -75,7 +75,7 @@ private struct ServerSettings: View {
                 set: { value in Task { await saveDefaultVisibility(value) } }
             )) {
                 ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
-                    Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
+                    Label(visibility.label, icon: visibility.icon).tag(visibility)
                 }
             }
             .disabled(!session.isOnline)
@@ -116,7 +116,7 @@ private struct ServerSettings: View {
         }
 
         Section {
-            Button(model.hasOnDeviceLibrary ? "Switch to Memos on This iPhone" : "Use Memos Without a Server" as LocalizedStringKey, systemImage: ThisDevice.symbol) {
+            Button(model.hasOnDeviceLibrary ? "Switch to Memos on This iPhone" : "Use Memos Without a Server" as LocalizedStringKey, icon: ThisDevice.icon) {
                 dismiss()
                 Task { await model.openOnDevice() }
             }
@@ -177,7 +177,7 @@ private struct WebLink: View {
                 Text(title)
                     .foregroundStyle(.ink)
                 Spacer()
-                Image(systemName: "arrow.up.forward")
+                Image(icon: .arrowUpRight)
                     .font(.statusSymbol.weight(.semibold))
                     .foregroundStyle(.ink3)
                     .accessibilityHidden(true)
@@ -203,7 +203,7 @@ private struct OnDeviceSettings: View {
         let count = session.store.own.count
         Section {
             HStack(spacing: Spacing.l) {
-                Image(systemName: ThisDevice.symbol)
+                Image(icon: ThisDevice.icon)
                     .font(.title2)
                     .foregroundStyle(.ink)
                     .frame(width: AvatarSize.large, height: AvatarSize.large)
@@ -233,12 +233,12 @@ private struct OnDeviceSettings: View {
         Section {
             if let account = model.serverAccount {
                 let host = account.url.host() ?? account.url.absoluteString
-                Button("Switch to \(host)", systemImage: "server.rack") {
+                Button("Switch to \(host)", icon: .server) {
                     dismiss()
                     Task { await model.openServerAccount() }
                 }
             } else {
-                Button("Connect to a Memos Server", systemImage: "server.rack") { isConnecting = true }
+                Button("Connect to a Memos Server", icon: .server) { isConnecting = true }
                     .matchedTransitionSource(id: "settings.connect", in: connectRow)
             }
         } header: {
@@ -389,7 +389,7 @@ private struct AccessTokensView: View {
                     Text(created)
                         .font(.memoCode)
                         .textSelection(.enabled)
-                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = created }
+                    Button("Copy", icon: .copy) { UIPasteboard.general.string = created }
                 } footer: {
                     Text("Copy it now. It won’t be shown again.")
                 }
@@ -416,12 +416,12 @@ private struct AccessTokensView: View {
         .paperBackground()
         .overlay {
             if loaded && tokens.isEmpty && created == nil && error == nil {
-                ContentUnavailableView("No Access Tokens", systemImage: "key")
+                ContentUnavailableView("No Access Tokens", icon: .key)
             }
         }
         .navigationTitle("Access Tokens")
         .toolbar {
-            Button("New Token", systemImage: "plus") { isCreating = true }
+            Button("New Token", icon: .plus) { isCreating = true }
                 .disabled(!session.isOnline)
         }
         .alert("New Access Token", isPresented: $isCreating) {

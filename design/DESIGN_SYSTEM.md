@@ -13,6 +13,7 @@ Everything lives in [`Memos/Design`](../Memos/Design):
 | `Surfaces.swift` | `cardBackground()`, `wellBackground()`, `paperBackground()`, `cardRows()`, `readableWidth()`, `CardList`, `CardDivider` |
 | `Components.swift` | `ChipStyle`, `Pill`, `SectionHeader`, `IconTile`, `Chevron`, `UnreadDot`, `WideButtonLabel`, `Avatar`, `Toast` |
 | `Motion.swift` | The springs, `Press`, `ZoomTransition` |
+| `Icons.swift` | `Image(icon:)`, `Label(_:icon:)`, `Button(_:icon:)`, `Menu(_:icon:)`, `ContentUnavailableView(_:icon:)`, `UIImage(icon:)`: the app's icons, Lucide's, drawn as custom symbols. Every icon is a case of `Lucide` (MemosCore); add one to `scripts/lucide-symbols.py` and rerun it. Shortcuts and Siri keep SF Symbols |
 | `CodePalette.swift`, `ActivityPalette.swift` | Syntax colours and the activity scale |
 | `Assets.xcassets` | Paper, Paper 2, Card, Well, Hairline, Ink, Ink 2, Ink 3, Memos Blue, Danger, Activity 1–4 |
 
@@ -114,7 +115,7 @@ Chips, pills and the floating bars are capsules. Avatars are circles.
 | --- | --- |
 | A heading over cards | `SectionHeader("Saved views")`, optionally with a trailing count |
 | A row that opens a page | `Chevron()` at the trailing edge |
-| A symbol leading a tile or row | `IconTile(systemImage:isEmpty:)` |
+| A symbol leading a tile or row | `IconTile(icon:isEmpty:)` |
 | A count under a memo | `Pill(isSelected:)` |
 | A card that opens something (a memo, a Library tile) | `.buttonStyle(.cardPress)`: settles to 0.98 without dimming, so the paper stays white |
 | Audience or Space choice | `.buttonStyle(.chip)` / `.prominentChip` |

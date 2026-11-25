@@ -29,11 +29,11 @@ struct InboxView: View {
                     }
                     .cardRows()
                     .swipeActions {
-                        Button("Delete", systemImage: "trash", role: .destructive) {
+                        Button("Delete", icon: .trash, role: .destructive) {
                             Task { await delete(notification) }
                         }
                         if notification.status == .unread {
-                            Button("Done", systemImage: "checkmark") {
+                            Button("Done", icon: .check) {
                                 Task { await archive(notification) }
                             }
                             .tint(.memosBlue)
@@ -50,7 +50,7 @@ struct InboxView: View {
             .paperBackground()
             .overlay {
                 if loaded && notifications.isEmpty && session.isOnline {
-                    ContentUnavailableView("You’re all caught up", systemImage: "bell")
+                    ContentUnavailableView("You’re all caught up", icon: .bell)
                 }
             }
             .navigationTitle("Inbox")

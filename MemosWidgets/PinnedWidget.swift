@@ -76,18 +76,18 @@ struct PinnedWidgetView: View {
     var body: some View {
         switch entry.content {
         case .pinned(let list):
-            MemoListWidgetView(entry: list, title: "Pinned", systemImage: "pin.fill", empty: "Pin a memo and it shows up here.")
+            MemoListWidgetView(entry: list, title: "Pinned", icon: .pinFill, empty: "Pin a memo and it shows up here.")
         case .memo(let memo, let sensitive):
             MemoWidgetView(memo: memo, sensitive: sensitive) {
                 Label {
                     Text(memo.createdAt, format: .dateTime.month(.abbreviated).day().year())
                 } icon: {
-                    Image(systemName: memo.pinned ? "pin.fill" : "note.text")
+                    Image(icon: memo.pinned ? .pinFill : .notepadText)
                 }
             }
         case .unavailable:
             VStack(alignment: .leading, spacing: Spacing.m) {
-                WidgetHeader(title: "Pinned", systemImage: "pin.fill")
+                WidgetHeader(title: "Pinned", icon: .pinFill)
                 WidgetNote("This memo was deleted or archived. Edit the widget to choose another.")
                 Spacer(minLength: 0)
             }
@@ -111,7 +111,7 @@ struct MemoWidgetView<Header: View>: View {
                 .foregroundStyle(.ink2)
                 .widgetAccentable()
             if sensitive {
-                Label("Sensitive content", systemImage: "eye.slash")
+                Label("Sensitive content", icon: .eyeOff)
                     .font(.footnote)
                     .foregroundStyle(.ink2)
             } else {

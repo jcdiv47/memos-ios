@@ -92,7 +92,7 @@ private struct TimelineRoot: View {
                         if case .tag = token {
                             Text(token.label)
                         } else {
-                            Label(token.label, systemImage: token.systemImage)
+                            Label(token.label, icon: token.icon)
                         }
                     }
                     .textInputAutocapitalization(.never)
@@ -231,7 +231,7 @@ private struct TimelineRoot: View {
     private var emptyState: some View {
         if let quickFilter = session.quickFilter {
             ContentUnavailableView {
-                Label("Nothing here", systemImage: "line.3.horizontal.decrease")
+                Label("Nothing here", icon: .funnel)
             } description: {
                 Text("No memos match \(quickFilter.label) in \(session.selectedSpaceTitle).", comment: "The filter's name, then a Space's name or All Spaces.")
             } actions: {
@@ -239,7 +239,7 @@ private struct TimelineRoot: View {
             }
         } else {
             ContentUnavailableView {
-                Label("No memos yet", systemImage: "square.and.pencil")
+                Label("No memos yet", icon: .squarePen)
             } description: {
                 session.selectedSpace == nil ? Text("Capture a thought and it lands here.") : Text("Nothing in \(session.selectedSpaceTitle) yet.")
             } actions: {
@@ -264,7 +264,7 @@ private struct TimelineRoot: View {
             Button {
                 session.path.append(.library)
             } label: {
-                Image(systemName: "books.vertical")
+                Image(icon: .library)
                     .foregroundStyle(.ink)
             }
             .accessibilityLabel("Library")
@@ -325,7 +325,7 @@ struct TimelineRow: View {
                     swipeCommits += 1
                     withAnimation(.memosSpring) { session.store.setArchived(memo.name, false) }
                 } label: {
-                    Label("Restore", systemImage: "tray.and.arrow.up")
+                    Label("Restore", icon: .archiveRestore)
                 }
                 .tint(.memosBlue)
             } else if isMine {
@@ -333,7 +333,7 @@ struct TimelineRow: View {
                     swipeCommits += 1
                     withAnimation(.memosSpring) { session.store.setPinned(memo.name, !memo.pinned) }
                 } label: {
-                    Label(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin")
+                    Label(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, icon: memo.pinned ? .pinOff : .pin)
                 }
                 .tint(.memosBlue)
             }
@@ -345,7 +345,7 @@ struct TimelineRow: View {
                     swipeCommits += 1
                     withAnimation(.memosSpring) { session.store.delete(memo.name) }
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("Delete", icon: .trash)
                 }
                 .tint(.danger)
             } else if isMine {
@@ -353,7 +353,7 @@ struct TimelineRow: View {
                     swipeCommits += 1
                     withAnimation(.memosSpring) { session.store.setArchived(memo.name, true) }
                 } label: {
-                    Label("Archive", systemImage: "archivebox")
+                    Label("Archive", icon: .archive)
                 }
                 .tint(.ink2)
                 // After Archive, so a full swipe still archives.
@@ -361,7 +361,7 @@ struct TimelineRow: View {
                     // The card opens into the editor.
                     session.edit(memo.name, from: memo.name)
                 } label: {
-                    Label("Edit", systemImage: "pencil")
+                    Label("Edit", icon: .pencil)
                 }
                 .tint(.memosBlue)
             }
@@ -387,28 +387,28 @@ struct MemoActions: View {
     var body: some View {
         let isMine = memo.creator == session.user
         if isMine {
-            Button(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, systemImage: memo.pinned ? "pin.slash" : "pin") {
+            Button(memo.pinned ? "Unpin" : "Pin" as LocalizedStringKey, icon: memo.pinned ? .pinOff : .pin) {
                 withAnimation(.memosSpring) { session.store.setPinned(memo.name, !memo.pinned) }
             }
             if !forAccessibility {
-                Button("Edit", systemImage: "pencil") { session.edit(memo.name, from: editSource) }
+                Button("Edit", icon: .pencil) { session.edit(memo.name, from: editSource) }
             }
-            Button(memo.isArchived ? "Restore" : "Archive" as LocalizedStringKey, systemImage: memo.isArchived ? "tray.and.arrow.up" : "archivebox") {
+            Button(memo.isArchived ? "Restore" : "Archive" as LocalizedStringKey, icon: memo.isArchived ? .archiveRestore : .archive) {
                 withAnimation(.memosSpring) { session.store.setArchived(memo.name, !memo.isArchived) }
             }
         }
         if !session.isOnDevice {
-            Button("React", systemImage: "face.smiling") {
+            Button("React", icon: .smilePlus) {
                 if let onReact { onReact() } else { session.path.append(.memo(memo.name)) }
             }
         }
         if let link = session.webURL(for: memo) {
-            Button("Copy Link", systemImage: "link") {
+            Button("Copy Link", icon: .link) {
                 UIPasteboard.general.url = link
             }
         }
         if !forAccessibility {
-            Button("Copy Text", systemImage: "doc.on.doc") {
+            Button("Copy Text", icon: .copy) {
                 UIPasteboard.general.string = memo.content
             }
         }
@@ -426,8 +426,8 @@ private struct TitleMenu: View {
         let counts = session.store.ownCounts()
         if session.showsScopeToggle {
             Picker("Show", selection: $session.scope) {
-                Label("Mine", systemImage: "person").tag(MemoQuery.Scope.mine)
-                Label("Everyone", systemImage: "person.2").tag(MemoQuery.Scope.everyone)
+                Label("Mine", icon: .user).tag(MemoQuery.Scope.mine)
+                Label("Everyone", icon: .users).tag(MemoQuery.Scope.everyone)
             }
             .pickerStyle(.palette)
         }
@@ -437,7 +437,7 @@ private struct TitleMenu: View {
                 spaceButton(space.name, title: space.title, monogram: space.monogram, count: counts[space.name] ?? 0)
             }
         }
-        Button("New Space…", systemImage: "plus") { newSpace = "" }
+        Button("New Space…", icon: .plus) { newSpace = "" }
             .disabled(!session.isOnline)
     }
 
@@ -446,7 +446,7 @@ private struct TitleMenu: View {
             session.selectedSpace = name
         } label: {
             // A menu shows a second Text in the label as the subtitle.
-            Label(title, systemImage: session.selectedSpace == name ? "checkmark" : (name == nil ? "square.stack.3d.up" : "square.stack"))
+            Label(title, icon: session.selectedSpace == name ? .check : (name == nil ? .layers : .squareStack))
             Text("\(count) memos")
         }
     }
@@ -467,18 +467,18 @@ private struct AccountMenu: View {
                     session.accountSheetSource = SheetSource.accountMenu
                     session.isInboxPresented = true
                 } label: {
-                    Label("Inbox", systemImage: "bell")
+                    Label("Inbox", icon: .bell)
                     // A menu shows a second Text in the label as the subtitle.
                     if unread > 0 { Text("\(unread) unread") }
                 }
             }
-            Button("Settings", systemImage: "gearshape") {
+            Button("Settings", icon: .settings) {
                 session.accountSheetSource = SheetSource.accountMenu
                 session.isSettingsPresented = true
             }
         } label: {
             // The bar's symbols are Ink: Memos Blue is for tags, links and what's selected.
-            Image(systemName: "ellipsis")
+            Image(icon: .ellipsis)
                 .foregroundStyle(.ink)
                 .overlay(alignment: .topTrailing) {
                     if unread > 0 {
@@ -512,7 +512,7 @@ private struct FilterMenu: View {
                     Button {
                         withAnimation(.memosSpring) { session.quickFilter = session.quickFilter == token ? nil : token }
                     } label: {
-                        Label(token.label, systemImage: session.quickFilter == token ? "checkmark" : token.systemImage)
+                        Label(token.label, icon: session.quickFilter == token ? .check : token.icon)
                     }
                 }
             }
@@ -528,11 +528,11 @@ private struct FilterMenu: View {
                 }
             }
             if session.quickFilter != nil {
-                Button("Clear Filter", systemImage: "xmark", role: .destructive) { withAnimation(.memosSpring) { session.quickFilter = nil } }
+                Button("Clear Filter", icon: .x, role: .destructive) { withAnimation(.memosSpring) { session.quickFilter = nil } }
             }
         } label: {
             // Ink at rest; Memos Blue once a filter is on, since that's a selection.
-            Image(systemName: session.quickFilter == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+            Image(icon: session.quickFilter == nil ? .funnel : .funnelFill)
                 .foregroundStyle(session.quickFilter == nil ? Color.ink : Color.memosBlue)
                 .contentTransition(.symbolEffect(.replace))
         }

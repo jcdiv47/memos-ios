@@ -29,7 +29,7 @@ struct RouteDestination: View {
             if let view = session.store.profile.views.first(where: { $0.name == name }) {
                 FilteredTimelineView(title: view.displayTitle, filter: view.filter, view: view, zoom: zoom)
             } else {
-                ContentUnavailableView("View not found", systemImage: "rectangle.stack.badge.minus")
+                ContentUnavailableView("View not found", icon: .bookmarkX)
             }
         case .filtered(let title, let tokens):
             FilteredTimelineView(title: title, filter: SearchQuery(tokens: tokens).filter(), zoom: zoom)
@@ -107,9 +107,9 @@ struct FilteredTimelineView: View {
         .overlay {
             if memos.isEmpty && !feed.isLoading {
                 if state == .archived {
-                    ContentUnavailableView("Nothing archived", systemImage: "archivebox", description: Text("Swipe left on a memo to archive it."))
+                    ContentUnavailableView("Nothing archived", icon: .archive, description: Text("Swipe left on a memo to archive it."))
                 } else {
-                    ContentUnavailableView("No memos match", systemImage: "line.3.horizontal.decrease", description: Text("New memos that match show up here."))
+                    ContentUnavailableView("No memos match", icon: .funnel, description: Text("New memos that match show up here."))
                 }
             }
         }
@@ -124,15 +124,16 @@ struct FilteredTimelineView: View {
             if let view {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("New Memo Here", systemImage: "square.and.pencil") {
+                        Button("New Memo Here", icon: .squarePen) {
                             let origin: CaptureOrigin = parsed?.pinnedVisibility.map { .view(space: parsed?.pinnedSpace, visibility: $0) } ?? .timeline(space: parsed?.pinnedSpace)
                             session.capture(origin: origin)
                         }
-                        Button("Delete View", systemImage: "trash", role: .destructive) { confirmDeleteView = true }
+                        Button("Delete View", icon: .trash, role: .destructive) { confirmDeleteView = true }
                             .disabled(!session.isOnDevice && !session.isOnline)
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(icon: .ellipsis)
                     }
+                    .accessibilityLabel("More")
                     .confirmationDialog("Delete “\(view.title)”?", isPresented: $confirmDeleteView, titleVisibility: .visible) {
                         Button("Delete View", role: .destructive) { Task { await deleteView(view) } }
                     } message: {
@@ -177,7 +178,7 @@ struct SharedMemoView: View {
                 .padding(Metrics.screenInset)
                 .readableWidth()
             } else if failed {
-                ContentUnavailableView("Link unavailable", systemImage: "link", description: Text("The share link expired or was revoked."))
+                ContentUnavailableView("Link unavailable", icon: .link, description: Text("The share link expired or was revoked."))
             } else {
                 ProgressView().padding(.top, Metrics.floatingBarClearance)
             }

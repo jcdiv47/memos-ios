@@ -115,7 +115,7 @@ struct ShareComposer: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: Metrics.blockGap) {
                 if !model.signedIn {
-                    Label("Open Memos and sign in to save memos from here.", systemImage: "person.crop.circle.badge.exclamationmark")
+                    Label("Open Memos and sign in to save memos from here.", icon: .circleUserRound)
                         .font(.supporting)
                         .foregroundStyle(.ink2)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -126,11 +126,11 @@ struct ShareComposer: View {
                     Menu {
                         Picker("Visibility", selection: $model.visibility) {
                             ForEach([MemoVisibility.private, .protected, .public], id: \.self) { visibility in
-                                Label(visibility.label, systemImage: visibility.systemImage).tag(visibility)
+                                Label(visibility.label, icon: visibility.icon).tag(visibility)
                             }
                         }
                     } label: {
-                        Label(model.visibility.label, systemImage: model.visibility.systemImage)
+                        Label(model.visibility.label, icon: model.visibility.icon)
                     }
                     .buttonStyle(.chip)
                 }

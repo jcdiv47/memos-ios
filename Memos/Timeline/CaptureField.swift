@@ -19,7 +19,7 @@ struct CaptureBar: View {
                     .matchedTransitionSource(id: source, in: zoom)
 
                 Button(action: onSearch) {
-                    Image(systemName: "magnifyingglass")
+                    Image(icon: .search)
                         .font(.barSymbol)
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .foregroundStyle(.ink)
@@ -57,7 +57,7 @@ struct CaptureField: View {
                     voice.cancel()
                     voice.reset()
                 } label: {
-                    Image(systemName: "xmark")
+                    Image(icon: .x)
                         .font(.barSymbol)
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .foregroundStyle(.ink)
@@ -73,7 +73,7 @@ struct CaptureField: View {
                 Button {
                     stopRecording()
                 } label: {
-                    Image(systemName: "stop.fill")
+                    Image(icon: .squareFill)
                         .font(.barSymbol)
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .foregroundStyle(.memosBlue)
@@ -93,7 +93,7 @@ struct CaptureField: View {
                             Label {
                                 Text("Continue draft")
                             } icon: {
-                                Image(systemName: "pencil.line")
+                                Image(icon: .pencilLine)
                                     .foregroundStyle(.memosBlue)
                             }
                         } else {
@@ -110,7 +110,7 @@ struct CaptureField: View {
                 .accessibilityHidden(true)
 
                 // A full 44 pt tap target inside the 48 pt capsule.
-                Image(systemName: "mic")
+                Image(icon: .mic)
                     .font(.barSymbol)
                     .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .foregroundStyle(isHoldingMic ? Color.memosBlue : Color.ink2)

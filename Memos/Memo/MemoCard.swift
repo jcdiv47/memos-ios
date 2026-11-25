@@ -39,7 +39,7 @@ struct MemoCard: View {
                     }
 
                     if let location = memo.locationIfSet, !location.placeholder.isEmpty {
-                        Label(location.placeholder, systemImage: "mappin.and.ellipse")
+                        Label(location.placeholder, icon: .mapPin)
                             .labelStyle(.compact)
                             .font(.metadata)
                             .foregroundStyle(.ink2)
@@ -63,12 +63,12 @@ struct MemoCard: View {
     @ViewBuilder
     private var notice: some View {
         if session.store.conflictCounterpart(of: memo.name) != nil {
-            Label("Edited on another device. Your version was saved separately.", systemImage: "arrow.triangle.branch")
+            Label("Edited on another device. Your version was saved separately.", icon: .gitFork)
                 .labelStyle(.compact)
                 .font(.metadata)
                 .foregroundStyle(.ink2)
         } else if let failed = session.store.failedChange(for: memo.name) {
-            Label("Couldn’t upload: \(failed.failure ?? "")", systemImage: "exclamationmark.triangle")
+            Label("Couldn’t upload: \(failed.failure ?? "")", icon: .triangleAlert)
                 .labelStyle(.compact)
                 .font(.metadata)
                 .foregroundStyle(.danger)
@@ -103,7 +103,7 @@ struct MemoHeader: View {
             Spacer(minLength: 0)
             RevealToggle(memo: memo)
             if memo.pinned {
-                Image(systemName: "pin.fill")
+                Image(icon: .pinFill)
                     .font(.statusSymbol)
                     .foregroundStyle(.memosBlue)
                     .accessibilityLabel("Pinned")
@@ -128,10 +128,10 @@ struct MemoHeader: View {
     private func metadataParts(waiting: Bool, spaceTitle: String?) -> some View {
         Text(MemoDate.timeline(memo.createdAt))
         if waiting {
-            Image(systemName: "clock")
+            Image(icon: .clock)
                 .accessibilityLabel("Waiting to sync")
         } else if !session.isOnDevice {
-            Image(systemName: memo.visibility.systemImage)
+            Image(icon: memo.visibility.icon)
                 .accessibilityLabel(memo.visibility.label)
         }
         if let spaceTitle {
@@ -191,7 +191,7 @@ struct SensitiveContent<Content: View>: View {
                 // target than the eye. A tap rather than a button, which a timeline card would
                 // still list for VoiceOver beside the eye it duplicates.
                 Pill {
-                    Label("Sensitive", systemImage: "eye.slash")
+                    Label("Sensitive", icon: .eyeOff)
                         .labelStyle(.compact)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -221,7 +221,7 @@ struct RevealToggle: View {
                     if revealed { session.revealedMemos.remove(memo.name) } else { session.revealedMemos.insert(memo.name) }
                 }
             } label: {
-                Image(systemName: revealed ? "eye.slash.fill" : "eye.fill")
+                Image(icon: revealed ? .eyeOff : .eye)
                     .contentTransition(.symbolEffect(.replace))
                     .font(.statusSymbol)
                     .foregroundStyle(.ink2)

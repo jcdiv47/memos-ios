@@ -103,12 +103,12 @@ struct MemoTextView: UIViewRepresentable {
             guard textView.isEditable, textView.markedTextRange == nil else { return nil }
             let sections = MarkdownFormat.menuSections.map { formats in
                 UIMenu(options: .displayInline, children: formats.map { format in
-                    UIAction(title: format.title, image: UIImage(systemName: format.systemImage)) { [weak self] _ in
+                    UIAction(title: format.title, image: UIImage(icon: format.icon)) { [weak self] _ in
                         self?.model.format(format)
                     }
                 })
             }
-            let menu = UIMenu(title: String(localized: "Format"), image: UIImage(systemName: "textformat"), children: sections)
+            let menu = UIMenu(title: String(localized: "Format"), image: UIImage(icon: .type), children: sections)
             // The system's bold, italic and underline would style the text rather than write Markdown.
             let suggested = suggestedActions.filter { ($0 as? UIMenu)?.identifier != .format && ($0 as? UIMenu)?.identifier != .textStyle }
             return UIMenu(children: suggested + [menu])
@@ -358,21 +358,21 @@ extension MarkdownFormat {
         }
     }
 
-    var systemImage: String {
+    var icon: Lucide {
         switch self {
-        case .bold: "bold"
-        case .italic: "italic"
-        case .strikethrough: "strikethrough"
-        case .code: "chevron.left.forwardslash.chevron.right"
-        case .heading1: "textformat.size.larger"
-        case .heading2: "textformat.size"
-        case .heading3: "textformat.size.smaller"
-        case .bulletList: "list.bullet"
-        case .numberedList: "list.number"
-        case .taskList: "checklist"
-        case .quote: "text.quote"
-        case .link: "link"
-        case .codeBlock: "curlybraces"
+        case .bold: .bold
+        case .italic: .italic
+        case .strikethrough: .strikethrough
+        case .code: .code
+        case .heading1: .heading1
+        case .heading2: .heading2
+        case .heading3: .heading3
+        case .bulletList: .list
+        case .numberedList: .listOrdered
+        case .taskList: .listChecks
+        case .quote: .textQuote
+        case .link: .link
+        case .codeBlock: .braces
         }
     }
 

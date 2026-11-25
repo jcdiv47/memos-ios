@@ -1,3 +1,4 @@
+import MemosCore
 import SwiftUI
 
 // Small pieces that several screens draw the same way. Reach for one of these before styling a
@@ -87,7 +88,7 @@ extension SectionHeader {
 /// nothing behind it yet. Neutral tiles sit in Ink on a well, for something that isn't Memos
 /// Blue's to claim, such as the device itself.
 struct IconTile: View {
-    let systemImage: String
+    let icon: Lucide
     var isEmpty = false
     var isNeutral = false
 
@@ -95,7 +96,7 @@ struct IconTile: View {
 
     var body: some View {
         let side = Metrics.scaled(Metrics.iconTile, by: scale)
-        Image(systemName: systemImage)
+        Image(icon: icon)
             .font(.rowSymbol)
             .foregroundStyle(isEmpty ? Color.ink3 : isNeutral ? Color.ink : Color.memosBlue)
             .frame(width: side, height: side)
@@ -107,7 +108,7 @@ struct IconTile: View {
 /// The trailing chevron on rows that open a page.
 struct Chevron: View {
     var body: some View {
-        Image(systemName: "chevron.right")
+        Image(icon: .chevronRight)
             .font(.metadata.weight(.semibold))
             .foregroundStyle(.ink3)
             .accessibilityHidden(true)
@@ -157,8 +158,8 @@ struct WideButtonLabel: View {
 /// catalog's device variations; its symbol through this.
 @MainActor
 enum ThisDevice {
-    static var symbol: String {
-        UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+    static var icon: Lucide {
+        UIDevice.current.userInterfaceIdiom == .pad ? .tablet : .smartphone
     }
 }
 

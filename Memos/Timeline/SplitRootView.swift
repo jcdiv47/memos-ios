@@ -19,21 +19,21 @@ struct SplitRootView: View {
         NavigationSplitView {
             List(selection: $selection) {
                 Section {
-                    Label("Memos", systemImage: "note.text").tag(SidebarItem.timeline)
+                    Label("Memos", icon: .notepadText).tag(SidebarItem.timeline)
                 }
                 if !session.store.profile.spaces.isEmpty {
                     Section("Spaces") {
                         ForEach(session.store.profile.spaces, id: \.name) { space in
-                            Label(space.title, systemImage: "square.stack").tag(SidebarItem.space(space.name))
+                            Label(space.title, icon: .squareStack).tag(SidebarItem.space(space.name))
                         }
                     }
                 }
                 Section("Library") {
-                    Label("Activity", systemImage: "calendar").tag(SidebarItem.route(.activity))
-                    Label("Attachments", systemImage: "paperclip").tag(SidebarItem.route(.attachments))
-                    Label("Map", systemImage: "map").tag(SidebarItem.route(.map))
-                    Label("Tags", systemImage: "number").tag(SidebarItem.route(.tags))
-                    Label("Archived", systemImage: "archivebox").tag(SidebarItem.route(.archived))
+                    Label("Activity", icon: .calendar).tag(SidebarItem.route(.activity))
+                    Label("Attachments", icon: .paperclip).tag(SidebarItem.route(.attachments))
+                    Label("Map", icon: .map).tag(SidebarItem.route(.map))
+                    Label("Tags", icon: .hash).tag(SidebarItem.route(.tags))
+                    Label("Archived", icon: .archive).tag(SidebarItem.route(.archived))
                 }
                 if !session.store.profile.views.isEmpty {
                     Section("Saved views") {
@@ -51,7 +51,7 @@ struct SplitRootView: View {
             .navigationTitle("Memos")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Settings", systemImage: "gearshape") {
+                    Button("Settings", icon: .settings) {
                         session.accountSheetSource = SheetSource.sidebarSettings
                         session.isSettingsPresented = true
                     }

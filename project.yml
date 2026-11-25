@@ -115,6 +115,7 @@ targets:
       - path: Memos/Design/ActivityPalette.swift
       - path: Memos/Design/Tokens.swift
       - path: Memos/Design/Typography.swift
+      - path: Memos/Design/Icons.swift
       - path: Memos/Resources/Assets.xcassets
     dependencies:
       - package: MemosKit
@@ -151,6 +152,7 @@ targets:
       - path: Memos/Design/Surfaces.swift
       - path: Memos/Design/Components.swift
       - path: Memos/Design/Motion.swift
+      - path: Memos/Design/Icons.swift
       - path: Memos/Resources/Assets.xcassets
     dependencies:
       - package: MemosKit
