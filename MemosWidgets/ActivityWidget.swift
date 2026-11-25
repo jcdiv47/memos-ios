@@ -71,7 +71,7 @@ struct ActivityWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
             HStack(spacing: Spacing.m) {
-                WidgetHeader(title: "Activity", systemImage: "calendar")
+                WidgetHeader(title: "Activity", icon: .calendar)
                     .labelStyle(.titleOnly)
                 Spacer(minLength: 0)
                 if let activity = entry.activity {
@@ -103,7 +103,7 @@ struct ActivityWidgetView: View {
                     Label {
                         Text(streak, format: .number)
                     } icon: {
-                        Image(systemName: "flame.fill")
+                        Image(icon: .flameFill)
                     }
                         .monospacedDigit()
                         .foregroundStyle(.memosBlue)

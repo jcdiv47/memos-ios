@@ -147,7 +147,7 @@ struct MemoryWidgetView: View {
                 Label {
                     Text(memo.createdAt, format: .relative(presentation: .named))
                 } icon: {
-                    Image(systemName: "sparkles")
+                    Image(icon: .sparkles)
                 }
             }
         case .empty(let tag?):
@@ -161,7 +161,7 @@ struct MemoryWidgetView: View {
 
     private func message(_ text: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            WidgetHeader(title: "Memory", systemImage: "sparkles")
+            WidgetHeader(title: "Memory", icon: .sparkles)
             WidgetNote(text)
             Spacer(minLength: 0)
         }

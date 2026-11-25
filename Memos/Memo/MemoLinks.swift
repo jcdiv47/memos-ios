@@ -8,10 +8,10 @@ enum LinkDirection {
     /// The other memo links to this one.
     case referencedBy
 
-    var systemImage: String {
+    var icon: Lucide {
         switch self {
-        case .referencing: "link"
-        case .referencedBy: "signpost.right"
+        case .referencing: .link
+        case .referencedBy: .signpost
         }
     }
 
@@ -77,7 +77,7 @@ struct LinkedMemoRow<Trailing: View>: View {
     /// Read as one element; a trailing button stays its own.
     private var content: some View {
         HStack(spacing: Spacing.m) {
-            Image(systemName: direction.systemImage)
+            Image(icon: direction.icon)
                 .font(.rowSymbol)
                 .foregroundStyle(.ink2)
                 .accessibilityHidden(true)
@@ -178,7 +178,7 @@ struct LinkMemoPicker: View {
             .overlay {
                 if results.isEmpty {
                     if query.isEmpty {
-                        ContentUnavailableView("No memos to link", systemImage: "link")
+                        ContentUnavailableView("No memos to link", icon: .link)
                     } else {
                         ContentUnavailableView.search(text: query)
                     }

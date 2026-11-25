@@ -310,7 +310,7 @@ struct AttachmentsLibraryView: View {
                                     AttachmentImage(attachment: item.attachment)
                                 } else {
                                     VStack(spacing: Spacing.s) {
-                                        Image(systemName: item.attachment.systemImage)
+                                        Image(icon: item.attachment.icon)
                                             .font(.title2)
                                         Text(item.attachment.filename)
                                             .font(.fine)
@@ -335,7 +335,7 @@ struct AttachmentsLibraryView: View {
         }
         .overlay {
             if items.isEmpty {
-                ContentUnavailableView("No attachments", systemImage: "paperclip")
+                ContentUnavailableView("No attachments", icon: .paperclip)
             }
         }
         .background(.paper)
@@ -367,7 +367,7 @@ struct PlacesMapView: View {
                     Button {
                         session.path.append(.memo(memo.name))
                     } label: {
-                        Image(systemName: "note.text")
+                        Image(icon: .notepadText)
                             .font(.metadata.weight(.semibold))
                             .foregroundStyle(.white)
                             .padding(Spacing.m)
@@ -389,11 +389,11 @@ struct PlacesMapView: View {
                         .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
                         .glassEffect(.regular.interactive(), in: .circle)
                     if session.showsScopeToggle {
-                        mapButton(includeOthers ? "person.2.fill" : "person", label: includeOthers ? Text("Showing everyone") : Text("Showing yours")) {
+                        mapButton(includeOthers ? .users : .user, label: includeOthers ? Text("Showing everyone") : Text("Showing yours")) {
                             withAnimation(.memosSpring) { includeOthers.toggle() }
                         }
                     }
-                    mapButton("list.bullet", label: Text("List places")) { showsList = true }
+                    mapButton(.list, label: Text("List places")) { showsList = true }
                         .matchedTransitionSource(id: "map.list", in: listButton)
                 }
             }
@@ -402,7 +402,7 @@ struct PlacesMapView: View {
         .mapScope(mapScope)
         .overlay {
             if places.isEmpty {
-                ContentUnavailableView("No places yet", systemImage: "map")
+                ContentUnavailableView("No places yet", icon: .map)
                     .padding(Spacing.xl)
                     .background(.card, in: .rect(cornerRadius: Radius.panel))
                     .padding(Metrics.screenInset)
@@ -437,9 +437,9 @@ struct PlacesMapView: View {
         }
     }
 
-    private func mapButton(_ systemImage: String, label: Text, action: @escaping () -> Void) -> some View {
+    private func mapButton(_ icon: Lucide, label: Text, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemImage)
+            Image(icon: icon)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.ink)
                 .contentTransition(.symbolEffect(.replace))
@@ -480,7 +480,7 @@ struct TagsView: View {
         .searchable(text: $filter, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Filter tags")
         .overlay {
             if tags.isEmpty {
-                ContentUnavailableView("No tags", systemImage: "number", description: Text("Type # in a memo to tag it."))
+                ContentUnavailableView("No tags", icon: .hash, description: Text("Type # in a memo to tag it."))
             }
         }
         .navigationTitle("Tags")

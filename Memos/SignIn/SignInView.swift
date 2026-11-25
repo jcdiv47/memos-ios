@@ -103,10 +103,10 @@ private struct MethodChooser: View {
 
             Section {
                 NavigationLink(value: SignInRoute.password) {
-                    MethodRow(systemImage: "person", title: "Username & password")
+                    MethodRow(icon: .user, title: "Username & password")
                 }
                 NavigationLink(value: SignInRoute.token) {
-                    MethodRow(systemImage: "key", title: "Access token")
+                    MethodRow(icon: .key, title: "Access token")
                 }
             } header: {
                 GroupHeader(title: "On your Memos server", detail: "Syncs everywhere")
@@ -116,7 +116,7 @@ private struct MethodChooser: View {
             if showsOnDevice {
                 Section {
                     NavigationLink(value: SignInRoute.onDevice) {
-                        MethodRow(systemImage: ThisDevice.symbol, isNeutral: true, title: "Use on this iPhone")
+                        MethodRow(icon: ThisDevice.icon, isNeutral: true, title: "Use on this iPhone")
                     }
                 } header: {
                     GroupHeader(title: "Without a server", detail: "No account")
@@ -153,13 +153,13 @@ private struct GroupHeader: View {
 
 /// One way in: a symbol and what it is.
 private struct MethodRow: View {
-    let systemImage: String
+    let icon: Lucide
     var isNeutral = false
     let title: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: Spacing.l) {
-            IconTile(systemImage: systemImage, isNeutral: isNeutral)
+            IconTile(icon: icon, isNeutral: isNeutral)
             Text(title)
                 .font(.rowTitle.weight(.semibold))
                 .foregroundStyle(.ink)
@@ -324,7 +324,7 @@ private struct ServerSection<Focus: Hashable>: View {
                 // The release only: a dev build's suffix would crowd out the address.
                 Text(verbatim: release(instance.profile.version).map { "Memos \($0)" } ?? "Memos")
             } icon: {
-                Image(systemName: "checkmark")
+                Image(icon: .check)
                     .fontWeight(.semibold)
             }
             .labelStyle(.compact)
@@ -512,7 +512,7 @@ private struct PasswordForm: View {
             } else {
                 Section {
                     NavigationLink(value: SignInRoute.token) {
-                        Label("Use an Access Token", systemImage: "key")
+                        Label("Use an Access Token", icon: .key)
                     }
                 } footer: {
                     Text("This server has passwords turned off.")
@@ -527,7 +527,7 @@ private struct PasswordForm: View {
                         Button {
                             Task { await signIn(with: provider) }
                         } label: {
-                            Label("Continue with \(provider.title)", systemImage: "person.badge.key")
+                            Label("Continue with \(provider.title)", icon: .key)
                         }
                         .disabled(isSigningIn)
                     }
@@ -543,7 +543,7 @@ private struct PasswordForm: View {
             if resuming && allowsPassword {
                 Section {
                     NavigationLink(value: SignInRoute.token) {
-                        Label("Use an Access Token", systemImage: "key")
+                        Label("Use an Access Token", icon: .key)
                     }
                 }
                 .cardRows()
@@ -791,9 +791,9 @@ private struct OnDeviceIntro: View {
                     .accessibilityAddTraits(.isHeader)
                     .padding(.bottom, Spacing.xs)
 
-                Fact(systemImage: "person.slash", isNeutral: true, title: "No account")
-                Fact(systemImage: "lock", isNeutral: true, title: "Stays on this iPhone")
-                Fact(systemImage: "icloud.and.arrow.up", title: "Add a server later")
+                Fact(icon: .userX, isNeutral: true, title: "No account")
+                Fact(icon: .lock, isNeutral: true, title: "Stays on this iPhone")
+                Fact(icon: .cloudUpload, title: "Add a server later")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.xl + Spacing.xs + Metrics.screenInset)
@@ -831,13 +831,13 @@ private struct OnDeviceIntro: View {
     }
 
     private struct Fact: View {
-        let systemImage: String
+        let icon: Lucide
         var isNeutral = false
         let title: LocalizedStringKey
 
         var body: some View {
             HStack(spacing: Spacing.xl) {
-                IconTile(systemImage: systemImage, isNeutral: isNeutral)
+                IconTile(icon: icon, isNeutral: isNeutral)
                 Text(title)
                     .font(.rowTitle.weight(.semibold))
                     .foregroundStyle(.ink)

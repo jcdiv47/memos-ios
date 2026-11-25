@@ -21,10 +21,10 @@ struct LibraryView: View {
                 ActivityCard(stats: stats)
 
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.cardGap), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: Metrics.cardGap) {
-                    tile(.attachments, title: "Attachments", detail: stats.attachmentCount.formatted(), systemImage: "paperclip", isEmpty: stats.attachmentCount == 0)
-                    tile(.map, title: "Map", detail: stats.placeCount == 0 ? String(localized: "No places") : String(localized: "\(stats.placeCount) places"), systemImage: "map", isEmpty: stats.placeCount == 0)
-                    tile(.tags, title: "Tags", detail: stats.tagCount.formatted(), systemImage: "number", isEmpty: stats.tagCount == 0)
-                    tile(.archived, title: "Archived", detail: stats.archivedCount.formatted(), systemImage: "archivebox", isEmpty: stats.archivedCount == 0)
+                    tile(.attachments, title: "Attachments", detail: stats.attachmentCount.formatted(), icon: .paperclip, isEmpty: stats.attachmentCount == 0)
+                    tile(.map, title: "Map", detail: stats.placeCount == 0 ? String(localized: "No places") : String(localized: "\(stats.placeCount) places"), icon: .map, isEmpty: stats.placeCount == 0)
+                    tile(.tags, title: "Tags", detail: stats.tagCount.formatted(), icon: .hash, isEmpty: stats.tagCount == 0)
+                    tile(.archived, title: "Archived", detail: stats.archivedCount.formatted(), icon: .archive, isEmpty: stats.archivedCount == 0)
                 }
 
                 SectionHeader("Saved views")
@@ -42,7 +42,7 @@ struct LibraryView: View {
                     Button(action: openSearch) {
                         // The symbol takes an emoji's column, so the text lines up with the views above.
                         HStack(spacing: Spacing.l) {
-                            Image(systemName: "plus")
+                            Image(icon: .plus)
                                 .font(.rowSymbol)
                                 .frame(width: Metrics.scaled(Metrics.iconTile, by: symbolScale))
                             Text("New saved view")
@@ -74,14 +74,14 @@ struct LibraryView: View {
         session.pendingSearch = SearchQuery(text: "")
     }
 
-    private func tile(_ route: Route, title: LocalizedStringKey, detail: String, systemImage: String, isEmpty: Bool) -> some View {
+    private func tile(_ route: Route, title: LocalizedStringKey, detail: String, icon: Lucide, isEmpty: Bool) -> some View {
         Button {
             session.path.append(route)
         } label: {
             // A tight gap: on the narrowest phones, such as iPhone Duo, two tiles share about 340
             // points and “Attachments” needs every one.
             HStack(spacing: Spacing.m) {
-                IconTile(systemImage: systemImage, isEmpty: isEmpty)
+                IconTile(icon: icon, isEmpty: isEmpty)
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(title)
                         .font(.emphasis)

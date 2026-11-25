@@ -103,7 +103,7 @@ struct AttachmentImage: View {
                     .scaledToFill()
                     .transition(.opacity)
             } else if failed {
-                Image(systemName: "photo")
+                Image(icon: .image)
                     .foregroundStyle(.ink2)
             }
         }
@@ -125,7 +125,7 @@ struct FileRow: View {
 
     var body: some View {
         HStack(spacing: Spacing.l) {
-            Image(systemName: attachment.systemImage)
+            Image(icon: attachment.icon)
                 .font(.barSymbol)
                 .foregroundStyle(.memosBlue)
                 .frame(width: Metrics.iconTile)
@@ -160,7 +160,7 @@ struct AudioAttachmentView: View {
             Button {
                 Task { await player.toggle(url: { try await session.files.file(attachment) }) }
             } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                Image(icon: player.isPlaying ? .pauseFill : .playFill)
                     .font(.rowSymbol)
                     .frame(width: Metrics.iconTile, height: Metrics.iconTile)
                     .foregroundStyle(.memosBlue)

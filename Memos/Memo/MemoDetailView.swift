@@ -34,7 +34,7 @@ struct MemoDetailView: View {
             if let memo {
                 content(memo)
             } else if missing {
-                ContentUnavailableView("Memo not found", systemImage: "questionmark.square.dashed", description: Text("It was deleted, or you can no longer read it."))
+                ContentUnavailableView("Memo not found", icon: .fileQuestionMark, description: Text("It was deleted, or you can no longer read it."))
             } else {
                 ProgressView()
             }
@@ -78,7 +78,7 @@ struct MemoDetailView: View {
                         }
 
                         if let location = memo.locationIfSet {
-                            Label(location.placeholder.isEmpty ? String(localized: "Location") : location.placeholder, systemImage: "mappin.and.ellipse")
+                            Label(location.placeholder.isEmpty ? String(localized: "Location") : location.placeholder, icon: .mapPin)
                                 .labelStyle(.compact)
                                 .font(.metadata)
                                 .foregroundStyle(.ink2)
@@ -144,14 +144,14 @@ struct MemoDetailView: View {
                 Menu {
                     MemoActions(memo: memo, editSource: SheetSource.detailMenu, onReact: { withAnimation(.memosSpring) { reactionPickerOpen = true } })
                     if !session.isOnDevice {
-                        Button("Create Share Link", systemImage: "link.badge.plus") {
+                        Button("Create Share Link", icon: .link) {
                             Task { await createShareLink(memo) }
                         }
                         .disabled(!session.isOnline)
                     }
                     if isMine {
                         if !session.isOnDevice {
-                            Menu("Move to", systemImage: "square.stack") {
+                            Menu("Move to", icon: .squareStack) {
                                 Button("No Space") { session.store.setAudience(memo.name, visibility: memo.visibility, space: nil) }
                                 ForEach(session.store.profile.spaces, id: \.name) { space in
                                     Button(space.title) {
@@ -161,11 +161,11 @@ struct MemoDetailView: View {
                             }
                         }
                         Divider()
-                        Button("Delete", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                        Button("Delete", icon: .trash, role: .destructive) { confirmDelete = true }
                     }
                 } label: {
                     // Ink, like the back chevron beside it: Memos Blue is for what you chose.
-                    Image(systemName: "ellipsis")
+                    Image(icon: .ellipsis)
                         .foregroundStyle(.ink)
                 }
                 .accessibilityLabel("More")
@@ -458,7 +458,7 @@ private struct ConflictBanner: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            Label("Edited on another device. Your version was saved separately.", systemImage: "arrow.triangle.branch")
+            Label("Edited on another device. Your version was saved separately.", icon: .gitFork)
                 .font(.supporting)
                 .foregroundStyle(.ink)
             HStack {
@@ -494,7 +494,7 @@ private struct LinkPreviewCard: View {
                         .foregroundStyle(.ink2)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right")
+                Image(icon: .arrowUpRight)
                     .font(.rowSymbol)
                     .foregroundStyle(.ink2)
                     .accessibilityHidden(true)
@@ -621,9 +621,9 @@ private struct CommentsSection: View {
     @ViewBuilder
     private func actions(for comment: Memo) -> some View {
         if comment.creator == session.user {
-            Button("Edit", systemImage: "pencil") { onEdit(comment) }
+            Button("Edit", icon: .pencil) { onEdit(comment) }
                 .disabled(!online)
-            Button("Delete", systemImage: "trash", role: .destructive) { toDelete = comment }
+            Button("Delete", icon: .trash, role: .destructive) { toDelete = comment }
                 .disabled(!online)
         }
     }
@@ -715,7 +715,7 @@ private struct DetailBar: View {
                         Button {
                             withAnimation(pickerAnimation) { pickerOpen = false }
                         } label: {
-                            Image(systemName: "xmark").frame(width: 32, height: Metrics.minTapTarget)
+                            Image(icon: .x).frame(width: 32, height: Metrics.minTapTarget)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Close reactions")
@@ -731,7 +731,7 @@ private struct DetailBar: View {
                     Button {
                         withAnimation(pickerAnimation) { pickerOpen = true }
                     } label: {
-                        Image(systemName: "face.smiling")
+                        Image(icon: .smilePlus)
                             .font(.barSymbol)
                             .frame(width: FloatingBar.height, height: FloatingBar.height)
                     }
@@ -754,7 +754,7 @@ private struct DetailBar: View {
                                     if sending {
                                         ProgressView()
                                     } else {
-                                        Image(systemName: "arrow.up.circle.fill")
+                                        Image(icon: .circleArrowUpFill)
                                             .font(.title2)
                                             .foregroundStyle(.memosBlue)
                                     }
@@ -798,7 +798,7 @@ private struct DetailBar: View {
     }
 
     private var shareSymbol: some View {
-        Image(systemName: "square.and.arrow.up")
+        Image(icon: .share)
             .font(.barSymbol)
             .frame(width: FloatingBar.height, height: FloatingBar.height)
     }
@@ -898,13 +898,13 @@ private struct ShareLinkSheet: View {
                 .truncationMode(.middle)
                 .textSelection(.enabled)
             HStack {
-                Button("Copy", systemImage: "doc.on.doc") {
+                Button("Copy", icon: .copy) {
                     UIPasteboard.general.url = url
                     dismiss()
                 }
                 .buttonStyle(.glass)
                 ShareLink(item: url) {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                    Label("Share", icon: .share)
                 }
                 .buttonStyle(.glassProminent)
             }

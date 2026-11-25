@@ -43,7 +43,7 @@ struct QuickVoiceMemoSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.glass)
-                Button("Save", systemImage: "stop.fill") {
+                Button("Save", icon: .squareFill) {
                     Task { await save() }
                 }
                 .buttonStyle(.glassProminent)

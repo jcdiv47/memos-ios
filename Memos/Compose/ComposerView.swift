@@ -204,9 +204,9 @@ struct ComposerView: View {
 
     @ViewBuilder
     private func formattingActions(_ model: ComposerModel) -> some View {
-        Button { model.format(.taskList) } label: { Image(systemName: "checklist") }
+        Button { model.format(.taskList) } label: { Image(icon: .listChecks) }
             .accessibilityLabel("Task")
-        Button { model.insertTag() } label: { Image(systemName: "number") }
+        Button { model.insertTag() } label: { Image(icon: .hash) }
             .accessibilityLabel("Tag")
         // Everything else, bold and lists included, lives in the menu so the bar stays one group
         // with room for the hide-keyboard button on a 402-point phone.
@@ -214,12 +214,12 @@ struct ComposerView: View {
             ForEach(MarkdownFormat.menuSections, id: \.self) { formats in
                 Section {
                     ForEach(formats, id: \.self) { format in
-                        Button(format.title, systemImage: format.systemImage) { model.format(format) }
+                        Button(format.title, icon: format.icon) { model.format(format) }
                     }
                 }
             }
         } label: {
-            Image(systemName: "textformat")
+            Image(icon: .type)
         }
         .accessibilityLabel("Format")
     }
@@ -227,25 +227,25 @@ struct ComposerView: View {
     @ViewBuilder
     private func captureActions(_ model: ComposerModel) -> some View {
         Menu {
-            Button("Photo Library", systemImage: "photo.on.rectangle") { isPickingPhotos = true }
+            Button("Photo Library", icon: .images) { isPickingPhotos = true }
             if CameraPicker.isAvailable {
-                Button("Take Photo", systemImage: "camera") { isTakingPhoto = true }
+                Button("Take Photo", icon: .camera) { isTakingPhoto = true }
             }
             if DocumentScanner.isSupported {
-                Button("Scan Document", systemImage: "doc.viewfinder") { isScanning = true }
+                Button("Scan Document", icon: .scanText) { isScanning = true }
             }
-            Button("Files", systemImage: "folder") { isImportingFiles = true }
-            Button("Current Location", systemImage: "location") { Task { await model.addCurrentLocation() } }
-            Button("Link Memo", systemImage: "link") { isLinkingMemo = true }
+            Button("Files", icon: .folder) { isImportingFiles = true }
+            Button("Current Location", icon: .locateFixed) { Task { await model.addCurrentLocation() } }
+            Button("Link Memo", icon: .link) { isLinkingMemo = true }
         } label: {
-            Image(systemName: "paperclip")
+            Image(icon: .paperclip)
         }
         .accessibilityLabel("Attach")
         .matchedTransitionSource(id: Self.attachSource, in: attachMenu)
         Button {
             Task { await toggleRecording(model) }
         } label: {
-            Image(systemName: session.voice.isRecording ? "stop.fill" : "mic")
+            Image(icon: session.voice.isRecording ? .squareFill : .mic)
                 .contentTransition(.symbolEffect(.replace))
         }
         .accessibilityLabel(session.voice.isRecording ? Text("Stop recording") : Text("Record voice memo"))
@@ -354,7 +354,7 @@ private struct DateSuggestion: View {
     var body: some View {
         let written = DatePhrases.formatted(phrase.date, includesTime: phrase.includesTime)
         Button(action: onSelect) {
-            Label(written, systemImage: "calendar")
+            Label(written, icon: .calendar)
                 .font(.callout.weight(.medium))
                 .lineLimit(1)
         }
@@ -401,7 +401,7 @@ private struct FormattingBar<Actions: View>: View {
                 Spacer(minLength: Spacing.m)
                 if showsHideKeyboard {
                     Button(action: onHideKeyboard) {
-                        Image(systemName: "keyboard.chevron.compact.down")
+                        Image(icon: .chevronDown)
                     }
                     .buttonStyle(BarButtonStyle())
                     .frame(width: FloatingBar.height)
@@ -455,11 +455,11 @@ private struct AudienceChips: View {
                 Menu {
                     Picker("Visibility", selection: $model.visibility) {
                         ForEach(MemoVisibility.choices.filter { $0 != .space || model.space != nil }, id: \.self) { visibility in
-                            Label(label(for: visibility), systemImage: visibility.systemImage).tag(visibility)
+                            Label(label(for: visibility), icon: visibility.icon).tag(visibility)
                         }
                     }
                 } label: {
-                    Label(label(for: model.visibility), systemImage: model.visibility.systemImage)
+                    Label(label(for: model.visibility), icon: model.visibility.icon)
                 }
                 .buttonStyle(.chip)
 
@@ -467,18 +467,18 @@ private struct AudienceChips: View {
                     Button {
                         withAnimation(.memosSpring) { model.setSpace(nil) }
                     } label: {
-                        Label("No Space", systemImage: model.space == nil ? "checkmark" : "square.dashed")
+                        Label("No Space", icon: model.space == nil ? .check : .squareDashed)
                     }
                     ForEach(session.store.profile.spaces, id: \.name) { space in
                         Button {
                             // Animated, so the suggestion it may offer grows in.
                             withAnimation(.memosSpring) { model.setSpace(space.name) }
                         } label: {
-                            Label(space.title, systemImage: model.space == space.name ? "checkmark" : "square.stack")
+                            Label(space.title, icon: model.space == space.name ? .check : .squareStack)
                         }
                     }
                 } label: {
-                    Label(session.space(named: model.space)?.title ?? String(localized: "No Space"), systemImage: "square.stack")
+                    Label(session.space(named: model.space)?.title ?? String(localized: "No Space"), icon: .squareStack)
                 }
                 .buttonStyle(.chip)
 
@@ -486,7 +486,7 @@ private struct AudienceChips: View {
                     Button {
                         withAnimation(.memosSpring) { model.applySuggestion() }
                     } label: {
-                        Label(suggestionTitle(suggestion), systemImage: suggestion.systemImage)
+                        Label(suggestionTitle(suggestion), icon: suggestion.icon)
                     }
                     .buttonStyle(.prominentChip)
                     .accessibilityLabel(suggestionLabel(suggestion))
@@ -540,7 +540,7 @@ private struct AttachmentStrip: View {
             HStack(spacing: Spacing.m) {
                 if let location = model.location {
                     chip {
-                        Label(location.placeholder, systemImage: "mappin.and.ellipse")
+                        Label(location.placeholder, icon: .mapPin)
                             .font(.supporting)
                             .padding(.horizontal, Spacing.l)
                             .frame(height: 64)
@@ -555,7 +555,7 @@ private struct AttachmentStrip: View {
                                 .frame(width: 64, height: 64)
                         } else {
                             VStack(spacing: Spacing.xs) {
-                                Image(systemName: attachment.systemImage)
+                                Image(icon: attachment.icon)
                                 Text(attachment.filename)
                                     .font(.fine)
                                     .lineLimit(1)
@@ -584,9 +584,13 @@ private struct AttachmentStrip: View {
             .clipShape(.rect(cornerRadius: Radius.inner))
             .overlay(alignment: .topTrailing) {
                 Button(action: remove) {
-                    Image(systemName: "xmark.circle.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, .black.opacity(0.6))
+                    // A white x on a dark disc reads over any photo. Lucide symbols are one
+                    // layer, so the disc is drawn rather than a palette colour.
+                    Image(icon: .x)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(Spacing.xs)
+                        .background(.black.opacity(0.6), in: .circle)
                 }
                 .offset(x: Spacing.s, y: -Spacing.s)
                 .accessibilityLabel("Remove")
@@ -606,9 +610,8 @@ private struct LinkedMemos: View {
                     Button {
                         model.unlink(name)
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(.ink2)
+                        Image(icon: .circleXFill)
+                            .foregroundStyle(.ink3)
                             .frame(minWidth: 28, minHeight: 28)
                             .contentShape(.rect)
                     }
@@ -638,7 +641,7 @@ struct VoiceStatus: View {
                         .font(.metadata.monospacedDigit())
                         .foregroundStyle(.ink2)
                 }
-                Button("Stop", systemImage: "stop.fill", action: onStop)
+                Button("Stop", icon: .squareFill, action: onStop)
                     .labelStyle(.iconOnly)
                     .buttonStyle(.glass)
             case .transcribing:
@@ -648,7 +651,7 @@ struct VoiceStatus: View {
                     .foregroundStyle(.ink2)
                 Spacer()
             case .failed(let message):
-                Label(message, systemImage: "mic.slash")
+                Label(message, icon: .micOff)
                     .font(.metadata)
                     .foregroundStyle(.danger)
             default:

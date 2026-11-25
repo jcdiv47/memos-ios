@@ -139,12 +139,13 @@ struct QuickCaptureView: View {
     var body: some View {
         switch family {
         case .accessoryCircular:
-            Image(systemName: "square.and.pencil")
+            Image(icon: .squarePen)
                 .font(.title2)
                 .widgetAccentable()
+                .accessibilityLabel("New Memo")
                 .widgetURL(URL(string: "memos://new"))
         case .accessoryRectangular:
-            Label("Capture a thought", systemImage: "square.and.pencil")
+            Label("Capture a thought", icon: .squarePen)
                 .widgetAccentable()
                 .widgetURL(URL(string: "memos://new"))
         default:
@@ -159,7 +160,7 @@ struct QuickCaptureView: View {
                             .font(.subheadline)
                             .foregroundStyle(.ink2)
                         Spacer()
-                        Image(systemName: "square.and.pencil")
+                        Image(icon: .squarePen)
                             .foregroundStyle(.memosBlue)
                             .widgetAccentable()
                     }
@@ -167,7 +168,7 @@ struct QuickCaptureView: View {
                     .background(.card, in: .capsule)
                 }
                 Link(destination: URL(string: "memos://voice")!) {
-                    Label("Voice memo", systemImage: "mic")
+                    Label("Voice memo", icon: .mic)
                         .font(.footnote)
                         .foregroundStyle(.memosBlue)
                         .widgetAccentable()
@@ -181,7 +182,7 @@ struct QuickCaptureView: View {
 struct OnThisDayWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "OnThisDay", provider: MemosProvider(kind: .onThisDay)) { entry in
-            MemoListWidgetView(entry: entry, title: "On this day", systemImage: "calendar", empty: "Nothing from this day in earlier years yet.")
+            MemoListWidgetView(entry: entry, title: "On this day", icon: .calendar, empty: "Nothing from this day in earlier years yet.")
                 .containerBackground(.paper, for: .widget)
         }
         .configurationDisplayName("On This Day")
@@ -193,14 +194,14 @@ struct OnThisDayWidget: Widget {
 struct MemoListWidgetView: View {
     let entry: MemosEntry
     let title: LocalizedStringKey
-    let systemImage: String
+    let icon: Lucide
     let empty: LocalizedStringKey
 
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            WidgetHeader(title: title, systemImage: systemImage)
+            WidgetHeader(title: title, icon: icon)
             if !entry.signedIn {
                 WidgetNote("Open Memos and sign in.")
             } else if entry.memos.isEmpty {
@@ -210,7 +211,7 @@ struct MemoListWidgetView: View {
                     Link(destination: URL(string: "memos://memo/\(memo.uid)")!) {
                         VStack(alignment: .leading, spacing: Spacing.xxs) {
                             if entry.sensitive.contains(memo.name) {
-                                Label("Sensitive content", systemImage: "eye.slash")
+                                Label("Sensitive content", icon: .eyeOff)
                                     .font(.footnote)
                                     .foregroundStyle(.ink2)
                             } else {
@@ -247,10 +248,10 @@ struct MemoListWidgetView: View {
 /// A widget's title line.
 struct WidgetHeader: View {
     let title: LocalizedStringKey
-    let systemImage: String
+    let icon: Lucide
 
     var body: some View {
-        Label(title, systemImage: systemImage)
+        Label(title, icon: icon)
             .font(.system(.subheadline, design: .serif).weight(.semibold))
             .foregroundStyle(.ink)
             .widgetAccentable()
@@ -291,7 +292,7 @@ struct NewMemoControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "NewMemoControl") {
             ControlWidgetButton(action: NewMemoIntent()) {
-                Label("New Memo", systemImage: "square.and.pencil")
+                Label("New Memo", icon: .squarePen)
             }
         }
         .displayName("New Memo")
@@ -303,7 +304,7 @@ struct VoiceMemoControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "VoiceMemoControl") {
             ControlWidgetButton(action: VoiceMemoIntent()) {
-                Label("Voice Memo", systemImage: "mic")
+                Label("Voice Memo", icon: .mic)
             }
         }
         .displayName("Voice Memo")
