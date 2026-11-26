@@ -59,17 +59,17 @@ enum MarkdownCache {
         return rendered
     }
 
-    /// A fenced code block coloured by ``SyntaxHighlighter``, cached. A language the
-    /// highlighter doesn't know gives plain text.
-    static func code(_ code: String, language: String?) -> AttributedString {
+    /// A fenced code block coloured by ``SyntaxHighlighter`` for one appearance, cached. A
+    /// language the highlighter doesn't know gives plain text.
+    static func code(_ code: String, language: String?, appearance: CodePalette.Appearance) -> AttributedString {
         let syntax = language.flatMap(SyntaxLanguage.init(fenceInfo:))
         // Keyed by the canonical name, so `js` and `javascript` share an entry.
-        let key = "\(syntax?.name ?? "")\u{1E}\(code)" as NSString
+        let key = "\(appearance.dark ? 1 : 0)\(appearance.highContrast ? 1 : 0)\u{1F}\(syntax?.name ?? "")\u{1E}\(code)" as NSString
         if let hit = codeBlocks.object(forKey: key) { return hit.value }
         var highlighted = AttributedString()
         for segment in SyntaxHighlighter.segments(of: code, language: syntax?.name) {
             var piece = AttributedString(segment.text)
-            if let kind = segment.kind { piece.foregroundColor = CodePalette.color(kind) }
+            if let kind = segment.kind { piece.foregroundColor = CodePalette.color(kind, in: appearance) }
             highlighted.append(piece)
         }
         codeBlocks.setObject(Box(highlighted), forKey: key)
@@ -85,6 +85,25 @@ enum MarkdownCache {
         typesetMath.setObject(Box(math), forKey: key)
         return math
     }
+
+    /// The first web link in a memo, for its link preview, cached by content. The memo's page
+    /// asks on every render, and scanning a long memo takes a few milliseconds.
+    static func firstWebLink(in content: String) -> String? {
+        let key = content as NSString
+        if let hit = firstLinks.object(forKey: key) { return hit.value }
+        let match = linkDetector?.firstMatch(in: content, range: NSRange(content.startIndex..., in: content))
+        let link = match?.url.flatMap { $0.scheme?.hasPrefix("http") == true ? $0.absoluteString : nil }
+        firstLinks.setObject(Box(link), forKey: key)
+        return link
+    }
+
+    private static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
+    private static let firstLinks: NSCache<NSString, Box<String?>> = {
+        let cache = NSCache<NSString, Box<String?>>()
+        cache.countLimit = 100
+        return cache
+    }()
 
     /// ``MemosCore/Memo/plainText``, cached by content.
     static func plainText(of memo: Memo) -> String {
