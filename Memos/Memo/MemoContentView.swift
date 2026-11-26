@@ -15,15 +15,31 @@ struct MemoContentView: View {
     var showsTitle = true
     /// The title's font: `.memoTitle` on a card, `.largeTitleSerif` on the memo's own page.
     var titleFont: Font = .memoTitle
+    /// Builds blocks only as they scroll into view. For the memo's own page, inside its scroll
+    /// view: laying out every highlighted code block and formula of a long memo up front held
+    /// the push for a fifth of a second. A card is clipped to a few hundred points and measured
+    /// whole, so it stays eager.
+    var lazy = false
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let document = MarkdownCache.document(content)
-        VStack(alignment: .leading, spacing: Metrics.blockGap) {
-            ForEach(Array(document.blocks.enumerated()), id: \.offset) { index, block in
-                blockView(block, isFirst: index == 0)
+        let blocks = Array(MarkdownCache.document(content).blocks.enumerated())
+        Group {
+            if lazy {
+                LazyVStack(alignment: .leading, spacing: Metrics.blockGap) {
+                    ForEach(blocks, id: \.offset) { index, block in
+                        blockView(block, isFirst: index == 0)
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: Metrics.blockGap) {
+                    ForEach(blocks, id: \.offset) { index, block in
+                        blockView(block, isFirst: index == 0)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -66,7 +82,7 @@ struct MemoContentView: View {
 
         case .code(let language, let code):
             ScrollView(.horizontal, showsIndicators: false) {
-                Text(MarkdownCache.code(code, language: language))
+                Text(MarkdownCache.code(code, language: language, appearance: CodePalette.Appearance(colorScheme, contrast)))
                     .font(.memoCode)
                     .foregroundStyle(.ink)
                     .textSelection(.enabled)

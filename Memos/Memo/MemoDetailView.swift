@@ -47,7 +47,7 @@ struct MemoDetailView: View {
         .task(id: previewURL) { await loadLinkPreview(previewURL) }
     }
 
-    private var previewURL: String? { memo.flatMap { Self.firstLink(in: $0.content) } }
+    private var previewURL: String? { memo.flatMap { MarkdownCache.firstWebLink(in: $0.content) } }
 
     @ViewBuilder
     private func content(_ memo: Memo) -> some View {
@@ -69,7 +69,8 @@ struct MemoDetailView: View {
                         MemoContentView(
                             content: memo.content,
                             onToggleTask: isMine ? { line in session.store.toggleTask(memo.name, line: line) } : nil,
-                            titleFont: .largeTitleSerif
+                            titleFont: .largeTitleSerif,
+                            lazy: true
                         )
                         .textSelection(.enabled)
 
@@ -264,12 +265,6 @@ struct MemoDetailView: View {
             session.linkPreviews[url] = metadata
             withAnimation(.memosSpring) { linkPreview = metadata }
         }
-    }
-
-    static func firstLink(in content: String) -> String? {
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
-        let match = detector.firstMatch(in: content, range: NSRange(content.startIndex..., in: content))
-        return match?.url.flatMap { $0.scheme?.hasPrefix("http") == true ? $0.absoluteString : nil }
     }
 
     // MARK: Actions
